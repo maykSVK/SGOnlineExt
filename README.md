@@ -41,6 +41,15 @@ pouzi instalaciu v beznom prehliadaci.
 
 ## Pouzitie
 
+Na PC zostava povodny panel vpravo hore. Na dotykovych zariadeniach
+(mobil/tablet) alebo v okne do 700 CSS pixelov sa spusti zbalene tlacidlo
+**SGO** vpravo dole. Hru neblokuje mimo samotneho tlacidla.
+Kliknutim otvoris panel na vysku dostupnej obrazovky (na tablete najviac
+480 px siroky), krizikom alebo Escape ho zavries. Zatvorenie nezastavi utoky;
+na ich zastavenie pouzi **Zastavit**. Bodka na tlacidle signalizuje beh/cakanie,
+cervena chybu. Po predplneni stavieb alebo fora sa panel na mobile sam skryje,
+aby si mohol skontrolovat herny formular. Na PC ostava otvoreny.
+
 Tlacidlo **Vsetky funkcie** vrati hlavne menu. Utoky so svojim nastavenim
 a dennikom su v samostatnom podmenu. Prebiehajuca seria sa otvorenim menu nerusi;
 na jej zastavenie pouzi **Zastavit** v podmenu utokov.

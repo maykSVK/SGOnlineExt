@@ -24,6 +24,7 @@
 }
 #sgo-addon *, #sgo-addon *::before, #sgo-addon *::after { box-sizing: border-box; }
 #sgo-addon [hidden] { display: none !important; }
+#sgo-addon #sgo-launcher { display: none; }
 #sgo-addon header {
   display: flex; justify-content: space-between; align-items: center;
   padding: 18px 20px; border-bottom: 1px solid var(--sgo-line); flex-shrink: 0;
@@ -149,11 +150,43 @@
 #sgo-addon .sgo-sector-links { display: flex; justify-content: space-between; gap: 10px; padding-top: 12px; border-top: 1px solid var(--sgo-line); }
 #sgo-addon .sgo-sector-links a { color: var(--sgo-muted); font-size: 10px; text-decoration: none; }
 #sgo-addon .sgo-sector-links a:hover { color: var(--sgo-accent); text-decoration: underline; }
-@media (max-width: 480px) {
-  #sgo-addon { right: 8px; top: 8px; width: calc(100vw - 16px); max-height: calc(100dvh - 16px); }
-  #sgo-addon header { padding: 12px 16px; }
-  #sgo-addon .sgo-quantity { grid-template-columns: minmax(0, 1fr); }
+#sgo-addon[data-mobile=true] {
+  left: var(--sgo-mobile-left); top: var(--sgo-mobile-top); right: auto;
+  width: var(--sgo-mobile-width); height: var(--sgo-mobile-height); max-height: none;
+  transform: scale(var(--sgo-mobile-scale)); transform-origin: top left;
+  border-radius: 0; font-size: 14px;
 }
+#sgo-addon[data-mobile=true]:not(.sgo-mobile-open) {
+  pointer-events: none; background: none; border: 0; box-shadow: none;
+}
+#sgo-addon[data-mobile=true]:not(.sgo-mobile-open) > :not(#sgo-launcher) { display: none !important; }
+#sgo-addon[data-mobile=true]:not(.sgo-mobile-open) #sgo-launcher {
+  display: block; position: absolute; right: max(12px, env(safe-area-inset-right));
+  bottom: max(12px, env(safe-area-inset-bottom)); width: 52px; height: 52px;
+  padding: 0; border-radius: 50%; pointer-events: auto; color: var(--sgo-accent);
+  background: #142a38; border: 1px solid #65dec388; box-shadow: 0 3px 14px #0008;
+}
+#sgo-addon[data-mobile=true][data-state=running] #sgo-launcher::after,
+#sgo-addon[data-mobile=true][data-state=waiting] #sgo-launcher::after,
+#sgo-addon[data-mobile=true][data-state=error] #sgo-launcher::after {
+  content: ""; position: absolute; top: 1px; right: 1px; width: 10px; height: 10px;
+  border-radius: 50%; background: var(--sgo-accent); border: 2px solid #142a38;
+}
+#sgo-addon[data-mobile=true][data-state=error] #sgo-launcher::after { background: #ffa695; }
+#sgo-addon[data-mobile=true] header {
+  padding: max(10px, env(safe-area-inset-top)) 12px 10px; gap: 8px;
+}
+#sgo-addon[data-mobile=true] #sgo-collapse { width: 44px; height: 44px; flex-shrink: 0; font-size: 26px; }
+#sgo-addon[data-mobile=true] .sgo-body { flex: 1; overscroll-behavior: contain; padding-bottom: env(safe-area-inset-bottom); }
+#sgo-addon[data-mobile=true] :is(button,input,select) { min-height: 44px; touch-action: manipulation; }
+#sgo-addon[data-mobile=true] :is(input,select) { font-size: 16px; }
+#sgo-addon[data-mobile=true] input[type=checkbox] { width: 22px; height: 22px; min-height: 22px; }
+#sgo-addon[data-mobile=true] .sgo-quantity { grid-template-columns: minmax(0, 1fr); }
+#sgo-addon[data-mobile=true] :is(.sgo-pop-scroll,.sgo-sector-scroll) { max-height: none; overflow: visible; }
+#sgo-addon[data-mobile=true] .sgo-view { height: auto; min-height: 140px; overflow: visible; }
+#sgo-addon[data-mobile=true] #sgo-activity-view { height: 55dvh; min-height: 180px; }
+#sgo-addon[data-mobile=true] :is(#sgo-population-feature,#sgo-sectors-feature) { padding: 12px; }
+#sgo-addon[data-mobile=true] .sgo-sector-card { min-height: 44px; }
 @media (prefers-reduced-motion: reduce) {
   #sgo-addon button { transition: none; }
 }

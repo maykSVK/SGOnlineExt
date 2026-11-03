@@ -146,7 +146,7 @@
     row.scrollIntoView({ block: "center", behavior: "instant" });
     return report.missing;
   }
-  function mount(container, { getDocument, log, canEdit }) {
+  function mount(container, { getDocument, log, canEdit, revealGame = () => {} }) {
     container.innerHTML = `<div class="sgo-feature-heading"><span class="sgo-eyebrow">PLANÉTY / STAVĚNÍ</span><h3>Ideálne zaľudnenie</h3>
       <p class="sgo-hint">Výpočet a predvyplnenie výroben. Stavbu aj presuny obyvateľov potvrdzuješ sám.</p></div>
       <div class="sgo-pop-tools"><button type="button" id="sgo-pop-load">Prepočítať planéty</button>
@@ -232,6 +232,7 @@
           fill(document, current);
           const text = `${current.name}: predvyplnených ${fmt(current.missing)} výroben. Potrebuješ doplniť ${fmt(current.missingWorkers)} pracovníkov. Formulár nebol odoslaný.`;
           log(text); message(text);
+          revealGame();
         } catch (error) { message(error.message, true); log(`Zaľudnenie: ${error.message}`, "error"); }
       });
       target.append(metrics, note, button);

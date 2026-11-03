@@ -112,7 +112,7 @@
     editor.dispatchEvent(new view.KeyboardEvent("keyup", { bubbles: true }));
     form.scrollIntoView({ block: "center", behavior: "smooth" });
   }
-  function mount(container, { getDocument, log, canEdit = () => true, navigate = url => location.assign(url) }) {
+  function mount(container, { getDocument, log, canEdit = () => true, navigate = url => location.assign(url), revealGame = () => {} }) {
     container.innerHTML = `<div class="sgo-feature-heading"><span class="sgo-eyebrow">MAPA / SEKTORY</span><h3>Naše sektory</h3>
       <p class="sgo-hint">Vedenie našej rasy, od najtesnejšieho náskoku.</p></div>
       <div class="sgo-sector-actions"><button type="button" id="sgo-sectors-load">Obnoviť</button><button type="button" id="sgo-sectors-prefill" disabled>Predplniť fórum</button></div>
@@ -182,6 +182,7 @@
       fillForumDraft(document, value);
       message("Fórum je predplnené. Skontroluj nadpis a tabuľku; odoslanie je na tebe.");
       log("Hlásenie sektorov predplnené do Oznámení vedení. Príspevok nebol odoslaný.");
+      revealGame();
     }
     function reportError(error) {
       message(error.message, true);

@@ -65,6 +65,51 @@
     </div>`;
   document.body.append(root);
   const $ = selector => root.querySelector(selector);
+  const launcher = document.createElement("button");
+  launcher.type = "button";
+  launcher.id = "sgo-launcher";
+  launcher.textContent = "SGO";
+  launcher.setAttribute("aria-label", "Otvoriť StarGame pomocník");
+  launcher.setAttribute("aria-expanded", "false");
+  root.append(launcher);
+  const touchLayout = matchMedia("(pointer: coarse), (max-width: 700px)");
+  let mobileOpen = false;
+  function setMobileOpen(open) {
+    mobileOpen = open;
+    root.classList.toggle("sgo-mobile-open", open);
+    launcher.setAttribute("aria-expanded", String(open));
+    if (open) $("#sgo-collapse").focus({ preventScroll: true });
+    else if (root.dataset.mobile === "true") launcher.focus({ preventScroll: true });
+  }
+  function updateLayout() {
+    const mobile = touchLayout.matches;
+    root.dataset.mobile = String(mobile);
+    const viewport = window.visualViewport;
+    const scale = viewport?.scale || 1;
+    const width = Math.min(480, (viewport?.width || innerWidth) * scale);
+    root.style.setProperty("--sgo-mobile-width", `${width}px`);
+    root.style.setProperty("--sgo-mobile-height", `${(viewport?.height || innerHeight) * scale}px`);
+    root.style.setProperty("--sgo-mobile-scale", String(1 / scale));
+    root.style.setProperty("--sgo-mobile-left", `${(viewport?.offsetLeft || 0) + (viewport?.width || innerWidth) - width / scale}px`);
+    root.style.setProperty("--sgo-mobile-top", `${viewport?.offsetTop || 0}px`);
+    $("#sgo-collapse").textContent = mobile ? "×" : $(".sgo-body").hidden ? "+" : "−";
+    $("#sgo-collapse").setAttribute("aria-label", mobile ? "Zavrieť panel" : $(".sgo-body").hidden ? "Rozbaliť panel" : "Zbaliť panel");
+    $("#sgo-collapse").title = $("#sgo-collapse").getAttribute("aria-label");
+    if (mobile) $(".sgo-body").hidden = false;
+    $("#sgo-collapse").setAttribute("aria-expanded", String(mobile ? mobileOpen : !$(".sgo-body").hidden));
+  }
+  launcher.addEventListener("click", () => { setMobileOpen(true); updateLayout(); });
+  root.addEventListener("keydown", event => {
+    if (event.key === "Escape" && touchLayout.matches) { setMobileOpen(false); updateLayout(); }
+  });
+  touchLayout.addEventListener("change", updateLayout);
+  window.addEventListener("resize", updateLayout);
+  window.visualViewport?.addEventListener("resize", updateLayout);
+  window.visualViewport?.addEventListener("scroll", updateLayout);
+  updateLayout();
+  function revealGame() {
+    if (touchLayout.matches) { setMobileOpen(false); updateLayout(); }
+  }
   let population;
   let sectors;
   function showFeature(feature, save = true) {
@@ -462,6 +507,7 @@
   });
   $("#sgo-stop").addEventListener("click", () => { busy = false; stop("Zastavene pouzivatelom. Uz odoslany utok nie je mozne vratit."); });
   $("#sgo-collapse").addEventListener("click", () => {
+    if (touchLayout.matches) { revealGame(); return; }
     const body = $(".sgo-body"); body.hidden = !body.hidden;
     $("#sgo-collapse").textContent = body.hidden ? "+" : "−";
     $("#sgo-collapse").setAttribute("aria-expanded", String(!body.hidden));
@@ -481,10 +527,10 @@
   $("#sgo-back").addEventListener("click", () => showFeature("home"));
   $("#sgo-open-attacks").addEventListener("click", () => showFeature("attacks"));
   $("#sgo-open-population").addEventListener("click", () => showFeature("population"));
-  population = globalThis.SGOPopulation.mount($("#sgo-population-feature"), { getDocument, log, canEdit: () => !run?.active && !busy });
+  population = globalThis.SGOPopulation.mount($("#sgo-population-feature"), { getDocument, log, canEdit: () => !run?.active && !busy, revealGame });
   $("#sgo-open-sectors").addEventListener("click", () => showFeature("sectors"));
   sectors = globalThis.SGOSectors.mount($("#sgo-sectors-feature"), {
-    getDocument, log, canEdit: () => !run?.active && !busy,
+    getDocument, log, canEdit: () => !run?.active && !busy, revealGame,
     navigate: async url => { await writes; location.assign(url); }
   });
   $("#sgo-export").addEventListener("click", () => {
