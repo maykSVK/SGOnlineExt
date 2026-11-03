@@ -1,11 +1,34 @@
 # StarGame pomocnik
 
-Lokalne rozsirenie Manifest V3 pre Chrome, Edge a kompatibilne prehliadace.
+Tampermonkey userscript aj lokalne rozsirenie Manifest V3 pre kompatibilne prehliadace.
 Funkcie su dostupne z hlavneho menu: **Utok na Valu**, **Idealne zaludnenie**
 a **Nase sektory**.
-Neodosiela udaje mimo herneho servera a nepozaduje pristup k heslam.
+Herny kod neodosiela udaje mimo herneho servera a nepozaduje pristup k heslam.
+Tampermonkey stahuje instalaciu a aktualizacie z GitHubu.
 
 ## Instalacia
+
+### Tampermonkey (odporucane pre Opera a Lemur na Androide)
+
+1. Nainstaluj a povol Tampermonkey v kazdom prehliadaci. Ak prehliadac vyzaduje
+   osobitne povolenie spustania userscriptov, postupuj podla upozornenia Tampermonkey.
+2. Otvor [instalacny odkaz](https://raw.githubusercontent.com/maykSVK/SGOnlineExt/main/stargame-pomocnik.user.js)
+   a potvrd instalaciu v Tampermonkey. Repozitar musi byt verejne dostupny.
+3. Vypni povodne rozsirenie StarGame pomocnik, aby nebezali dve verzie.
+4. Obnov hernu stranku. Na kazdom zariadeni tento postup vykonas iba raz.
+
+Tampermonkey kontroluje novsie verzie cez `@updateURL` a stahuje ich cez
+`@downloadURL`. Interval zavisi od jeho nastaveni; kontrolu mozes vyvolat aj
+rucne v sprave skriptov. Aktualizacia teda nie je okamzita po pushi.
+Zdroj aj vysledny skript zostavaju v tomto repozitari.
+
+Nastavenia a poslednych 500 logov sa uchovavaju v ulozisku Tampermonkey a
+preziju navigaciu aj aktualizaciu skriptu. **Medzi zariadeniami sa automaticky
+nesynchronizuju.** Nastavenia povodneho rozsirenia sa automaticky neprenesu;
+pri prechode ich nastav znova. Beh utokov a rozpracovane forum su viazane na
+aktualnu kartu, nie na vsetky zariadenia. Nespustaj utoky sucasne na viacerych.
+
+### Povodne rozsirenie
 
 1. Otvor `chrome://extensions` alebo `edge://extensions`.
 2. Zapni vyvojarsky rezim.
@@ -121,6 +144,19 @@ bezstratove utoky. Nenechavaj sucasne bezat viac kariet/prehliadacov s automatom
 na tom istom ucte; stav cooldownu a behu je viazany na kartu.
 
 ## Overenie
+
+### Zostavenie a vydanie userscriptu
+
+Neprepisuj `stargame-pomocnik.user.js` ani `stargame-pomocnik.meta.js` rucne.
+Generuju sa zo suborov uvedenych v `manifest.json`, vratane CSS; rozsirenie aj
+userscript preto pouzivaju rovnaku implementaciu. Nie su potrebne ziadne zavislosti.
+
+1. Uprav zdroje a zvys verziu rovnako v `package.json` a `manifest.json`.
+2. Spusti `npm run build`, potom `npm test` a `npm run check`.
+3. Commitni zdroje aj oba vygenerovane subory a pushni na `main`.
+
+Samotny commit bez pushu aktualizaciu nespristupni. Bez zvysenia verzie ju
+Tampermonkey nemusi ponuknut. `npm run check` odhali aj neaktualny bundle.
 
 Bez externych zavislosti: `npm test` a `npm run check` (Node.js 18+).
 DOM parser a nativne odosielanie treba overit aj v prihlasenej hre.

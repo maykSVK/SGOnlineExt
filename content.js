@@ -6,10 +6,10 @@
   const C = globalThis.SGO;
   const RUN_KEY = "sgo-addon-run";
   const STORE_KEY = "sgo-addon-data";
-  const extensionStorage = typeof chrome !== "undefined" && chrome.storage?.local;
+  const storage = globalThis.SGOStorage.createStorage(globalThis);
   let saved;
   try {
-    saved = extensionStorage ? (await chrome.storage.local.get(STORE_KEY))[STORE_KEY] : JSON.parse(sessionStorage.getItem(STORE_KEY) || "null");
+    saved = await storage.get(STORE_KEY);
   } catch (error) {
     console.error("SGO: nastavenia sa nepodarilo nacitat", error);
     alert("SGO: nastavenia sa nepodarilo nacitat. Rozsirenie sa nespustilo.");
@@ -97,11 +97,7 @@
   function persist() {
     sessionStorage.setItem(RUN_KEY, JSON.stringify(run));
     const snapshot = JSON.parse(JSON.stringify(data));
-    if (!extensionStorage) {
-      sessionStorage.setItem(STORE_KEY, JSON.stringify(snapshot));
-      return;
-    }
-    writes = writes.then(() => chrome.storage.local.set({ [STORE_KEY]: snapshot })).catch(error => {
+    writes = writes.then(() => storage.set(STORE_KEY, snapshot)).catch(error => {
       clearTimeout(timer);
       if (run) run.active = false;
       sessionStorage.setItem(RUN_KEY, JSON.stringify(run));
