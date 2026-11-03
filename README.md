@@ -71,6 +71,12 @@ na jej zastavenie pouzi **Zastavit** v podmenu utokov.
 - Pre kazdu planetu: `Y = mesta * 9 000 000`, `K = 1 + denny prirastok / 100`,
   `idealna populacia = Y / K`. Dennym prirastkom je hodnota z Druhov planet,
   nie spokojenost zo Spravy planet.
+- Dropdown aj zoznam planet su zoradene od najvyssieho odhadu narodenych
+  pri idealnom zaludneni: `floor(idealna populacia * denny prirastok / 100)`.
+  Zohladnuje sa velkost planety aj percento, nie iba samotna porodnost.
+  Pri rovnosti rozhoduje nazov a ID. Odhad je cielovy potencial za denny
+  prepocet, nie predpoved pri aktualnom stave obyvatelov; vyzaduje doplnenie
+  obyvatelov na ideal. Poradie nemeni rucne alebo v hre vybranu planetu.
 - Ciel vyroben je `floor((idealna populacia - ostatni zamestnani) / pracovnici vyrobne)`,
   najmenej nula. Pracovnikov vyroben, SDI, BS a laboratorii cita zo stavebneho
   formulara. Aktualne ide o 36 000 / 26 000 / 30 000 / 35 000 ludi.

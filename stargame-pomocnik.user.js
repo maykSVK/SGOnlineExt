@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         StarGame pomocnik
 // @namespace    https://github.com/maykSVK/SGOnlineExt
-// @version      0.2.1
+// @version      0.2.2
 // @description  Vala attacks, ideal population and sector forum drafts.
 // @homepageURL  https://github.com/maykSVK/SGOnlineExt
 // @match        https://stargame-online.cz/www/game.php*
@@ -253,6 +253,7 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
     const capacity = planet.cities * CITY_CAPACITY;
     const constant = 1 + growth / 100;
     const idealPopulation = capacity / constant;
+    const idealBirths = Math.floor(idealPopulation * growth / 100);
     const otherEmployed = planet.sdi * costs.sdi + planet.bs * costs.bs + planet.labs * costs.laboratori;
     const targetFactories = Math.max(0, Math.floor((idealPopulation - otherEmployed) / costs.vyroben));
     const missing = planet.built === planet.slots ? 0 : Math.max(0, targetFactories - planet.factories);
@@ -264,7 +265,7 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
     const unemployed = population - employed;
     const workersNeeded = missing * costs.vyroben;
     return {
-      ...planet, growth, capacity, constant, idealPopulation, otherEmployed, targetFactories, missing, workforce: { ...costs },
+      ...planet, growth, capacity, constant, idealPopulation, idealBirths, otherEmployed, targetFactories, missing, workforce: { ...costs },
       population, employed, unemployed, workersNeeded,
       missingWorkers: Math.max(0, workersNeeded - unemployed),
       freeSlots: planet.slots - planet.built,
@@ -365,6 +366,7 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
         ["Mestá × 9 000 000", fmt(report.capacity)],
         [`Denný prírastok ${report.growth} % · K`, report.constant.toLocaleString("sk-SK")],
         ["Ideálna populácia Y / K", fmt(report.idealPopulation)],
+        ["Odhad narodených pri ideále / deň", `+${fmt(report.idealBirths)}`],
         ["Zamestnaní mimo výroben", fmt(report.otherEmployed)],
         ["Cieľ výroben (nadol)", fmt(report.targetFactories)],
         ["Postavené výrobne", fmt(report.factories)],
@@ -422,11 +424,12 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
         const typesDoc = await getDocument(new URL("game.php?page=planety&s=typy", location.href).href);
         const tradeDoc = await getDocument(new URL("game.php?page=obchod", location.href).href);
         const allReports = snapshot(buildingDoc, typesDoc, tradeDoc);
-        reports = allReports.filter(report => report.missing > 0);
+        reports = allReports.filter(report => report.missing > 0).sort((a, b) =>
+          b.idealBirths - a.idealBirths || a.name.localeCompare(b.name, "sk") || a.id.localeCompare(b.id));
         const selector = $("#sgo-pop-planet");
         selector.replaceChildren(...reports.map(report => {
           const option = document.createElement("option"); option.value = report.id;
-          option.textContent = `${report.name} · +${fmt(report.missing)}`; return option;
+          option.textContent = `${report.name} · ~${fmt(report.idealBirths)} ľudí/deň · +${fmt(report.missing)} výr.`; return option;
         }));
         if (nativeSelection && !reports.some(r => r.id === selected)) {
           const placeholder = document.createElement("option");
@@ -443,15 +446,15 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
         const list = $("#sgo-pop-list");
         for (const report of reports) {
           const button = document.createElement("button"); button.type = "button"; button.className = "sgo-pop-row";
-          const name = document.createElement("span"); name.textContent = report.name;
+          const name = document.createElement("span"); name.textContent = `${report.name} · ~${fmt(report.idealBirths)} ľudí/deň`;
           const count = document.createElement("strong"); count.textContent = `+${fmt(report.missing)}`;
           button.append(name, count);
           button.addEventListener("click", () => { selected = report.id; nativeSelection = false; selector.value = selected; showReport(); refresh(); $("#sgo-pop-report").scrollIntoView({ block: "nearest" }); });
           list.append(button);
-          log(`Zaľudnenie ${report.name}: X=${report.cities}, P=${report.growth} %, cieľ ${report.targetFactories}, postavené ${report.factories}, dostavať ${report.missing}, doplniť ľudí ${report.missingWorkers}.`);
+          log(`Zaľudnenie ${report.name}: X=${report.cities}, P=${report.growth} %, odhad pri ideále ${report.idealBirths} ľudí/deň, cieľ ${report.targetFactories}, postavené ${report.factories}, dostavať ${report.missing}, doplniť ľudí ${report.missingWorkers}.`);
         }
         message(reports.length
-          ? `Prepočítaných ${allReports.length} planét · zostáva ${reports.length} na dostavanie. Hotové planéty sú skryté. ${new Date().toLocaleTimeString("sk-SK")}`
+          ? `Prepočítaných ${allReports.length} planét · zostáva ${reports.length} na dostavanie. Poradie podľa narodených pri ideálnom zaľudnení, najviac navrchu. Hotové planéty sú skryté. ${new Date().toLocaleTimeString("sk-SK")}`
           : "Všetky planéty majú cieľový počet výroben alebo viac. Nie je čo dostavať.");
         return true;
       } catch (error) { message(error.message, true); log(`Zaľudnenie: ${error.message}`, "error"); return false; }

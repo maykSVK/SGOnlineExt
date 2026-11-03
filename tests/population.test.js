@@ -26,6 +26,7 @@ test("ideal population converts to factories using daily growth and rounds down"
   assert.equal(result.capacity, 1782000000);
   assert.equal(result.constant, 1.5);
   assert.equal(result.idealPopulation, 1188000000);
+  assert.equal(result.idealBirths, 594000000);
   assert.equal(result.targetFactories, 33000);
   assert.equal(result.missing, 18000);
   assert.equal(result.population, 540000000);
@@ -57,12 +58,24 @@ test("prefill target is not clamped to available workers or building slots", () 
 
 test("zero growth, fractional growth, missing inputs and inconsistent snapshots", () => {
   assert.equal(P.calculate(planet, 0, costs, { room: 0 }).targetFactories, 49500);
+  assert.equal(P.calculate(planet, 0, costs, { room: 0 }).idealBirths, 0);
   const fractional = P.calculate(planet, 12.5, costs, { room: 0 });
   assert.equal(fractional.constant, 1.125);
+  assert.equal(fractional.idealBirths, Math.floor(fractional.idealPopulation * 0.125));
   for (const growth of [undefined, NaN, -1]) assert.throws(() => P.calculate(planet, growth, costs, { room: 0 }));
   assert.throws(() => P.calculate(planet, 50, costs, {}));
   assert.throws(() => P.calculate(planet, 50, costs, { room: 1782000000 }));
   assert.throws(() => P.calculate(planet, 50, { ...costs, vyroben: 0 }, { room: 0 }));
+});
+
+test("birth potential accounts for size and growth, not just percentage or current population", () => {
+  const large = P.calculate({ ...planet, cities: 300 }, 50, costs, { room: 0 });
+  const small = P.calculate({ ...planet, cities: 100 }, 100, costs, { room: 0 });
+  assert.equal(large.idealBirths, 900000000);
+  assert.equal(small.idealBirths, 450000000);
+  assert.ok(large.idealBirths > small.idealBirths);
+  assert.equal(P.calculate(planet, 50, costs, { room: 1242000000 }).idealBirths,
+    P.calculate(planet, 50, costs, { room: 0 }).idealBirths);
 });
 
 test("population selection follows native building form without selecting another planet when done", async t => {
@@ -100,7 +113,7 @@ test("population selection follows native building form without selecting anothe
     getElementById(id) {
       return { cells: [
         { querySelector: () => ({ getAttribute: () => "?typ=21" }) },
-        cell(""), cell("198"), cell(id === "pln2" && done ? "39 600 / 39 600" : "15 000 / 39 600"),
+        cell(""), cell(id === "pln1" ? "100" : "198"), cell(id === "pln2" && done ? "39 600 / 39 600" : "15 000 / 39 600"),
         cell("0"), cell("0"), cell("0"), cell("0"), cell("0"),
         cell(id === "pln2" && done ? "39 600" : "15 000 / 39 600")
       ] };
@@ -140,11 +153,15 @@ test("population selection follows native building form without selecting anothe
   });
   const selector = container.querySelector("#sgo-pop-planet");
   await module.refresh();
+  assert.deepEqual(selector.children.map(option => option.value), ["2", "1"], "highest birth potential first");
+  assert.match(selector.children[0].textContent, /ľudí\/deň/);
+  assert.match(container.querySelector("#sgo-pop-list").children[0].children[0].textContent, /^Beta/);
   assert.equal(selector.value, "2", "initial selection comes from native form, not first report");
   native.value = "1";
   native.listeners.change({ target: native });
   await module.refresh();
   assert.equal(selector.value, "1", "native changes propagate to addon");
+  assert.deepEqual(selector.children.map(option => option.value), ["2", "1"], "native selection does not change ranking");
   selector.value = "2";
   selector.listeners.change();
   await module.refresh();
