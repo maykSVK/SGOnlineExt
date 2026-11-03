@@ -1,0 +1,9 @@
+{
+  "name": "stargame-pomocnik",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check core.js && node --check population.js && node --check sectors.js && node --check content.js"
+  }
+}
