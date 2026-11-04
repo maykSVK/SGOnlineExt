@@ -6,6 +6,14 @@ const source = fs.readFileSync(require.resolve("../content.js"), "utf8");
 const layout = source.slice(source.indexOf("  const touchLayout ="), source.indexOf("  let population;"));
 const collapse = source.slice(source.indexOf('  $("#sgo-collapse").addEventListener("click"'), source.indexOf('  for (const tab of ["attacks", "activity"])'));
 
+test("the entire header is one native keyboard-accessible toggle button", () => {
+  const header = source.slice(source.indexOf("root.innerHTML = `<header>"), source.indexOf("</header>"));
+  assert.match(header, /<button type="button" id="sgo-collapse"/);
+  assert.match(header, /aria-expanded="true"/);
+  assert.ok(header.indexOf('class="sgo-brand"') > header.indexOf("<button"));
+  assert.ok(header.indexOf("</button>") > header.indexOf("StarGame pomocník"));
+});
+
 function mount(data, mobile) {
   const elements = new Map();
   const element = key => {
@@ -49,7 +57,7 @@ test("desktop collapse and reopen survive a new page without changing mobile pre
   assert.equal(first.element("#sgo-collapse").attributes["aria-expanded"], "false");
   const next = mount(first.saved(), false);
   assert.equal(next.element(".sgo-body").hidden, true);
-  assert.equal(next.element("#sgo-collapse").textContent, "+");
+  assert.equal(next.element("#sgo-collapse-icon").textContent, "+");
   next.resize(true);
   assert.equal(next.element(".sgo-body").hidden, false);
   assert.equal(next.classes.has("sgo-mobile-open"), false);

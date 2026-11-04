@@ -27,7 +27,7 @@
 #sgo-addon #sgo-launcher { display: none; }
 #sgo-addon header {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 9px 12px; border-bottom: 1px solid var(--sgo-line); flex-shrink: 0;
+  padding: 0; border-bottom: 1px solid var(--sgo-line); flex-shrink: 0;
   background: linear-gradient(120deg, #1a2c42, #131e31);
 }
 #sgo-addon .sgo-brand { display: flex; align-items: center; gap: 8px; line-height: 1.25; }
@@ -37,7 +37,7 @@
   font-size: 22px; font-weight: 700;
 }
 #sgo-addon .sgo-eyebrow { display: block; color: var(--sgo-muted); font-size: 9px; font-weight: 700; letter-spacing: 1.6px; }
-#sgo-addon h2 { all: unset; display: block; color: var(--sgo-text); font-size: 14px; font-weight: 650; letter-spacing: -.3px; }
+#sgo-addon .sgo-brand-title { display: block; color: var(--sgo-text); font-size: 14px; font-weight: 650; letter-spacing: -.3px; }
 #sgo-addon .sgo-body { display: flex; flex-direction: column; min-height: 0; overflow: auto; }
 #sgo-addon button, #sgo-addon input, #sgo-addon select {
   font: inherit; color: var(--sgo-text); background: #1c2a40;
@@ -47,7 +47,9 @@
 #sgo-addon button:hover:not(:disabled) { background: #293d57; border-color: #6984a6; }
 #sgo-addon :is(button,input,select):focus-visible { outline: 2px solid var(--sgo-accent); outline-offset: 3px; }
 #sgo-addon :is(button,input,select):disabled { opacity: .4; cursor: not-allowed; }
-#sgo-addon #sgo-collapse { width: 30px; height: 30px; padding: 0; background: transparent; color: var(--sgo-muted); font-size: 18px; }
+#sgo-addon #sgo-collapse { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 46px; padding: 9px 12px; border: 0; border-radius: 0; background: transparent; color: var(--sgo-muted); text-align: left; }
+#sgo-addon #sgo-collapse-icon { font-size: 18px; }
+#sgo-addon #sgo-collapse:focus-visible { outline-offset: -3px; }
 #sgo-addon .sgo-target { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 18px 20px 12px; }
 #sgo-addon .sgo-target strong { display: block; font-size: 19px; font-weight: 650; letter-spacing: -.4px; margin-top: 5px; }
 #sgo-addon .sgo-target-tag { color: var(--sgo-accent); letter-spacing: .3px; margin-left: 7px; font-weight: 500; text-transform: none; }
@@ -204,9 +206,10 @@
 }
 #sgo-addon[data-mobile=true][data-state=error] #sgo-launcher::after { background: #ffa695; }
 #sgo-addon[data-mobile=true] header {
-  padding: max(10px, env(safe-area-inset-top)) 12px 10px; gap: 8px;
+  padding: 0;
 }
-#sgo-addon[data-mobile=true] #sgo-collapse { width: 44px; height: 44px; flex-shrink: 0; font-size: 26px; }
+#sgo-addon[data-mobile=true] #sgo-collapse { min-height: 44px; padding: max(10px, env(safe-area-inset-top)) 12px 10px; flex-shrink: 0; }
+#sgo-addon[data-mobile=true] #sgo-collapse-icon { font-size: 26px; }
 #sgo-addon[data-mobile=true] .sgo-body { flex: 1; overscroll-behavior: contain; padding-bottom: env(safe-area-inset-bottom); }
 #sgo-addon[data-mobile=true] :is(button,input,select) { min-height: 44px; touch-action: manipulation; }
 #sgo-addon[data-mobile=true] :is(input,select) { font-size: 16px; }

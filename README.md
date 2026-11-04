@@ -120,6 +120,8 @@ vyziadat povolenie pristupu k `api.github.com`.
 Na PC zostava povodny panel vpravo hore. Na dotykovych zariadeniach
 (mobil/tablet) alebo v okne do 700 CSS pixelov sa predvolene spusti zbalene tlacidlo
 **SGO** vpravo dole. Hru neblokuje mimo samotneho tlacidla.
+Cela hlavicka je tlacidlo na zbalenie/rozbalenie na PC a zavretie na mobile;
+funguje aj klavesmi Enter a medzernik. Na mobile panel znovu otvoris cez SGO.
 Kliknutim otvoris panel na vysku dostupnej obrazovky (na tablete najviac
 480 px siroky), krizikom alebo Escape ho zavries. Zatvorenie nezastavi utoky;
 na ich zastavenie pouzi **Zastavit**. Bodka na tlacidle signalizuje beh/cakanie,

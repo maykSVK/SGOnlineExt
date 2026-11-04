@@ -28,8 +28,9 @@
   root.setAttribute("aria-label", "StarGame pomocnik");
   document.getElementById("sgo-investigation")?.remove();
   root.innerHTML = `<header>
-      <div class="sgo-brand"><span class="sgo-brand-icon" aria-hidden="true">S</span><div><h2>StarGame pomocník</h2></div></div>
-      <button type="button" id="sgo-collapse" aria-label="Zbaliť panel" aria-expanded="true" title="Zbaliť panel">&minus;</button>
+      <button type="button" id="sgo-collapse" aria-label="Zbaliť panel" aria-expanded="true" title="Zbaliť panel">
+      <span class="sgo-brand"><span class="sgo-brand-icon" aria-hidden="true">S</span><span class="sgo-brand-title">StarGame pomocník</span></span>
+      <span id="sgo-collapse-icon" aria-hidden="true">&minus;</span></button>
     </header>
     <div class="sgo-body">
       <nav class="sgo-navigation" aria-label="Funkcie rozšírenia"><button type="button" id="sgo-back" hidden>&larr; Všetky funkcie</button><span id="sgo-feature-name">Prehľad funkcií</span></nav>
@@ -101,7 +102,7 @@
     root.style.setProperty("--sgo-mobile-scale", String(1 / scale));
     root.style.setProperty("--sgo-mobile-left", `${(viewport?.offsetLeft || 0) + (viewport?.width || innerWidth) - width / scale}px`);
     root.style.setProperty("--sgo-mobile-top", `${viewport?.offsetTop || 0}px`);
-    $("#sgo-collapse").textContent = mobile ? "×" : $(".sgo-body").hidden ? "+" : "−";
+    $("#sgo-collapse-icon").textContent = mobile ? "×" : $(".sgo-body").hidden ? "+" : "−";
     $("#sgo-collapse").setAttribute("aria-label", mobile ? "Zavrieť panel" : $(".sgo-body").hidden ? "Rozbaliť panel" : "Zbaliť panel");
     $("#sgo-collapse").title = $("#sgo-collapse").getAttribute("aria-label");
     if (mobile) $(".sgo-body").hidden = false;
