@@ -47,9 +47,11 @@ pouzi instalaciu v beznom prehliadaci.
 Tri kompaktne riadky hore na hlavnom prehlade zobrazuju denny bonus, Hernu
 a posledne hlasenie NN z rasovej posty. Zelena znamena OK, oranzova nezname
 alebo neoverene udaje a cervena potrebnu akciu. Kliknutim na riadok otvoris
-prislusnu stranku hry; cas poslednej kontroly najdes v jeho popise.
+prislusnu stranku hry; NN otvara **Obchod > Planety**, ale hlasenia sa
+nadalej citaju z rasovej posty. Cas poslednej kontroly najdes v jeho popise.
 Otvorenie prehladu ani hernej stranky nic
-nenacitava navyse. Iba **Aktualizovat** vykona postupne tri kontrolne GETy,
+nenacitava navyse. Iba **Aktualizovat** vykona postupne styri kontrolne GETy
+(bonus, Herna, NN a celkove poradie hracov),
 ulozi stav s casom kontroly a zaloguje vysledky. Chyba citania jednej kontroly
 nezablokuje ostatne; chyba nacitania, prihlasenia alebo overenia zastavi
 postup bez automatickeho opakovania. Chyba historie nezmeni rozpoznany stav
@@ -68,6 +70,15 @@ po nom uvadza nezname. Pouziva cas Europe/Prague a zohladnuje polnoc;
 hlasenie nie je potvrdenie aktualnej dostupnosti. Aktualizacia je blokovana pocas utokov.
 Automaticke nahodne vsadenie na 12 slosovani zatial nie je implementovane:
 pred jeho pridanim treba overit aktualny nativny formular, cenu a potvrdenie.
+
+#### TOP 3 celkovo
+
+Mala sekcia naspodku hlavneho prehladu ukazuje prvych troch hracov z
+**Vesmir > Serazeni > Serazeni hracu** v poradi hry, bez vlastneho zoradovania.
+Zobrazuje meno, rasu, pocet planet, populaciu, silu, celkovu rozlohu a dobytia.
+Nadpis aj riadky otvaraju tento rebricek. Udaje a cas kontroly sa uchovavaju
+lokalne; bez nacitania alebo pri chybe ukazuje Nezname.
+Pouziva spolocne tlacidlo **Aktualizovat** hore, nikdy automaticke nacitanie.
 
 #### Historia zrebovani a Gist
 

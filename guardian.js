@@ -5,8 +5,30 @@
   const routes = {
     bonus: "game.php?page=prehled&akce=denniBonus",
     casino: "game.php?page=obchod&s=6",
-    nn: "game.php?page=posta&s=4"
+    nn: "game.php?page=posta&s=4",
+    ranking: "game.php?page=vesmir&jak=hraci"
   };
+  const nnDestination = "game.php?page=obchod&s=3";
+  function readRanking(doc) {
+    const table = doc.querySelector("table.serazeniHracuAll");
+    const rows = table && [...table.rows].filter(row => !row.querySelector("th")).slice(0, 3);
+    if (!rows || rows.length !== 3) throw new Error("Nenašiel som kompletné TOP 3 hráčov.");
+    const players = rows.map((row, index) => {
+      const cells = [...row.cells].map(cell => C.clean(cell.textContent));
+      const name = C.clean(row.cells[1]?.querySelector("a")?.textContent);
+      const stats = cells.slice(3, 7).map(C.integer);
+      const conquered = cells[7]?.match(/^(\d+)\s*[×x]$/);
+      const conquestCount = conquered ? C.integer(conquered[1]) : null;
+      if (cells[0] !== `${index + 1}.` || !name || !cells[2] || stats.length !== 4 ||
+          stats.some(value => value === null || value < 0) || conquestCount === null) {
+        throw new Error("Nečitateľné údaje TOP 3 hráčov.");
+      }
+      return { rank: index + 1, name, race: cells[2], planets: stats[0], population: stats[1],
+        power: stats[2], area: stats[3], conquered: conquestCount };
+    });
+    if (new Set(players.map(player => player.name)).size !== 3) throw new Error("Nejednoznačné TOP 3 hráčov.");
+    return { status: "ok", text: "TOP 3 načítané", rows: players };
+  }
   function pageText(doc) {
     const body = doc.body.cloneNode(true);
     body.querySelectorAll("script,style,#sgo-addon").forEach(element => element.remove());
@@ -86,7 +108,7 @@
     }
     return entry;
   }
-  function mount(container, { getDocument, log, canEdit, storage, syncHistory = L.sync }) {
+  function mount(container, { getDocument, log, canEdit, storage, rankingContainer, syncHistory = L.sync }) {
     container.innerHTML = `<div class="sgo-watch-heading"><strong>Denné kontroly</strong><button type="button" id="sgo-guardian-refresh">Aktualizovať</button></div>
       <div id="sgo-guardian-items"></div>
       <p class="sgo-note" id="sgo-guardian-status" role="status">Iba ručná kontrola · bez herných akcií.</p>
@@ -109,7 +131,7 @@
       for (const [key, title] of [["bonus", "Denný bonus"], ["casino", "Herňa"], ["nn", "NN"]]) {
         const view = displayState(key, state[key]);
         const row = document.createElement("a");
-        row.className = "sgo-watch-row"; row.href = routes[key]; row.dataset.status = view.status;
+        row.className = "sgo-watch-row"; row.href = key === "nn" ? nnDestination : routes[key]; row.dataset.status = view.status;
         const label = document.createElement("strong"); label.textContent = title;
         const detail = document.createElement("span"); detail.textContent = view.text;
         const stamp = state[key]?.time ? new Date(state[key].time).toLocaleString("sk-SK") : "Zatiaľ nekontrolované";
@@ -117,6 +139,37 @@
         row.append(label, detail); $("#sgo-guardian-items").append(row);
       }
       $("#sgo-lottery-history").textContent = `Zachytené žrebovania: ${history.length}. Nemusí ísť o úplnú históriu.`;
+      if (rankingContainer) {
+        rankingContainer.replaceChildren();
+        const heading = document.createElement("a");
+        heading.className = "sgo-ranking-heading"; heading.href = routes.ranking;
+        heading.textContent = "TOP 3 · celkovo →";
+        rankingContainer.append(heading);
+        const ranking = state.ranking;
+        if (ranking?.status === "ok" && ranking.rows?.length === 3) {
+          for (const player of ranking.rows) {
+            const row = document.createElement("a");
+            row.className = "sgo-ranking-row"; row.href = routes.ranking;
+            const title = document.createElement("div"); title.className = "sgo-ranking-player";
+            const name = document.createElement("strong"); name.textContent = `${player.rank}. ${player.name}`;
+            const race = document.createElement("span"); race.textContent = player.race;
+            title.append(name, race);
+            const metrics = document.createElement("div"); metrics.className = "sgo-ranking-metrics";
+            for (const [label, value] of [["Planéty", player.planets], ["Populácia", player.population],
+              ["Sila", player.power], ["Rozloha", player.area], ["Dobytia", player.conquered]]) {
+              const metric = document.createElement("span");
+              const caption = document.createElement("small"); caption.textContent = label;
+              const number = document.createElement("strong"); number.textContent = value.toLocaleString("sk-SK");
+              metric.append(caption, number); metrics.append(metric);
+            }
+            row.append(title, metrics); rankingContainer.append(row);
+          }
+        }
+        const note = document.createElement("p"); note.className = "sgo-note";
+        note.textContent = ranking?.status === "ok" ? `Stav z ${new Date(ranking.time).toLocaleString("sk-SK")}` :
+          `Neznáme · ${ranking?.error || "použi Aktualizovať hore"}`;
+        rankingContainer.append(note);
+      }
     }
     async function restore() {
       try {
@@ -157,9 +210,10 @@
         await ready;
         if (!restored) throw new Error("Uložené údaje sa nepodarilo načítať.");
         if (!canEdit()) throw new Error("Najprv zastav útoky a počkaj na dokončenie operácie.");
-        for (const [key, read] of [["bonus", readBonus], ["casino", readCasino], ["nn", readNN]]) {
+        for (const [key, read] of [["bonus", readBonus], ["casino", readCasino], ["nn", readNN],
+          ["ranking", (_text, doc) => readRanking(doc)]]) {
           if (!canEdit()) throw new Error("Prebieha iná operácia. Kontrola zastavená.");
-          $("#sgo-guardian-status").textContent = `Kontrolujem ${key === "bonus" ? "bonus" : key === "casino" ? "Herňu" : "NN"}…`;
+          $("#sgo-guardian-status").textContent = `Kontrolujem ${{ bonus: "bonus", casino: "Herňu", nn: "NN", ranking: "TOP 3" }[key]}…`;
           let doc;
           try { doc = await getDocument(new URL(routes[key], location.href).href); }
           catch (error) {
@@ -207,7 +261,7 @@
     });
     return { render };
   }
-  const api = { pageText, readBonus, readCasino, readNN, displayState, mount };
+  const api = { pageText, readBonus, readCasino, readNN, readRanking, displayState, mount };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.SGOGuardian = api;
 })(globalThis);

@@ -2,6 +2,34 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const G = require("../guardian.js");
 
+function rankingDoc(values = [
+  ["1.", "mayk", "Terrané", "45", "22 919", "22 176", "514 440", "0×"],
+  ["2.", "fordkrupa", "Nekthari", "38", "11 234", "647 472", "370 120", "0×"],
+  ["3.", "Iskander", "Asgarané", "40", "14 518", "4", "352 600", "0×"]
+]) {
+  const rows = values.map(values => ({
+    querySelector: () => null,
+    cells: values.map(textContent => ({ textContent, querySelector: () => ({ textContent }) }))
+  }));
+  return { querySelector: selector => selector === "table.serazeniHracuAll" ? { rows } : null };
+}
+test("ranking reads three actual player rows and all screenshot columns in game order", () => {
+  const ranking = G.readRanking(rankingDoc());
+  assert.deepEqual(ranking.rows[0], {
+    rank: 1, name: "mayk", race: "Terrané", planets: 45, population: 22919,
+    power: 22176, area: 514440, conquered: 0
+  });
+  assert.deepEqual(ranking.rows.map(row => row.name), ["mayk", "fordkrupa", "Iskander"]);
+  assert.equal(ranking.rows[1].power, 647472);
+  assert.throws(() => G.readRanking({ querySelector: () => null }), /TOP 3/);
+  assert.throws(() => G.readRanking(rankingDoc([])), /TOP 3/);
+  assert.throws(() => G.readRanking(rankingDoc([
+    ["1.", "mayk", "Terrané", "unknown", "22", "1", "1", "0×"],
+    ["2.", "b", "Terrané", "1", "22", "1", "1", "0×"],
+    ["3.", "c", "Terrané", "1", "22", "1", "1", "0×"]
+  ])), /Nečitateľné/);
+});
+
 test("bonus with no remaining attempts is complete; unreadable attempts stay unknown", () => {
   const completed = G.readBonus("Denní bonus\n0x\nKaždý den máte 5 zatočení zdarma");
   assert.deepEqual(completed, { status: "ok", text: "Dnešné pokusy využité" });
@@ -85,12 +113,15 @@ test("one explicit refresh checks all pages; history errors never replace casino
   const saved = {};
   let fail = false;
   let badHistory = false;
+  let badRanking = false;
   let synced = 0;
   const store = {
     "sgo-gist-config": { id: "a".repeat(32), token: "test-token" },
     "sgo-lottery-history": [{ at: "2026-11-04T02:00", numbers: [1, 2, 3, 4, 5, 6] }]
   };
+  const rankingContainer = new Element();
   const guardian = G.mount(container, {
+    rankingContainer,
     storage: { get: async key => store[key], set: async (key, state) => { saved[key] = structuredClone(state); } },
     syncHistory: async (config, history) => { synced++; return history; },
     log() {}, canEdit: () => true,
@@ -104,6 +135,7 @@ test("one explicit refresh checks all pages; history errors never replace casino
         url.includes("s=6") ? `Super 6 Již máme vsazeno. Počet slosování: 12 ${badHistory ? "" : "Poslední tažená čísla: 04.11.2026 v 08:00 5, 8, 10, 22, 6, 7"}` :
           "» 4. 11. 2026:\nNN - další 09:14 - 09:34";
       return {
+        querySelector: selector => badRanking ? null : rankingDoc().querySelector(selector),
         querySelectorAll: () => [],
         body: { cloneNode: () => ({ querySelectorAll: () => [] }) },
         createTreeWalker: () => {
@@ -115,8 +147,19 @@ test("one explicit refresh checks all pages; history errors never replace casino
   });
   await Promise.resolve();
   assert.equal(requests.length, 0, "mount and restore make no game requests");
+  assert.equal(rankingContainer.children.length, 2, "ranking starts without invented player rows");
+  assert.match(rankingContainer.children[1].textContent, /Neznáme/);
   await container.querySelector("#sgo-guardian-refresh").listeners.click();
-  assert.equal(requests.length, 3);
+  assert.equal(requests.length, 4);
+  assert.match(requests[2], /page=posta&s=4$/, "NN checks still read race mail");
+  assert.match(requests[3], /page=vesmir&jak=hraci$/, "ranking uses overall player order");
+  const nnLink = container.querySelector("#sgo-guardian-items").children[2];
+  assert.equal(nnLink.href, "game.php?page=obchod&s=3", "NN click opens trade planets");
+  assert.equal(saved["sgo-guardian"].ranking.rows.length, 3);
+  assert.equal(rankingContainer.children.length, 5, "heading, three players and last-check timestamp");
+  assert.equal(rankingContainer.children[0].href, "game.php?page=vesmir&jak=hraci");
+  assert.equal(rankingContainer.children[1].children[0].children[0].textContent, "1. mayk");
+  assert.equal(rankingContainer.children[1].children[1].children.length, 5);
   assert.equal(maxActive, 1);
   assert.match(saved["sgo-guardian"].casino.text, /12/);
   assert.ok(saved["sgo-guardian"].bonus.time);
@@ -125,10 +168,13 @@ test("one explicit refresh checks all pages; history errors never replace casino
   assert.equal(synced, 1);
   guardian.render();
   await Promise.resolve();
-  assert.equal(requests.length, 3, "render makes no requests, and there are no automatic retries or refreshes");
+  assert.equal(requests.length, 4, "render makes no requests, and there are no automatic retries or refreshes");
   badHistory = true;
+  badRanking = true;
   await container.querySelector("#sgo-guardian-refresh").listeners.click();
-  assert.equal(requests.length, 6);
+  assert.equal(requests.length, 8);
+  assert.equal(saved["sgo-guardian"].ranking.status, "unknown");
+  assert.match(rankingContainer.children[1].textContent, /Neznáme/);
   assert.equal(saved["sgo-guardian"].casino.status, "ok");
   assert.match(saved["sgo-guardian"].nn.text, /09:14/);
   assert.equal(synced, 2, "cached history still synchronizes after draw parsing fails");
@@ -136,7 +182,7 @@ test("one explicit refresh checks all pages; history errors never replace casino
   assert.match(container.querySelector("#sgo-guardian-status").textContent, /Časť kontroly zlyhala/);
   fail = true;
   await container.querySelector("#sgo-guardian-refresh").listeners.click();
-  assert.equal(requests.length, 7, "network failure stops the sequence");
+  assert.equal(requests.length, 9, "network failure stops the sequence");
   assert.equal(saved["sgo-guardian"].bonus.status, "unknown");
   assert.match(saved["sgo-guardian"].bonus.error, /Offline/);
 });
