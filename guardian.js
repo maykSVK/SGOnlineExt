@@ -25,7 +25,7 @@
     const attempts = clean.match(/(?:^|\s)(\d+)\s*x(?:\s|$)/);
     if (!attempts) return { status: "unknown", text: "Neznámy počet pokusov" };
     const count = Number(attempts[1]);
-    return { status: count ? "action" : "unknown", text: count ? `${count} pokusov · vybrať bonus` : "0 pokusov · prevzatie výhry neoverené" };
+    return { status: count ? "action" : "ok", text: count ? `${count} pokusov · vybrať bonus` : "Dnešné pokusy využité" };
   }
   function readCasino(text, doc) {
     const clean = C.clean(text);

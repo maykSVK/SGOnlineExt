@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         StarGame pomocnik
 // @namespace    https://github.com/maykSVK/SGOnlineExt
-// @version      0.3.1
+// @version      0.3.2
 // @description  Vala attacks, ideal population and sector forum drafts.
 // @homepageURL  https://github.com/maykSVK/SGOnlineExt
 // @match        https://stargame-online.cz/www/game.php*
@@ -830,7 +830,7 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
     const attempts = clean.match(/(?:^|\s)(\d+)\s*x(?:\s|$)/);
     if (!attempts) return { status: "unknown", text: "Neznámy počet pokusov" };
     const count = Number(attempts[1]);
-    return { status: count ? "action" : "unknown", text: count ? `${count} pokusov · vybrať bonus` : "0 pokusov · prevzatie výhry neoverené" };
+    return { status: count ? "action" : "ok", text: count ? `${count} pokusov · vybrať bonus` : "Dnešné pokusy využité" };
   }
   function readCasino(text, doc) {
     const clean = C.clean(text);

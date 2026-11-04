@@ -57,9 +57,11 @@ stavky a nepreskoci NN. Zachovana lokalna historia sa moze stale synchronizovat.
 Udaje bonusu z ineho dna a stavky starsie ako sest hodin su oznacene ako
 nezname; nejde o zivy stav. Vek a okno NN sa prehodnotia lokalne pri zobrazeni
 prehladu, nie casovacom ani dalsou poziadavkou.
-Bonus netoci a stavky nepodava. Pocet pokusov bonusu neznamena potvrdene
-prevzatie odmeny: pri nule preto zostava stav neovereny, pri zostavajucich
-pokusoch upozorni na akciu. Stav Herne je zeleny iba pri potvrdenej stavke;
+Bonus netoci a stavky nepodava. Pri nule zostavajucich pokusov oznaci denny
+bonus zelenym stavom Dnesne pokusy vyuzite; pri zostavajucich pokusoch
+upozorni na akciu. Ak pocet nevie precitat, zostava stav neznamy.
+Kontrola nepotvrdzuje pripadne samostatne prevzatie odmeny.
+Stav Herne je zeleny iba pri potvrdenej stavke;
 samotny vyskyt slova vsadit nie je dokaz, ze stavka chyba.
 Pred hlasenym oknom NN zobrazi cakanie, pocas okna upozorni na kontrolu,
 po nom uvadza nezname. Pouziva cas Europe/Prague a zohladnuje polnoc;

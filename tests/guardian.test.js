@@ -2,8 +2,13 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const G = require("../guardian.js");
 
-test("bonus attempts do not imply reward collection", () => {
-  assert.equal(G.readBonus("Denní bonus\n0x\nKaždý den máte 5 zatočení zdarma").status, "unknown");
+test("bonus with no remaining attempts is complete; unreadable attempts stay unknown", () => {
+  const completed = G.readBonus("Denní bonus\n0x\nKaždý den máte 5 zatočení zdarma");
+  assert.deepEqual(completed, { status: "ok", text: "Dnešné pokusy využité" });
+  const now = Date.parse("2026-11-04T09:30:00Z");
+  assert.equal(G.displayState("bonus", { ...completed, time: now }, now).status, "ok");
+  assert.equal(G.displayState("bonus", { ...completed, time: now }, now + 86400000).status, "unknown");
+  assert.equal(G.readBonus("Denní bonus\n0\nx\nKaždý den máte 5 zatočení zdarma").status, "ok");
   assert.equal(G.readBonus("Denní bonus\n5 x\nKaždý den máte 5 zatočení zdarma").status, "action");
   assert.equal(G.readBonus("Každý den máte 5 zatočení zdarma").status, "unknown");
   assert.throws(() => G.readBonus("Login"), /Nerozpoznaná/);
@@ -115,6 +120,7 @@ test("one explicit refresh checks all pages; history errors never replace casino
   assert.equal(maxActive, 1);
   assert.match(saved["sgo-guardian"].casino.text, /12/);
   assert.ok(saved["sgo-guardian"].bonus.time);
+  assert.equal(saved["sgo-guardian"].bonus.status, "ok");
   assert.match(saved["sgo-guardian"].nn.text, /09:14/);
   assert.equal(synced, 1);
   guardian.render();
