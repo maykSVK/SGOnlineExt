@@ -118,13 +118,16 @@ do GitHub API na autentifikaciu. Tampermonkey si moze pri aktualizacii
 vyziadat povolenie pristupu k `api.github.com`.
 
 Na PC zostava povodny panel vpravo hore. Na dotykovych zariadeniach
-(mobil/tablet) alebo v okne do 700 CSS pixelov sa spusti zbalene tlacidlo
+(mobil/tablet) alebo v okne do 700 CSS pixelov sa predvolene spusti zbalene tlacidlo
 **SGO** vpravo dole. Hru neblokuje mimo samotneho tlacidla.
 Kliknutim otvoris panel na vysku dostupnej obrazovky (na tablete najviac
 480 px siroky), krizikom alebo Escape ho zavries. Zatvorenie nezastavi utoky;
 na ich zastavenie pouzi **Zastavit**. Bodka na tlacidle signalizuje beh/cakanie,
 cervena chybu. Po predplneni stavieb alebo fora sa panel na mobile sam skryje,
 aby si mohol skontrolovat herny formular. Na PC ostava otvoreny.
+Otvoreny/zavrety stav na mobile a zbalenie na PC sa pamataju lokalne aj po
+obnoveni stranky, prechode na inu stranku hry alebo aktualizacii skriptu.
+Oba rezimy maju vlastny stav, takze zmena sirky okna neprepise zbalenie na PC.
 
 Tlacidlo **Vsetky funkcie** vrati hlavne menu. Utoky so svojim nastavenim
 a dennikom su v samostatnom podmenu. Prebiehajuca seria sa otvorenim menu nerusi;

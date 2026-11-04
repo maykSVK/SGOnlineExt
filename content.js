@@ -76,9 +76,11 @@
   launcher.setAttribute("aria-expanded", "false");
   root.append(launcher);
   const touchLayout = matchMedia("(pointer: coarse), (max-width: 700px)");
-  let mobileOpen = false;
+  let mobileOpen = data.mobileOpen === true;
   function setMobileOpen(open) {
     mobileOpen = open;
+    data.mobileOpen = open;
+    persist();
     if (open) guardian?.render();
     root.classList.toggle("sgo-mobile-open", open);
     launcher.setAttribute("aria-expanded", String(open));
@@ -88,6 +90,9 @@
   function updateLayout() {
     const mobile = touchLayout.matches;
     root.dataset.mobile = String(mobile);
+    root.classList.toggle("sgo-mobile-open", mobileOpen);
+    launcher.setAttribute("aria-expanded", String(mobileOpen));
+    $(".sgo-body").hidden = !mobile && data.panelCollapsed === true;
     const viewport = window.visualViewport;
     const scale = viewport?.scale || 1;
     const width = Math.min(480, (viewport?.width || innerWidth) * scale);
@@ -514,12 +519,10 @@
   $("#sgo-stop").addEventListener("click", () => { busy = false; stop("Zastavene pouzivatelom. Uz odoslany utok nie je mozne vratit."); });
   $("#sgo-collapse").addEventListener("click", () => {
     if (touchLayout.matches) { revealGame(); return; }
-    const body = $(".sgo-body"); body.hidden = !body.hidden;
-    if (!body.hidden) guardian.render();
-    $("#sgo-collapse").textContent = body.hidden ? "+" : "−";
-    $("#sgo-collapse").setAttribute("aria-expanded", String(!body.hidden));
-    $("#sgo-collapse").setAttribute("aria-label", body.hidden ? "Rozbaliť panel" : "Zbaliť panel");
-    $("#sgo-collapse").title = body.hidden ? "Rozbaliť panel" : "Zbaliť panel";
+    data.panelCollapsed = !data.panelCollapsed;
+    persist();
+    updateLayout();
+    if (!data.panelCollapsed) guardian.render();
   });
   for (const tab of ["attacks", "activity"]) {
     $(`#sgo-${tab}-tab`).addEventListener("click", () => showTab(tab));
