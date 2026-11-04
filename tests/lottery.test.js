@@ -11,6 +11,11 @@ test("reads both visible draws without collecting player's bet or winning tiers"
   assert.deepEqual(rows[1], { at: "2026-11-04T08:00", numbers: [5, 6, 7, 8, 10, 22] });
   assert.throws(() => L.readDraws("Super 6 1 2 3 4 5 6"), /nie sú čitateľné/);
 });
+test("reads separated inline labels, dates, times and comma-delimited balls without truncating extra numbers", () => {
+  const rows = L.readDraws("Poslední tažená čísla\n:\n4. 11. 2026\nv\n08:00\n5\n,\n8\n,\n10\n,\n22\n,\n6\n,\n17");
+  assert.deepEqual(rows[0], { at: "2026-11-04T08:00", numbers: [5, 6, 8, 10, 17, 22] });
+  assert.throws(() => L.readDraws("Poslední tažená čísla: 4.11.2026 v 08:00 1,2,3,4,5,6,7"), /nie sú čitateľné/);
+});
 test("merges unordered duplicates, rejects conflicting results and malformed records", () => {
   assert.equal(L.merge([draw()], [draw(undefined, [22, 10, 8, 7, 6, 5])]).length, 1);
   assert.throws(() => L.merge([draw()], [draw(undefined, [1, 2, 3, 4, 5, 6])]), /Rozdielne/);

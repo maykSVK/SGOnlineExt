@@ -34,11 +34,11 @@
     <div class="sgo-body">
       <nav class="sgo-navigation" aria-label="Funkcie rozšírenia"><button type="button" id="sgo-back" hidden>&larr; Všetky funkcie</button><span id="sgo-feature-name">Prehľad funkcií</span></nav>
       <section id="sgo-home">
+        <section id="sgo-guardian-feature" aria-label="Denné kontroly"></section>
         <p class="sgo-hint">Vyber si pomocníka. Každá funkcia má vlastné nastavenia.</p>
         <button type="button" class="sgo-feature-card" id="sgo-open-attacks"><span class="sgo-feature-icon">01</span><span><strong>Útok na Valu</strong><small>Typy útokov, jednotky, cooldown a denník</small></span><span aria-hidden="true">&rarr;</span></button>
         <button type="button" class="sgo-feature-card" id="sgo-open-population"><span class="sgo-feature-icon">02</span><span><strong>Ideálne zaľudnenie</strong><small>Výpočet a predvyplnenie výroben na planétach</small></span><span aria-hidden="true">&rarr;</span></button>
         <button type="button" class="sgo-feature-card" id="sgo-open-sectors"><span class="sgo-feature-icon">03</span><span><strong>Naše sektory</strong><small>Náskok pred súpermi a BBCode hlásenie</small></span><span aria-hidden="true">&rarr;</span></button>
-        <button type="button" class="sgo-feature-card" id="sgo-open-guardian"><span class="sgo-feature-icon">04</span><span><strong>Strážca</strong><small>Denný bonus, Herňa a NN · ručná kontrola</small></span><span aria-hidden="true">&rarr;</span></button>
       </section>
       <section id="sgo-attacks-feature" hidden>
       <div class="sgo-target"><div><span class="sgo-eyebrow">CIEĽ MISIE <span class="sgo-target-tag">Uprchlíci</span></span><strong>Vala Mal Doran</strong></div>
@@ -62,7 +62,6 @@
       </section>
       <section id="sgo-population-feature" hidden></section>
       <section id="sgo-sectors-feature" hidden></section>
-      <section id="sgo-guardian-feature" hidden></section>
       <footer class="sgo-footer"><span class="sgo-footer-dot" aria-hidden="true"></span><span id="sgo-latest">Všetko pod kontrolou. Čakám na nastavenie.</span></footer>
     </div>`;
   document.body.append(root);
@@ -78,6 +77,7 @@
   let mobileOpen = false;
   function setMobileOpen(open) {
     mobileOpen = open;
+    if (open) guardian?.render();
     root.classList.toggle("sgo-mobile-open", open);
     launcher.setAttribute("aria-expanded", String(open));
     if (open) $("#sgo-collapse").focus({ preventScroll: true });
@@ -114,15 +114,16 @@
   }
   let population;
   let sectors;
+  let guardian;
   function showFeature(feature, save = true) {
-    const selected = ["attacks", "population", "sectors", "guardian"].includes(feature) ? feature : "home";
+    const selected = ["attacks", "population", "sectors"].includes(feature) ? feature : "home";
     $("#sgo-home").hidden = selected !== "home";
     $("#sgo-attacks-feature").hidden = selected !== "attacks";
     $("#sgo-population-feature").hidden = selected !== "population";
     $("#sgo-sectors-feature").hidden = selected !== "sectors";
-    $("#sgo-guardian-feature").hidden = selected !== "guardian";
     $("#sgo-back").hidden = selected === "home";
-    $("#sgo-feature-name").textContent = { home: "Prehľad funkcií", attacks: "Útok na Valu", population: "Ideálne zaľudnenie", sectors: "Naše sektory", guardian: "Strážca" }[selected];
+    $("#sgo-feature-name").textContent = { home: "Prehľad funkcií", attacks: "Útok na Valu", population: "Ideálne zaľudnenie", sectors: "Naše sektory" }[selected];
+    if (selected === "home") guardian?.render();
     if (selected === "population") population?.refresh();
     if (selected === "sectors") sectors?.refresh();
     if (save) { data.feature = selected; persist(); }
@@ -512,6 +513,7 @@
   $("#sgo-collapse").addEventListener("click", () => {
     if (touchLayout.matches) { revealGame(); return; }
     const body = $(".sgo-body"); body.hidden = !body.hidden;
+    if (!body.hidden) guardian.render();
     $("#sgo-collapse").textContent = body.hidden ? "+" : "−";
     $("#sgo-collapse").setAttribute("aria-expanded", String(!body.hidden));
     $("#sgo-collapse").setAttribute("aria-label", body.hidden ? "Rozbaliť panel" : "Zbaliť panel");
@@ -532,8 +534,7 @@
   $("#sgo-open-population").addEventListener("click", () => showFeature("population"));
   population = globalThis.SGOPopulation.mount($("#sgo-population-feature"), { getDocument, log, canEdit: () => !run?.active && !busy, revealGame });
   $("#sgo-open-sectors").addEventListener("click", () => showFeature("sectors"));
-  $("#sgo-open-guardian").addEventListener("click", () => showFeature("guardian"));
-  globalThis.SGOGuardian.mount($("#sgo-guardian-feature"), { getDocument, log, storage, canEdit: () => !run?.active && !busy });
+  guardian = globalThis.SGOGuardian.mount($("#sgo-guardian-feature"), { getDocument, log, storage, canEdit: () => !run?.active && !busy });
   sectors = globalThis.SGOSectors.mount($("#sgo-sectors-feature"), {
     getDocument, log, canEdit: () => !run?.active && !busy, revealGame,
     navigate: async url => { await writes; location.assign(url); }

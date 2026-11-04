@@ -26,7 +26,7 @@
     return [...result.values()].sort((a, b) => a.at.localeCompare(b.at));
   }
   function readDraws(text) {
-    const pattern = /(?:Předposlední|Poslední)\s+tažená\s+čísla:\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})\s+v\s+(\d{1,2}):(\d{2})\s+((?:\d+\s*,\s*){5}\d+)(?!\s*,)/g;
+    const pattern = /(?:Předposlední|Poslední)\s+tažená\s+čísla\s*:\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})\s+v\s+(\d{1,2}):(\d{2})\s+((?:\d+\s*,\s*){5}\d+)(?!\d|\s*,)/gi;
     const draws = [...text.matchAll(pattern)].map(m => ({
       at: `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}T${m[4].padStart(2, "0")}:${m[5]}`,
       numbers: m[6].split(",").map(n => Number(n.trim()))

@@ -130,8 +130,19 @@
 #sgo-addon .sgo-pop-row strong { color: var(--sgo-accent); white-space: nowrap; }
 #sgo-addon .sgo-error { color: #ffb1a3; }
 #sgo-addon #sgo-sectors-feature { padding: 16px 20px; }
-#sgo-addon #sgo-guardian-feature { padding: 16px 20px; }
-#sgo-addon #sgo-guardian-items a { color: var(--sgo-accent); }
+#sgo-addon #sgo-guardian-feature { padding: 0 0 12px; margin-bottom: 12px; border-bottom: 1px solid var(--sgo-line); }
+#sgo-addon .sgo-watch-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; }
+#sgo-addon #sgo-guardian-refresh { padding: 5px 9px; font-size: 11px; }
+#sgo-addon .sgo-watch-row { display: grid; grid-template-columns: 7px 80px minmax(0, 1fr); align-items: center; gap: 7px; padding: 7px 0; color: var(--sgo-text); text-decoration: none; font-size: 11px; border-bottom: 1px solid #28374e66; }
+#sgo-addon .sgo-watch-row::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #f1b363; }
+#sgo-addon .sgo-watch-row[data-status=ok]::before { background: #80dc9c; }
+#sgo-addon .sgo-watch-row[data-status=action]::before { background: #ff8e83; }
+#sgo-addon .sgo-watch-row span { overflow-wrap: anywhere; color: #f1b363; }
+#sgo-addon .sgo-watch-row[data-status=ok] span { color: #80dc9c; }
+#sgo-addon .sgo-watch-row[data-status=action] span { color: #ff8e83; }
+#sgo-addon .sgo-watch-settings { font-size: 11px; color: var(--sgo-muted); }
+#sgo-addon :is(.sgo-watch-row, .sgo-watch-settings summary):focus-visible { outline: 2px solid var(--sgo-accent); outline-offset: 3px; }
+#sgo-addon #sgo-guardian-status { margin: 6px 0; font-size: 10px; }
 #sgo-addon #sgo-guardian-feature input { display: block; width: 100%; min-width: 0; margin: 5px 0 10px; }
 #sgo-addon .sgo-sector-scroll { max-height: 48dvh; overflow: auto; scrollbar-width: thin; }
 #sgo-addon .sgo-sector-actions { display: flex; gap: 8px; margin: 10px 0; }
@@ -194,6 +205,7 @@
 #sgo-addon[data-mobile=true] #sgo-activity-view { height: 55dvh; min-height: 180px; }
 #sgo-addon[data-mobile=true] :is(#sgo-population-feature,#sgo-sectors-feature) { padding: 12px; }
 #sgo-addon[data-mobile=true] .sgo-sector-card { min-height: 44px; }
+#sgo-addon[data-mobile=true] .sgo-watch-row { min-height: 44px; }
 @media (prefers-reduced-motion: reduce) {
   #sgo-addon button { transition: none; }
 }

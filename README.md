@@ -3,7 +3,8 @@
 Tampermonkey userscript aj lokalne rozsirenie Manifest V3 pre kompatibilne prehliadace.
 Funkcie su dostupne z hlavneho menu: **Utok na Valu**, **Idealne zaludnenie**
 a **Nase sektory**.
-Herny kod neodosiela udaje mimo herneho servera a nepozaduje pristup k heslam.
+Volitelna synchronizacia posiela iba historiu zrebovani do nastaveneho Gistu.
+Doplnok nepozaduje pristup k hernemu heslu.
 Tampermonkey stahuje instalaciu a aktualizacie z GitHubu.
 
 ## Instalacia
@@ -41,16 +42,28 @@ pouzi instalaciu v beznom prehliadaci.
 
 ## Pouzitie
 
-### Strazca (rucna kontrola)
+### Denne kontroly na hlavnom prehlade
 
-Sekcia zobrazuje stav denneho bonusu, Herne a posledne hlasenie NN z rasovej
-posty. Bez udajov uvadza Nezname. Otvorenie sekcie ani hernej stranky nic
+Tri kompaktne riadky hore na hlavnom prehlade zobrazuju denny bonus, Hernu
+a posledne hlasenie NN z rasovej posty. Zelena znamena OK, oranzova nezname
+alebo neoverene udaje a cervena potrebnu akciu. Kliknutim na riadok otvoris
+prislusnu stranku hry; cas poslednej kontroly najdes v jeho popise.
+Otvorenie prehladu ani hernej stranky nic
 nenacitava navyse. Iba **Aktualizovat** vykona postupne tri kontrolne GETy,
-ulozi stav s casom kontroly a zaloguje vysledky. Pri chybe sa zastavi bez
-automatickeho opakovania. Stare udaje su vzdy oznacene casom; nejde o zivy stav.
+ulozi stav s casom kontroly a zaloguje vysledky. Chyba citania jednej kontroly
+nezablokuje ostatne; chyba nacitania, prihlasenia alebo overenia zastavi
+postup bez automatickeho opakovania. Chyba historie nezmeni rozpoznany stav
+stavky a nepreskoci NN. Zachovana lokalna historia sa moze stale synchronizovat.
+Udaje bonusu z ineho dna a stavky starsie ako sest hodin su oznacene ako
+nezname; nejde o zivy stav. Vek a okno NN sa prehodnotia lokalne pri zobrazeni
+prehladu, nie casovacom ani dalsou poziadavkou.
 Bonus netoci a stavky nepodava. Pocet pokusov bonusu neznamena potvrdene
-prevzatie odmeny. Cas NN je doslovne posledne najdene hlasenie, nie potvrdenie
-aktualnej dostupnosti. Aktualizacia je blokovana pocas utokov.
+prevzatie odmeny: pri nule preto zostava stav neovereny, pri zostavajucich
+pokusoch upozorni na akciu. Stav Herne je zeleny iba pri potvrdenej stavke;
+samotny vyskyt slova vsadit nie je dokaz, ze stavka chyba.
+Pred hlasenym oknom NN zobrazi cakanie, pocas okna upozorni na kontrolu,
+po nom uvadza nezname. Pouziva cas Europe/Prague a zohladnuje polnoc;
+hlasenie nie je potvrdenie aktualnej dostupnosti. Aktualizacia je blokovana pocas utokov.
 Automaticke nahodne vsadenie na 12 slosovani zatial nie je implementovane:
 pred jeho pridanim treba overit aktualny nativny formular, cenu a potvrdenie.
 
@@ -58,11 +71,12 @@ pred jeho pridanim treba overit aktualny nativny formular, cenu a potvrdenie.
 
 Pri **Aktualizovat** sa z Herne precita posledne a predposledne zrebovanie.
 Zaznamy maju cas hry `YYYY-MM-DDTHH:mm` a sest roznych kladnych cisel.
-Rovnake casy s rovnakymi cislami sa zlucia; konflikt vysledkov zastavi
-synchronizaciu bez prepisania. Zmeskane zrebovania addon nedopocitava.
+Rovnake casy s rovnakymi cislami sa zlucia; pri konflikte sa nezapisuje
+sporny vysledok. Konflikt pri synchronizacii ju zastavi bez prepisania Gistu.
+Zmeskane zrebovania addon nedopocitava.
 Historia zostava lokalne aj bez Gistu. Nejde o predpoved buducich vysledkov.
 
-V **Strazca > Gist synchronizacia** na kazdom zariadeni zadaj ID alebo odkaz
+V **hlavnom prehlade > Historia a Gist** na kazdom zariadeni zadaj ID alebo odkaz
 na svoj Gist a GitHub token classic s jedinym opravnenim `gist`, potom
 **Ulozit nastavenia**. Gist musi obsahovat subor `draws.json`:
 
