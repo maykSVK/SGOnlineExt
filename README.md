@@ -73,9 +73,13 @@ pred jeho pridanim treba overit aktualny nativny formular, cenu a potvrdenie.
 
 #### TOP 3 celkovo
 
-Mala sekcia naspodku hlavneho prehladu ukazuje prvych troch hracov z
+Kompaktne dlazdice funkcii su v hlavnom prehlade vedla seba. Mensia hlavicka
+a medzery setria vysku; dotykove ovladanie na mobile zostava zachovane.
+Mala tabulka naspodku hlavneho prehladu ukazuje prvych troch hracov z
 **Vesmir > Serazeni > Serazeni hracu** v poradi hry, bez vlastneho zoradovania.
 Zobrazuje meno, rasu, pocet planet, populaciu, silu, celkovu rozlohu a dobytia.
+Popisy stlpcov su spolocne, nie opakovane pri kazdom hracovi; cele meno
+a rasu najdes aj v popise riadka, plne nazvy statistik v popisoch hodnot.
 Nadpis aj riadky otvaraju tento rebricek. Udaje a cas kontroly sa uchovavaju
 lokalne; bez nacitania alebo pri chybe ukazuje Nezname.
 Pouziva spolocne tlacidlo **Aktualizovat** hore, nikdy automaticke nacitanie.

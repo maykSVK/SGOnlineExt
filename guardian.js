@@ -147,6 +147,13 @@
         rankingContainer.append(heading);
         const ranking = state.ranking;
         if (ranking?.status === "ok" && ranking.rows?.length === 3) {
+          const columns = document.createElement("div"); columns.className = "sgo-ranking-columns";
+          for (const [label, full] of [["Hráč / rasa", "Hráč / rasa"], ["Pl.", "Planéty"],
+            ["Pop.", "Populácia"], ["Sila", "Sila"], ["Rozloha", "Rozloha"], ["D.", "Dobytia"]]) {
+            const column = document.createElement("span"); column.textContent = label; column.title = full;
+            columns.append(column);
+          }
+          rankingContainer.append(columns);
           for (const player of ranking.rows) {
             const row = document.createElement("a");
             row.className = "sgo-ranking-row"; row.href = routes.ranking;
@@ -154,15 +161,15 @@
             const name = document.createElement("strong"); name.textContent = `${player.rank}. ${player.name}`;
             const race = document.createElement("span"); race.textContent = player.race;
             title.append(name, race);
-            const metrics = document.createElement("div"); metrics.className = "sgo-ranking-metrics";
+            row.append(title);
             for (const [label, value] of [["Planéty", player.planets], ["Populácia", player.population],
               ["Sila", player.power], ["Rozloha", player.area], ["Dobytia", player.conquered]]) {
               const metric = document.createElement("span");
-              const caption = document.createElement("small"); caption.textContent = label;
-              const number = document.createElement("strong"); number.textContent = value.toLocaleString("sk-SK");
-              metric.append(caption, number); metrics.append(metric);
+              metric.textContent = value.toLocaleString("sk-SK"); metric.title = `${label}: ${metric.textContent}`;
+              row.append(metric);
             }
-            row.append(title, metrics); rankingContainer.append(row);
+            row.title = `${player.rank}. ${player.name} · ${player.race}`;
+            rankingContainer.append(row);
           }
         }
         const note = document.createElement("p"); note.className = "sgo-note";

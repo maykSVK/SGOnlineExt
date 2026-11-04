@@ -156,10 +156,13 @@ test("one explicit refresh checks all pages; history errors never replace casino
   const nnLink = container.querySelector("#sgo-guardian-items").children[2];
   assert.equal(nnLink.href, "game.php?page=obchod&s=3", "NN click opens trade planets");
   assert.equal(saved["sgo-guardian"].ranking.rows.length, 3);
-  assert.equal(rankingContainer.children.length, 5, "heading, three players and last-check timestamp");
+  assert.equal(rankingContainer.children.length, 6, "heading, shared columns, three players and last-check timestamp");
   assert.equal(rankingContainer.children[0].href, "game.php?page=vesmir&jak=hraci");
-  assert.equal(rankingContainer.children[1].children[0].children[0].textContent, "1. mayk");
-  assert.equal(rankingContainer.children[1].children[1].children.length, 5);
+  assert.equal(rankingContainer.children[1].children.length, 6, "column labels appear once");
+  assert.equal(rankingContainer.children[2].children[0].children[0].textContent, "1. mayk");
+  assert.equal(rankingContainer.children[2].children.length, 6, "player plus five compact metric cells");
+  assert.equal(rankingContainer.children[2].children[1].textContent, "45");
+  assert.equal(rankingContainer.children[2].children[1].title, "Planéty: 45");
   assert.equal(maxActive, 1);
   assert.match(saved["sgo-guardian"].casino.text, /12/);
   assert.ok(saved["sgo-guardian"].bonus.time);

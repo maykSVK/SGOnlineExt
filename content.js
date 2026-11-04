@@ -28,17 +28,18 @@
   root.setAttribute("aria-label", "StarGame pomocnik");
   document.getElementById("sgo-investigation")?.remove();
   root.innerHTML = `<header>
-      <div class="sgo-brand"><span class="sgo-brand-icon" aria-hidden="true">S</span><div><span class="sgo-eyebrow">VELITEĽSKÝ PANEL</span><h2>StarGame pomocník</h2></div></div>
+      <div class="sgo-brand"><span class="sgo-brand-icon" aria-hidden="true">S</span><div><h2>StarGame pomocník</h2></div></div>
       <button type="button" id="sgo-collapse" aria-label="Zbaliť panel" aria-expanded="true" title="Zbaliť panel">&minus;</button>
     </header>
     <div class="sgo-body">
       <nav class="sgo-navigation" aria-label="Funkcie rozšírenia"><button type="button" id="sgo-back" hidden>&larr; Všetky funkcie</button><span id="sgo-feature-name">Prehľad funkcií</span></nav>
       <section id="sgo-home">
         <section id="sgo-guardian-feature" aria-label="Denné kontroly"></section>
-        <p class="sgo-hint">Vyber si pomocníka. Každá funkcia má vlastné nastavenia.</p>
-        <button type="button" class="sgo-feature-card" id="sgo-open-attacks"><span class="sgo-feature-icon">01</span><span><strong>Útok na Valu</strong><small>Typy útokov, jednotky, cooldown a denník</small></span><span aria-hidden="true">&rarr;</span></button>
-        <button type="button" class="sgo-feature-card" id="sgo-open-population"><span class="sgo-feature-icon">02</span><span><strong>Ideálne zaľudnenie</strong><small>Výpočet a predvyplnenie výroben na planétach</small></span><span aria-hidden="true">&rarr;</span></button>
-        <button type="button" class="sgo-feature-card" id="sgo-open-sectors"><span class="sgo-feature-icon">03</span><span><strong>Naše sektory</strong><small>Náskok pred súpermi a BBCode hlásenie</small></span><span aria-hidden="true">&rarr;</span></button>
+        <div class="sgo-feature-grid">
+        <button type="button" class="sgo-feature-card" id="sgo-open-attacks" title="Typy útokov, jednotky, cooldown a denník"><span class="sgo-feature-icon">01</span><span><strong>Útok na Valu</strong></span></button>
+        <button type="button" class="sgo-feature-card" id="sgo-open-population" title="Výpočet a predvyplnenie výroben na planétach"><span class="sgo-feature-icon">02</span><span><strong>Ideálne zaľudnenie</strong></span></button>
+        <button type="button" class="sgo-feature-card" id="sgo-open-sectors" title="Náskok pred súpermi a BBCode hlásenie"><span class="sgo-feature-icon">03</span><span><strong>Naše sektory</strong></span></button>
+        </div>
         <section id="sgo-ranking" aria-label="TOP 3 hráčov celkovo"></section>
       </section>
       <section id="sgo-attacks-feature" hidden>
