@@ -1,7 +1,7 @@
 (async function () {
   "use strict";
   if (document.readyState === "loading") await new Promise(resolve => document.addEventListener("DOMContentLoaded", resolve, { once: true }));
-  if (location.pathname !== "/www/game.php") return;
+  if (!["/www/game.php", "/game.php"].includes(location.pathname)) return;
   if (document.getElementById("sgo-addon")) return;
   const C = globalThis.SGO;
   const RUN_KEY = "sgo-addon-run";
@@ -38,6 +38,7 @@
         <button type="button" class="sgo-feature-card" id="sgo-open-attacks"><span class="sgo-feature-icon">01</span><span><strong>Útok na Valu</strong><small>Typy útokov, jednotky, cooldown a denník</small></span><span aria-hidden="true">&rarr;</span></button>
         <button type="button" class="sgo-feature-card" id="sgo-open-population"><span class="sgo-feature-icon">02</span><span><strong>Ideálne zaľudnenie</strong><small>Výpočet a predvyplnenie výroben na planétach</small></span><span aria-hidden="true">&rarr;</span></button>
         <button type="button" class="sgo-feature-card" id="sgo-open-sectors"><span class="sgo-feature-icon">03</span><span><strong>Naše sektory</strong><small>Náskok pred súpermi a BBCode hlásenie</small></span><span aria-hidden="true">&rarr;</span></button>
+        <button type="button" class="sgo-feature-card" id="sgo-open-guardian"><span class="sgo-feature-icon">04</span><span><strong>Strážca</strong><small>Denný bonus, Herňa a NN · ručná kontrola</small></span><span aria-hidden="true">&rarr;</span></button>
       </section>
       <section id="sgo-attacks-feature" hidden>
       <div class="sgo-target"><div><span class="sgo-eyebrow">CIEĽ MISIE <span class="sgo-target-tag">Uprchlíci</span></span><strong>Vala Mal Doran</strong></div>
@@ -61,6 +62,7 @@
       </section>
       <section id="sgo-population-feature" hidden></section>
       <section id="sgo-sectors-feature" hidden></section>
+      <section id="sgo-guardian-feature" hidden></section>
       <footer class="sgo-footer"><span class="sgo-footer-dot" aria-hidden="true"></span><span id="sgo-latest">Všetko pod kontrolou. Čakám na nastavenie.</span></footer>
     </div>`;
   document.body.append(root);
@@ -113,13 +115,14 @@
   let population;
   let sectors;
   function showFeature(feature, save = true) {
-    const selected = ["attacks", "population", "sectors"].includes(feature) ? feature : "home";
+    const selected = ["attacks", "population", "sectors", "guardian"].includes(feature) ? feature : "home";
     $("#sgo-home").hidden = selected !== "home";
     $("#sgo-attacks-feature").hidden = selected !== "attacks";
     $("#sgo-population-feature").hidden = selected !== "population";
     $("#sgo-sectors-feature").hidden = selected !== "sectors";
+    $("#sgo-guardian-feature").hidden = selected !== "guardian";
     $("#sgo-back").hidden = selected === "home";
-    $("#sgo-feature-name").textContent = { home: "Prehľad funkcií", attacks: "Útok na Valu", population: "Ideálne zaľudnenie", sectors: "Naše sektory" }[selected];
+    $("#sgo-feature-name").textContent = { home: "Prehľad funkcií", attacks: "Útok na Valu", population: "Ideálne zaľudnenie", sectors: "Naše sektory", guardian: "Strážca" }[selected];
     if (selected === "population") population?.refresh();
     if (selected === "sectors") sectors?.refresh();
     if (save) { data.feature = selected; persist(); }
@@ -205,7 +208,7 @@
     const response = await fetch(url, { credentials: "same-origin", cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}: ${url}`);
     const doc = new DOMParser().parseFromString(await response.text(), "text/html");
-    if (new URL(response.url).pathname !== "/www/game.php" || doc.querySelector('input[type="password"]')) {
+    if (!["/www/game.php", "/game.php"].includes(new URL(response.url).pathname) || doc.querySelector('input[type="password"]')) {
       throw new Error("Prihlasenie vyprsalo. Prihlas sa do hry.");
     }
     const result = C.response(doc);
@@ -529,6 +532,8 @@
   $("#sgo-open-population").addEventListener("click", () => showFeature("population"));
   population = globalThis.SGOPopulation.mount($("#sgo-population-feature"), { getDocument, log, canEdit: () => !run?.active && !busy, revealGame });
   $("#sgo-open-sectors").addEventListener("click", () => showFeature("sectors"));
+  $("#sgo-open-guardian").addEventListener("click", () => showFeature("guardian"));
+  globalThis.SGOGuardian.mount($("#sgo-guardian-feature"), { getDocument, log, storage, canEdit: () => !run?.active && !busy });
   sectors = globalThis.SGOSectors.mount($("#sgo-sectors-feature"), {
     getDocument, log, canEdit: () => !run?.active && !busy, revealGame,
     navigate: async url => { await writes; location.assign(url); }

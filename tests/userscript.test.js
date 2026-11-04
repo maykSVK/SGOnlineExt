@@ -14,7 +14,7 @@ test("self-contained userscript loads all modules and exact panel CSS", () => {
     GM_addStyle: css => { styles = css; }
   });
   vm.runInContext(source, context);
-  for (const name of ["SGOStorage", "SGO", "SGOPopulation", "SGOSectors"]) {
+  for (const name of ["SGOStorage", "SGO", "SGOPopulation", "SGOSectors", "SGOGuardian"]) {
     assert.ok(context[name], `${name} is bundled`);
   }
   assert.equal(styles, fs.readFileSync(path.join(root, "panel.css"), "utf8").replace(/\r\n/g, "\n").trimEnd());

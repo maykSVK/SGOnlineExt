@@ -41,6 +41,51 @@ pouzi instalaciu v beznom prehliadaci.
 
 ## Pouzitie
 
+### Strazca (rucna kontrola)
+
+Sekcia zobrazuje stav denneho bonusu, Herne a posledne hlasenie NN z rasovej
+posty. Bez udajov uvadza Nezname. Otvorenie sekcie ani hernej stranky nic
+nenacitava navyse. Iba **Aktualizovat** vykona postupne tri kontrolne GETy,
+ulozi stav s casom kontroly a zaloguje vysledky. Pri chybe sa zastavi bez
+automatickeho opakovania. Stare udaje su vzdy oznacene casom; nejde o zivy stav.
+Bonus netoci a stavky nepodava. Pocet pokusov bonusu neznamena potvrdene
+prevzatie odmeny. Cas NN je doslovne posledne najdene hlasenie, nie potvrdenie
+aktualnej dostupnosti. Aktualizacia je blokovana pocas utokov.
+Automaticke nahodne vsadenie na 12 slosovani zatial nie je implementovane:
+pred jeho pridanim treba overit aktualny nativny formular, cenu a potvrdenie.
+
+#### Historia zrebovani a Gist
+
+Pri **Aktualizovat** sa z Herne precita posledne a predposledne zrebovanie.
+Zaznamy maju cas hry `YYYY-MM-DDTHH:mm` a sest roznych kladnych cisel.
+Rovnake casy s rovnakymi cislami sa zlucia; konflikt vysledkov zastavi
+synchronizaciu bez prepisania. Zmeskane zrebovania addon nedopocitava.
+Historia zostava lokalne aj bez Gistu. Nejde o predpoved buducich vysledkov.
+
+V **Strazca > Gist synchronizacia** na kazdom zariadeni zadaj ID alebo odkaz
+na svoj Gist a GitHub token classic s jedinym opravnenim `gist`, potom
+**Ulozit nastavenia**. Gist musi obsahovat subor `draws.json`:
+
+```json
+{"schemaVersion": 1, "draws": []}
+```
+
+Public aj Secret Gist funguju rovnako. Secret nie je sukromny: kto pozna
+odkaz, moze citat vysledky. Token umoznuje aj pristup k dalsim Gistom uctu.
+Uklada sa iba lokalne v Tampermonkey/rozsireni, nie do repozitara, historie,
+logu ani Gistu. Ulozisko prehliadaca nie je trezor. Na jednotlivych zariadeniach
+odporucame samostatne tokeny s obmedzenou platnostou. Vymazanim tokenu a
+ulozenim nastaveni synchronizaciu vypnes.
+
+Iba **Aktualizovat** spusti po kontrolach hry GitHub GET, pripadne PATCH
+zlucenej historie a overovaci GET. Ziadne automaticke kontroly ani opakovania.
+Pri chybe je historia lokalna; skontroluj hlasenie a neskor aktualizuj rucne.
+Gist nema transakcne zlucovanie: overenie zachyti cast subeznych prepisov,
+nie vsetky. Lokalne zaznamy sa preto zachovavaju pre dalsie zlucenie.
+Ziadne tajne ani herne prihlasovacie udaje sa neodosielaju; token ide len
+do GitHub API na autentifikaciu. Tampermonkey si moze pri aktualizacii
+vyziadat povolenie pristupu k `api.github.com`.
+
 Na PC zostava povodny panel vpravo hore. Na dotykovych zariadeniach
 (mobil/tablet) alebo v okne do 700 CSS pixelov sa spusti zbalene tlacidlo
 **SGO** vpravo dole. Hru neblokuje mimo samotneho tlacidla.

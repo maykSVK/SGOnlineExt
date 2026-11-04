@@ -15,12 +15,15 @@ const header = `// ==UserScript==
 // @description  Vala attacks, ideal population and sector forum drafts.
 // @homepageURL  https://github.com/maykSVK/SGOnlineExt
 // @match        https://stargame-online.cz/www/game.php*
+// @match        https://stargame-online.cz/game.php*
 // @updateURL    ${base}/stargame-pomocnik.meta.js
 // @downloadURL  ${base}/stargame-pomocnik.user.js
 // @run-at       document-idle
 // @noframes
 // @grant        GM.getValue
 // @grant        GM.setValue
+// @grant        GM.xmlHttpRequest
+// @connect      api.github.com
 // @grant        GM_addStyle
 // ==/UserScript==
 `;

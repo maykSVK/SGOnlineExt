@@ -1,16 +1,19 @@
 // ==UserScript==
 // @name         StarGame pomocnik
 // @namespace    https://github.com/maykSVK/SGOnlineExt
-// @version      0.2.3
+// @version      0.3.0
 // @description  Vala attacks, ideal population and sector forum drafts.
 // @homepageURL  https://github.com/maykSVK/SGOnlineExt
 // @match        https://stargame-online.cz/www/game.php*
+// @match        https://stargame-online.cz/game.php*
 // @updateURL    https://raw.githubusercontent.com/maykSVK/SGOnlineExt/main/stargame-pomocnik.meta.js
 // @downloadURL  https://raw.githubusercontent.com/maykSVK/SGOnlineExt/main/stargame-pomocnik.user.js
 // @run-at       document-idle
 // @noframes
 // @grant        GM.getValue
 // @grant        GM.setValue
+// @grant        GM.xmlHttpRequest
+// @connect      api.github.com
 // @grant        GM_addStyle
 // ==/UserScript==
 
@@ -18,7 +21,7 @@
 (function () {
 "use strict";
 if (document.getElementById("sgo-addon")) return;
-GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-text: #e6edf7;\n  --sgo-muted: #8d9fb9;\n  --sgo-line: #28374e;\n  --sgo-accent: #65dec3;\n  position: fixed;\n  right: 16px;\n  top: 16px;\n  width: min(440px, calc(100vw - 32px));\n  max-height: calc(100dvh - 32px);\n  z-index: 2147483647;\n  display: flex;\n  flex-direction: column;\n  overflow: hidden;\n  background: #101a2b;\n  color: var(--sgo-text);\n  border: 1px solid #35445c;\n  border-radius: 16px;\n  box-shadow: 0 16px 64px #0009, 0 1px 0 #ffffff0a inset;\n  font: 13px/1.5 \"Segoe UI\", system-ui, sans-serif;\n  color-scheme: dark;\n}\n#sgo-addon *, #sgo-addon *::before, #sgo-addon *::after { box-sizing: border-box; }\n#sgo-addon [hidden] { display: none !important; }\n#sgo-addon #sgo-launcher { display: none; }\n#sgo-addon header {\n  display: flex; justify-content: space-between; align-items: center;\n  padding: 18px 20px; border-bottom: 1px solid var(--sgo-line); flex-shrink: 0;\n  background: linear-gradient(120deg, #1a2c42, #131e31);\n}\n#sgo-addon .sgo-brand { display: flex; align-items: center; gap: 12px; }\n#sgo-addon .sgo-brand-icon {\n  display: grid; place-items: center; width: 36px; height: 36px; border-radius: 11px;\n  color: var(--sgo-accent); background: #65dec311; border: 1px solid #65dec344;\n  font-size: 22px; font-weight: 700;\n}\n#sgo-addon .sgo-eyebrow { display: block; color: var(--sgo-muted); font-size: 9px; font-weight: 700; letter-spacing: 1.6px; }\n#sgo-addon h2 { all: unset; display: block; color: var(--sgo-text); font-size: 16px; font-weight: 650; letter-spacing: -.3px; }\n#sgo-addon .sgo-body { display: flex; flex-direction: column; min-height: 0; overflow: auto; }\n#sgo-addon button, #sgo-addon input, #sgo-addon select {\n  font: inherit; color: var(--sgo-text); background: #1c2a40;\n  border: 1px solid #364860; border-radius: 8px; padding: 8px 10px; margin: 0;\n}\n#sgo-addon button { cursor: pointer; transition: background .15s, border-color .15s; font-weight: 600; }\n#sgo-addon button:hover:not(:disabled) { background: #293d57; border-color: #6984a6; }\n#sgo-addon :is(button,input,select):focus-visible { outline: 2px solid var(--sgo-accent); outline-offset: 3px; }\n#sgo-addon :is(button,input,select):disabled { opacity: .4; cursor: not-allowed; }\n#sgo-addon #sgo-collapse { width: 30px; height: 30px; padding: 0; background: transparent; color: var(--sgo-muted); font-size: 18px; }\n#sgo-addon .sgo-target { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 18px 20px 12px; }\n#sgo-addon .sgo-target strong { display: block; font-size: 19px; font-weight: 650; letter-spacing: -.4px; margin-top: 5px; }\n#sgo-addon .sgo-target-tag { color: var(--sgo-accent); letter-spacing: .3px; margin-left: 7px; font-weight: 500; text-transform: none; }\n#sgo-addon #sgo-load { background: transparent; font-size: 12px; color: #b6c8df; padding: 7px 12px; }\n#sgo-addon .sgo-status-box { margin: 0 20px 12px; border: 1px solid var(--sgo-line); background: #152136; border-radius: 10px; padding: 10px 12px; }\n#sgo-addon #sgo-state { color: var(--sgo-accent); font-size: 9px; font-weight: 750; letter-spacing: 1.2px; }\n#sgo-addon #sgo-state::before { content: \"\"; display: inline-block; width: 6px; height: 6px; background: currentColor; border-radius: 50%; margin: 0 6px 1px 0; }\n#sgo-addon .sgo-status { color: #b6c8df; font-size: 12px; margin-top: 3px; overflow-wrap: anywhere; }\n#sgo-addon[data-state=error] #sgo-state { color: #ffa695; }\n#sgo-addon[data-state=error] .sgo-status-box { border-color: #a5534a66; background: #30202a; }\n#sgo-addon[data-state=waiting] #sgo-state, #sgo-addon[data-state=loading] #sgo-state { color: #eac57c; }\n#sgo-addon .sgo-actions { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin: 0 20px 18px; }\n#sgo-addon #sgo-start { background: var(--sgo-accent); border-color: var(--sgo-accent); color: #102a29; padding: 10px 14px; }\n#sgo-addon #sgo-start span { float: right; font-size: 16px; }\n#sgo-addon #sgo-start:hover:not(:disabled) { background: #8aeed8; }\n#sgo-addon #sgo-stop { background: #ff9a8910; border-color: #ff9a8933; color: #ffb1a3; padding-inline: 16px; }\n#sgo-addon .sgo-tabs { display: flex; gap: 20px; padding: 0 20px; border-bottom: 1px solid var(--sgo-line); flex-shrink: 0; }\n#sgo-addon .sgo-tabs button { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; color: var(--sgo-muted); padding: 0 2px 11px; }\n#sgo-addon .sgo-tabs button[aria-selected=true] { border-bottom-color: var(--sgo-accent); color: var(--sgo-text); }\n#sgo-addon .sgo-tabs button:hover { background: none; }\n#sgo-addon .sgo-tabs span { display: inline-block; min-width: 20px; padding: 0 5px; margin-left: 4px; background: #26364d; border-radius: 5px; font-size: 10px; font-variant-numeric: tabular-nums; }\n#sgo-addon .sgo-view { height: min(420px, 44dvh); min-height: 140px; overflow: auto; padding: 0 20px 12px; scrollbar-width: thin; scrollbar-color: #3a4d67 transparent; }\n#sgo-addon .sgo-hint { color: var(--sgo-muted); font-size: 11px; line-height: 1.7; margin: 13px 0; }\n#sgo-addon .sgo-hint strong { color: #b6c8df; font-weight: 500; }\n#sgo-addon .sgo-attack { min-width: 0; margin: 0 0 9px; padding: 12px; border: 1px solid var(--sgo-line); background: #152136; border-radius: 10px; }\n#sgo-addon .sgo-attack[data-selected=true] { border-color: #65dec365; background: #172e3b; box-shadow: 2px 0 0 var(--sgo-accent) inset; }\n#sgo-addon .sgo-attack legend { float: left; width: 100%; padding: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; }\n#sgo-addon .sgo-attack legend + * { clear: both; }\n#sgo-addon .sgo-attack-title { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 600; cursor: pointer; }\n#sgo-addon input[type=checkbox] { width: 15px; height: 15px; margin: 0; accent-color: var(--sgo-accent); flex-shrink: 0; cursor: pointer; }\n#sgo-addon .sgo-limit { color: #a6b9d1; font-size: 11px; font-variant-numeric: tabular-nums; background: #0c1728; padding: 2px 7px; border-radius: 5px; white-space: nowrap; }\n#sgo-addon .sgo-attack-preview { color: var(--sgo-muted); font-size: 11px; padding-left: 24px; }\n#sgo-addon .sgo-attack[data-unavailable] { background: #111d2e; border-style: dashed; }\n#sgo-addon .sgo-attack[data-unavailable] .sgo-attack-title { color: var(--sgo-muted); }\n#sgo-addon .sgo-note { color: var(--sgo-muted); font-size: 11px; overflow-wrap: anywhere; line-height: 1.6; }\n#sgo-addon .sgo-attack-body { border-top: 1px solid #65dec322; margin-top: 11px; padding-top: 2px; }\n#sgo-addon .sgo-quantity { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 8px; margin-top: 10px; }\n#sgo-addon .sgo-unit-name { grid-column: 1 / -1; color: #b6c8df; font-size: 11px; }\n#sgo-addon input[type=number] { width: 100%; min-width: 0; font-variant-numeric: tabular-nums; background: #0e1c2c; }\n#sgo-addon .sgo-quantity button { font-size: 11px; font-weight: 500; white-space: nowrap; color: #b7cde3; }\n#sgo-addon .sgo-quantity button[aria-pressed=true] { color: var(--sgo-accent); border-color: #65dec366; background: #65dec30a; }\n#sgo-addon .sgo-planet { display: block; color: #b6c8df; font-size: 11px; margin-top: 11px; }\n#sgo-addon select { display: block; width: 100%; min-width: 0; margin-top: 5px; font-size: 12px; background: #0e1c2c; }\n#sgo-addon #sgo-activity-view { padding: 0; overflow: hidden; display: flex; flex-direction: column; }\n#sgo-addon .sgo-log-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 11px 20px; color: var(--sgo-muted); font-size: 10px; border-bottom: 1px solid #28374e66; }\n#sgo-addon #sgo-export { padding: 4px 8px; font-size: 10px; background: transparent; }\n#sgo-addon .sgo-log { overflow: auto; flex: 1; min-height: 0; padding: 0 20px 8px; scrollbar-width: thin; scrollbar-color: #3a4d67 transparent; }\n#sgo-addon .sgo-log p { display: grid; grid-template-columns: auto 1fr; gap: 6px 8px; margin: 0; padding: 11px 0; border-bottom: 1px solid #28374e80; color: #a7bad1; font: 11px/1.65 \"Segoe UI\", sans-serif; }\n#sgo-addon .sgo-log time { color: #8196b0; font: 10px/1.6 ui-monospace, monospace; }\n#sgo-addon .sgo-log-badge { justify-self: start; font-size: 8px; letter-spacing: .7px; font-weight: 700; padding: 1px 5px; background: #83b9ff12; color: #93b9e8; border-radius: 4px; }\n#sgo-addon .sgo-log-message { grid-column: 1 / -1; overflow-wrap: anywhere; white-space: pre-wrap; }\n#sgo-addon p[data-level=error] .sgo-log-badge { color: #ffb1a3; background: #ff9a8918; }\n#sgo-addon p[data-level=warn] .sgo-log-badge { color: #eac57c; background: #eac57c18; }\n#sgo-addon p[data-level=success] .sgo-log-badge { color: var(--sgo-accent); background: #65dec318; }\n#sgo-addon p[data-level=error] .sgo-log-message { color: #ffb1a3; }\n#sgo-addon .sgo-footer { display: flex; align-items: center; gap: 7px; padding: 11px 20px; border-top: 1px solid var(--sgo-line); background: #0e1828; min-width: 0; flex-shrink: 0; }\n#sgo-addon .sgo-footer-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--sgo-accent); flex-shrink: 0; }\n#sgo-addon #sgo-latest { color: var(--sgo-muted); font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n#sgo-addon .sgo-navigation { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 20px; border-bottom: 1px solid var(--sgo-line); }\n#sgo-addon .sgo-navigation button { border: 0; background: none; padding: 0; color: var(--sgo-accent); font-size: 11px; }\n#sgo-addon #sgo-feature-name { color: var(--sgo-muted); font-size: 11px; }\n#sgo-addon #sgo-home { padding: 4px 20px 20px; }\n#sgo-addon .sgo-feature-card { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 16px 12px; margin-top: 12px; }\n#sgo-addon .sgo-feature-card > span:nth-child(2) { flex: 1; min-width: 0; }\n#sgo-addon .sgo-feature-card strong { display: block; font-size: 14px; }\n#sgo-addon .sgo-feature-card small { display: block; font-size: 11px; color: var(--sgo-muted); font-weight: 400; margin-top: 5px; }\n#sgo-addon .sgo-feature-icon { color: var(--sgo-accent); font-size: 18px; font-weight: 400; }\n#sgo-addon #sgo-population-feature { padding: 16px 20px; }\n#sgo-addon .sgo-feature-heading h3 { margin: 5px 0 0; font-size: 19px; color: var(--sgo-text); text-align: left; }\n#sgo-addon .sgo-pop-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }\n#sgo-addon .sgo-pop-tools a { color: var(--sgo-accent); font-size: 11px; }\n#sgo-addon .sgo-pop-scroll { max-height: 48dvh; overflow: auto; scrollbar-width: thin; }\n#sgo-addon .sgo-pop-label { color: var(--sgo-muted); font-size: 11px; }\n#sgo-addon .sgo-pop-metrics { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; margin: 14px 0; padding: 14px 10px; background: #152136; border-radius: 10px; font-size: 11px; }\n#sgo-addon .sgo-pop-metrics dt { color: var(--sgo-muted); }\n#sgo-addon .sgo-pop-metrics dd { margin: 0; color: var(--sgo-text); text-align: right; font-variant-numeric: tabular-nums; }\n#sgo-addon .sgo-pop-fill { width: 100%; color: var(--sgo-accent); }\n#sgo-addon #sgo-pop-list { margin-top: 18px; }\n#sgo-addon .sgo-pop-row { width: 100%; display: flex; justify-content: space-between; gap: 8px; margin-top: 6px; font-size: 11px; text-align: left; }\n#sgo-addon .sgo-pop-row strong { color: var(--sgo-accent); white-space: nowrap; }\n#sgo-addon .sgo-error { color: #ffb1a3; }\n#sgo-addon #sgo-sectors-feature { padding: 16px 20px; }\n#sgo-addon .sgo-sector-scroll { max-height: 48dvh; overflow: auto; scrollbar-width: thin; }\n#sgo-addon .sgo-sector-actions { display: flex; gap: 8px; margin: 10px 0; }\n#sgo-addon #sgo-sectors-prefill { border-color: #65dec366; color: var(--sgo-accent); }\n#sgo-addon .sgo-sector-summary { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--sgo-line); color: var(--sgo-muted); font-size: 12px; }\n#sgo-addon .sgo-sector-summary strong { background: #65dec314; border-radius: 20px; padding: 3px 10px; color: var(--sgo-accent); font-size: 11px; }\n#sgo-addon .sgo-sector-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(90px, 1fr) 44px; align-items: center; gap: 8px; padding: 7px 10px; margin: 0; min-height: 43px; border-bottom: 1px solid var(--sgo-line); background: #152136; }\n#sgo-addon .sgo-sector-card:nth-child(even) { background: #121e30; }\n#sgo-addon .sgo-sector-card:first-child { box-shadow: 2px 0 0 #eac57c inset; }\n#sgo-addon .sgo-sector-heading { min-width: 0; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px; }\n#sgo-addon .sgo-sector-heading strong { font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }\n#sgo-addon .sgo-sector-card small { color: var(--sgo-muted); font-size: 9px; }\n#sgo-addon .sgo-sector-margin { text-align: right; }\n#sgo-addon .sgo-sector-margin b { display: inline-block; color: var(--sgo-accent); background: #65dec310; border-radius: 5px; padding: 2px 5px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }\n#sgo-addon .sgo-sector-card:first-child .sgo-sector-margin b { color: #eac57c; }\n#sgo-addon .sgo-sector-nearby { border-top: 1px solid #53647d; margin-top: 14px; padding-top: 10px; }\n#sgo-addon .sgo-sector-nearby h4 { margin: 0 0 8px; color: var(--sgo-muted); font: inherit; font-size: 11px; font-weight: 600; }\n#sgo-addon .sgo-sector-nearby .sgo-sector-card:first-child { box-shadow: none; }\n#sgo-addon .sgo-sector-nearby .sgo-sector-margin b { color: #eac57c; background: #eac57c10; }\n#sgo-addon .sgo-sector-comparison { min-width: 0; display: flex; flex-direction: column; font-size: 10px; line-height: 1.3; color: var(--sgo-muted); }\n#sgo-addon .sgo-sector-comparison strong { color: #b7e9dd; font-size: 11px; font-weight: 500; font-variant-numeric: tabular-nums; }\n#sgo-addon .sgo-sector-comparison span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#sgo-addon .sgo-sector-links { display: flex; justify-content: space-between; gap: 10px; padding-top: 12px; border-top: 1px solid var(--sgo-line); }\n#sgo-addon .sgo-sector-links a { color: var(--sgo-muted); font-size: 10px; text-decoration: none; }\n#sgo-addon .sgo-sector-links a:hover { color: var(--sgo-accent); text-decoration: underline; }\n#sgo-addon[data-mobile=true] {\n  left: var(--sgo-mobile-left); top: var(--sgo-mobile-top); right: auto;\n  width: var(--sgo-mobile-width); height: var(--sgo-mobile-height); max-height: none;\n  transform: scale(var(--sgo-mobile-scale)); transform-origin: top left;\n  border-radius: 0; font-size: 14px;\n}\n#sgo-addon[data-mobile=true]:not(.sgo-mobile-open) {\n  pointer-events: none; background: none; border: 0; box-shadow: none;\n}\n#sgo-addon[data-mobile=true]:not(.sgo-mobile-open) > :not(#sgo-launcher) { display: none !important; }\n#sgo-addon[data-mobile=true]:not(.sgo-mobile-open) #sgo-launcher {\n  display: block; position: absolute; right: max(12px, env(safe-area-inset-right));\n  bottom: max(12px, env(safe-area-inset-bottom)); width: 52px; height: 52px;\n  padding: 0; border-radius: 50%; pointer-events: auto; color: var(--sgo-accent);\n  background: #142a38; border: 1px solid #65dec388; box-shadow: 0 3px 14px #0008;\n}\n#sgo-addon[data-mobile=true][data-state=running] #sgo-launcher::after,\n#sgo-addon[data-mobile=true][data-state=waiting] #sgo-launcher::after,\n#sgo-addon[data-mobile=true][data-state=error] #sgo-launcher::after {\n  content: \"\"; position: absolute; top: 1px; right: 1px; width: 10px; height: 10px;\n  border-radius: 50%; background: var(--sgo-accent); border: 2px solid #142a38;\n}\n#sgo-addon[data-mobile=true][data-state=error] #sgo-launcher::after { background: #ffa695; }\n#sgo-addon[data-mobile=true] header {\n  padding: max(10px, env(safe-area-inset-top)) 12px 10px; gap: 8px;\n}\n#sgo-addon[data-mobile=true] #sgo-collapse { width: 44px; height: 44px; flex-shrink: 0; font-size: 26px; }\n#sgo-addon[data-mobile=true] .sgo-body { flex: 1; overscroll-behavior: contain; padding-bottom: env(safe-area-inset-bottom); }\n#sgo-addon[data-mobile=true] :is(button,input,select) { min-height: 44px; touch-action: manipulation; }\n#sgo-addon[data-mobile=true] :is(input,select) { font-size: 16px; }\n#sgo-addon[data-mobile=true] input[type=checkbox] { width: 22px; height: 22px; min-height: 22px; }\n#sgo-addon[data-mobile=true] .sgo-quantity { grid-template-columns: minmax(0, 1fr); }\n#sgo-addon[data-mobile=true] :is(.sgo-pop-scroll,.sgo-sector-scroll) { max-height: none; overflow: visible; }\n#sgo-addon[data-mobile=true] .sgo-view { height: auto; min-height: 140px; overflow: visible; }\n#sgo-addon[data-mobile=true] #sgo-activity-view { height: 55dvh; min-height: 180px; }\n#sgo-addon[data-mobile=true] :is(#sgo-population-feature,#sgo-sectors-feature) { padding: 12px; }\n#sgo-addon[data-mobile=true] .sgo-sector-card { min-height: 44px; }\n@media (prefers-reduced-motion: reduce) {\n  #sgo-addon button { transition: none; }\n}\ntr.sgo-prefilled-planet > td {\n  background: #193e43 !important;\n  border-top: 2px solid #65dec3 !important;\n  border-bottom: 2px solid #65dec3 !important;\n}\ntr.sgo-prefilled-planet > td:first-child { border-left: 3px solid #65dec3 !important; }\ntr.sgo-prefilled-planet > td:last-child { border-right: 3px solid #65dec3 !important; }\ntr.sgo-prefilled-planet > td a { color: #b7ffea !important; font-weight: bold; }");
+GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-text: #e6edf7;\n  --sgo-muted: #8d9fb9;\n  --sgo-line: #28374e;\n  --sgo-accent: #65dec3;\n  position: fixed;\n  right: 16px;\n  top: 16px;\n  width: min(440px, calc(100vw - 32px));\n  max-height: calc(100dvh - 32px);\n  z-index: 2147483647;\n  display: flex;\n  flex-direction: column;\n  overflow: hidden;\n  background: #101a2b;\n  color: var(--sgo-text);\n  border: 1px solid #35445c;\n  border-radius: 16px;\n  box-shadow: 0 16px 64px #0009, 0 1px 0 #ffffff0a inset;\n  font: 13px/1.5 \"Segoe UI\", system-ui, sans-serif;\n  color-scheme: dark;\n}\n#sgo-addon *, #sgo-addon *::before, #sgo-addon *::after { box-sizing: border-box; }\n#sgo-addon [hidden] { display: none !important; }\n#sgo-addon #sgo-launcher { display: none; }\n#sgo-addon header {\n  display: flex; justify-content: space-between; align-items: center;\n  padding: 18px 20px; border-bottom: 1px solid var(--sgo-line); flex-shrink: 0;\n  background: linear-gradient(120deg, #1a2c42, #131e31);\n}\n#sgo-addon .sgo-brand { display: flex; align-items: center; gap: 12px; }\n#sgo-addon .sgo-brand-icon {\n  display: grid; place-items: center; width: 36px; height: 36px; border-radius: 11px;\n  color: var(--sgo-accent); background: #65dec311; border: 1px solid #65dec344;\n  font-size: 22px; font-weight: 700;\n}\n#sgo-addon .sgo-eyebrow { display: block; color: var(--sgo-muted); font-size: 9px; font-weight: 700; letter-spacing: 1.6px; }\n#sgo-addon h2 { all: unset; display: block; color: var(--sgo-text); font-size: 16px; font-weight: 650; letter-spacing: -.3px; }\n#sgo-addon .sgo-body { display: flex; flex-direction: column; min-height: 0; overflow: auto; }\n#sgo-addon button, #sgo-addon input, #sgo-addon select {\n  font: inherit; color: var(--sgo-text); background: #1c2a40;\n  border: 1px solid #364860; border-radius: 8px; padding: 8px 10px; margin: 0;\n}\n#sgo-addon button { cursor: pointer; transition: background .15s, border-color .15s; font-weight: 600; }\n#sgo-addon button:hover:not(:disabled) { background: #293d57; border-color: #6984a6; }\n#sgo-addon :is(button,input,select):focus-visible { outline: 2px solid var(--sgo-accent); outline-offset: 3px; }\n#sgo-addon :is(button,input,select):disabled { opacity: .4; cursor: not-allowed; }\n#sgo-addon #sgo-collapse { width: 30px; height: 30px; padding: 0; background: transparent; color: var(--sgo-muted); font-size: 18px; }\n#sgo-addon .sgo-target { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 18px 20px 12px; }\n#sgo-addon .sgo-target strong { display: block; font-size: 19px; font-weight: 650; letter-spacing: -.4px; margin-top: 5px; }\n#sgo-addon .sgo-target-tag { color: var(--sgo-accent); letter-spacing: .3px; margin-left: 7px; font-weight: 500; text-transform: none; }\n#sgo-addon #sgo-load { background: transparent; font-size: 12px; color: #b6c8df; padding: 7px 12px; }\n#sgo-addon .sgo-status-box { margin: 0 20px 12px; border: 1px solid var(--sgo-line); background: #152136; border-radius: 10px; padding: 10px 12px; }\n#sgo-addon #sgo-state { color: var(--sgo-accent); font-size: 9px; font-weight: 750; letter-spacing: 1.2px; }\n#sgo-addon #sgo-state::before { content: \"\"; display: inline-block; width: 6px; height: 6px; background: currentColor; border-radius: 50%; margin: 0 6px 1px 0; }\n#sgo-addon .sgo-status { color: #b6c8df; font-size: 12px; margin-top: 3px; overflow-wrap: anywhere; }\n#sgo-addon[data-state=error] #sgo-state { color: #ffa695; }\n#sgo-addon[data-state=error] .sgo-status-box { border-color: #a5534a66; background: #30202a; }\n#sgo-addon[data-state=waiting] #sgo-state, #sgo-addon[data-state=loading] #sgo-state { color: #eac57c; }\n#sgo-addon .sgo-actions { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin: 0 20px 18px; }\n#sgo-addon #sgo-start { background: var(--sgo-accent); border-color: var(--sgo-accent); color: #102a29; padding: 10px 14px; }\n#sgo-addon #sgo-start span { float: right; font-size: 16px; }\n#sgo-addon #sgo-start:hover:not(:disabled) { background: #8aeed8; }\n#sgo-addon #sgo-stop { background: #ff9a8910; border-color: #ff9a8933; color: #ffb1a3; padding-inline: 16px; }\n#sgo-addon .sgo-tabs { display: flex; gap: 20px; padding: 0 20px; border-bottom: 1px solid var(--sgo-line); flex-shrink: 0; }\n#sgo-addon .sgo-tabs button { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; color: var(--sgo-muted); padding: 0 2px 11px; }\n#sgo-addon .sgo-tabs button[aria-selected=true] { border-bottom-color: var(--sgo-accent); color: var(--sgo-text); }\n#sgo-addon .sgo-tabs button:hover { background: none; }\n#sgo-addon .sgo-tabs span { display: inline-block; min-width: 20px; padding: 0 5px; margin-left: 4px; background: #26364d; border-radius: 5px; font-size: 10px; font-variant-numeric: tabular-nums; }\n#sgo-addon .sgo-view { height: min(420px, 44dvh); min-height: 140px; overflow: auto; padding: 0 20px 12px; scrollbar-width: thin; scrollbar-color: #3a4d67 transparent; }\n#sgo-addon .sgo-hint { color: var(--sgo-muted); font-size: 11px; line-height: 1.7; margin: 13px 0; }\n#sgo-addon .sgo-hint strong { color: #b6c8df; font-weight: 500; }\n#sgo-addon .sgo-attack { min-width: 0; margin: 0 0 9px; padding: 12px; border: 1px solid var(--sgo-line); background: #152136; border-radius: 10px; }\n#sgo-addon .sgo-attack[data-selected=true] { border-color: #65dec365; background: #172e3b; box-shadow: 2px 0 0 var(--sgo-accent) inset; }\n#sgo-addon .sgo-attack legend { float: left; width: 100%; padding: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; }\n#sgo-addon .sgo-attack legend + * { clear: both; }\n#sgo-addon .sgo-attack-title { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 600; cursor: pointer; }\n#sgo-addon input[type=checkbox] { width: 15px; height: 15px; margin: 0; accent-color: var(--sgo-accent); flex-shrink: 0; cursor: pointer; }\n#sgo-addon .sgo-limit { color: #a6b9d1; font-size: 11px; font-variant-numeric: tabular-nums; background: #0c1728; padding: 2px 7px; border-radius: 5px; white-space: nowrap; }\n#sgo-addon .sgo-attack-preview { color: var(--sgo-muted); font-size: 11px; padding-left: 24px; }\n#sgo-addon .sgo-attack[data-unavailable] { background: #111d2e; border-style: dashed; }\n#sgo-addon .sgo-attack[data-unavailable] .sgo-attack-title { color: var(--sgo-muted); }\n#sgo-addon .sgo-note { color: var(--sgo-muted); font-size: 11px; overflow-wrap: anywhere; line-height: 1.6; }\n#sgo-addon .sgo-attack-body { border-top: 1px solid #65dec322; margin-top: 11px; padding-top: 2px; }\n#sgo-addon .sgo-quantity { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 8px; margin-top: 10px; }\n#sgo-addon .sgo-unit-name { grid-column: 1 / -1; color: #b6c8df; font-size: 11px; }\n#sgo-addon input[type=number] { width: 100%; min-width: 0; font-variant-numeric: tabular-nums; background: #0e1c2c; }\n#sgo-addon .sgo-quantity button { font-size: 11px; font-weight: 500; white-space: nowrap; color: #b7cde3; }\n#sgo-addon .sgo-quantity button[aria-pressed=true] { color: var(--sgo-accent); border-color: #65dec366; background: #65dec30a; }\n#sgo-addon .sgo-planet { display: block; color: #b6c8df; font-size: 11px; margin-top: 11px; }\n#sgo-addon select { display: block; width: 100%; min-width: 0; margin-top: 5px; font-size: 12px; background: #0e1c2c; }\n#sgo-addon #sgo-activity-view { padding: 0; overflow: hidden; display: flex; flex-direction: column; }\n#sgo-addon .sgo-log-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 11px 20px; color: var(--sgo-muted); font-size: 10px; border-bottom: 1px solid #28374e66; }\n#sgo-addon #sgo-export { padding: 4px 8px; font-size: 10px; background: transparent; }\n#sgo-addon .sgo-log { overflow: auto; flex: 1; min-height: 0; padding: 0 20px 8px; scrollbar-width: thin; scrollbar-color: #3a4d67 transparent; }\n#sgo-addon .sgo-log p { display: grid; grid-template-columns: auto 1fr; gap: 6px 8px; margin: 0; padding: 11px 0; border-bottom: 1px solid #28374e80; color: #a7bad1; font: 11px/1.65 \"Segoe UI\", sans-serif; }\n#sgo-addon .sgo-log time { color: #8196b0; font: 10px/1.6 ui-monospace, monospace; }\n#sgo-addon .sgo-log-badge { justify-self: start; font-size: 8px; letter-spacing: .7px; font-weight: 700; padding: 1px 5px; background: #83b9ff12; color: #93b9e8; border-radius: 4px; }\n#sgo-addon .sgo-log-message { grid-column: 1 / -1; overflow-wrap: anywhere; white-space: pre-wrap; }\n#sgo-addon p[data-level=error] .sgo-log-badge { color: #ffb1a3; background: #ff9a8918; }\n#sgo-addon p[data-level=warn] .sgo-log-badge { color: #eac57c; background: #eac57c18; }\n#sgo-addon p[data-level=success] .sgo-log-badge { color: var(--sgo-accent); background: #65dec318; }\n#sgo-addon p[data-level=error] .sgo-log-message { color: #ffb1a3; }\n#sgo-addon .sgo-footer { display: flex; align-items: center; gap: 7px; padding: 11px 20px; border-top: 1px solid var(--sgo-line); background: #0e1828; min-width: 0; flex-shrink: 0; }\n#sgo-addon .sgo-footer-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--sgo-accent); flex-shrink: 0; }\n#sgo-addon #sgo-latest { color: var(--sgo-muted); font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n#sgo-addon .sgo-navigation { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 20px; border-bottom: 1px solid var(--sgo-line); }\n#sgo-addon .sgo-navigation button { border: 0; background: none; padding: 0; color: var(--sgo-accent); font-size: 11px; }\n#sgo-addon #sgo-feature-name { color: var(--sgo-muted); font-size: 11px; }\n#sgo-addon #sgo-home { padding: 4px 20px 20px; }\n#sgo-addon .sgo-feature-card { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 16px 12px; margin-top: 12px; }\n#sgo-addon .sgo-feature-card > span:nth-child(2) { flex: 1; min-width: 0; }\n#sgo-addon .sgo-feature-card strong { display: block; font-size: 14px; }\n#sgo-addon .sgo-feature-card small { display: block; font-size: 11px; color: var(--sgo-muted); font-weight: 400; margin-top: 5px; }\n#sgo-addon .sgo-feature-icon { color: var(--sgo-accent); font-size: 18px; font-weight: 400; }\n#sgo-addon #sgo-population-feature { padding: 16px 20px; }\n#sgo-addon .sgo-feature-heading h3 { margin: 5px 0 0; font-size: 19px; color: var(--sgo-text); text-align: left; }\n#sgo-addon .sgo-pop-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }\n#sgo-addon .sgo-pop-tools a { color: var(--sgo-accent); font-size: 11px; }\n#sgo-addon .sgo-pop-scroll { max-height: 48dvh; overflow: auto; scrollbar-width: thin; }\n#sgo-addon .sgo-pop-label { color: var(--sgo-muted); font-size: 11px; }\n#sgo-addon .sgo-pop-metrics { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; margin: 14px 0; padding: 14px 10px; background: #152136; border-radius: 10px; font-size: 11px; }\n#sgo-addon .sgo-pop-metrics dt { color: var(--sgo-muted); }\n#sgo-addon .sgo-pop-metrics dd { margin: 0; color: var(--sgo-text); text-align: right; font-variant-numeric: tabular-nums; }\n#sgo-addon .sgo-pop-fill { width: 100%; color: var(--sgo-accent); }\n#sgo-addon #sgo-pop-list { margin-top: 18px; }\n#sgo-addon .sgo-pop-row { width: 100%; display: flex; justify-content: space-between; gap: 8px; margin-top: 6px; font-size: 11px; text-align: left; }\n#sgo-addon .sgo-pop-row strong { color: var(--sgo-accent); white-space: nowrap; }\n#sgo-addon .sgo-error { color: #ffb1a3; }\n#sgo-addon #sgo-sectors-feature { padding: 16px 20px; }\n#sgo-addon #sgo-guardian-feature { padding: 16px 20px; }\n#sgo-addon #sgo-guardian-items a { color: var(--sgo-accent); }\n#sgo-addon #sgo-guardian-feature input { display: block; width: 100%; min-width: 0; margin: 5px 0 10px; }\n#sgo-addon .sgo-sector-scroll { max-height: 48dvh; overflow: auto; scrollbar-width: thin; }\n#sgo-addon .sgo-sector-actions { display: flex; gap: 8px; margin: 10px 0; }\n#sgo-addon #sgo-sectors-prefill { border-color: #65dec366; color: var(--sgo-accent); }\n#sgo-addon .sgo-sector-summary { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--sgo-line); color: var(--sgo-muted); font-size: 12px; }\n#sgo-addon .sgo-sector-summary strong { background: #65dec314; border-radius: 20px; padding: 3px 10px; color: var(--sgo-accent); font-size: 11px; }\n#sgo-addon .sgo-sector-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(90px, 1fr) 44px; align-items: center; gap: 8px; padding: 7px 10px; margin: 0; min-height: 43px; border-bottom: 1px solid var(--sgo-line); background: #152136; }\n#sgo-addon .sgo-sector-card:nth-child(even) { background: #121e30; }\n#sgo-addon .sgo-sector-card:first-child { box-shadow: 2px 0 0 #eac57c inset; }\n#sgo-addon .sgo-sector-heading { min-width: 0; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px; }\n#sgo-addon .sgo-sector-heading strong { font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }\n#sgo-addon .sgo-sector-card small { color: var(--sgo-muted); font-size: 9px; }\n#sgo-addon .sgo-sector-margin { text-align: right; }\n#sgo-addon .sgo-sector-margin b { display: inline-block; color: var(--sgo-accent); background: #65dec310; border-radius: 5px; padding: 2px 5px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }\n#sgo-addon .sgo-sector-card:first-child .sgo-sector-margin b { color: #eac57c; }\n#sgo-addon .sgo-sector-nearby { border-top: 1px solid #53647d; margin-top: 14px; padding-top: 10px; }\n#sgo-addon .sgo-sector-nearby h4 { margin: 0 0 8px; color: var(--sgo-muted); font: inherit; font-size: 11px; font-weight: 600; }\n#sgo-addon .sgo-sector-nearby .sgo-sector-card:first-child { box-shadow: none; }\n#sgo-addon .sgo-sector-nearby .sgo-sector-margin b { color: #eac57c; background: #eac57c10; }\n#sgo-addon .sgo-sector-comparison { min-width: 0; display: flex; flex-direction: column; font-size: 10px; line-height: 1.3; color: var(--sgo-muted); }\n#sgo-addon .sgo-sector-comparison strong { color: #b7e9dd; font-size: 11px; font-weight: 500; font-variant-numeric: tabular-nums; }\n#sgo-addon .sgo-sector-comparison span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#sgo-addon .sgo-sector-links { display: flex; justify-content: space-between; gap: 10px; padding-top: 12px; border-top: 1px solid var(--sgo-line); }\n#sgo-addon .sgo-sector-links a { color: var(--sgo-muted); font-size: 10px; text-decoration: none; }\n#sgo-addon .sgo-sector-links a:hover { color: var(--sgo-accent); text-decoration: underline; }\n#sgo-addon[data-mobile=true] {\n  left: var(--sgo-mobile-left); top: var(--sgo-mobile-top); right: auto;\n  width: var(--sgo-mobile-width); height: var(--sgo-mobile-height); max-height: none;\n  transform: scale(var(--sgo-mobile-scale)); transform-origin: top left;\n  border-radius: 0; font-size: 14px;\n}\n#sgo-addon[data-mobile=true]:not(.sgo-mobile-open) {\n  pointer-events: none; background: none; border: 0; box-shadow: none;\n}\n#sgo-addon[data-mobile=true]:not(.sgo-mobile-open) > :not(#sgo-launcher) { display: none !important; }\n#sgo-addon[data-mobile=true]:not(.sgo-mobile-open) #sgo-launcher {\n  display: block; position: absolute; right: max(12px, env(safe-area-inset-right));\n  bottom: max(12px, env(safe-area-inset-bottom)); width: 52px; height: 52px;\n  padding: 0; border-radius: 50%; pointer-events: auto; color: var(--sgo-accent);\n  background: #142a38; border: 1px solid #65dec388; box-shadow: 0 3px 14px #0008;\n}\n#sgo-addon[data-mobile=true][data-state=running] #sgo-launcher::after,\n#sgo-addon[data-mobile=true][data-state=waiting] #sgo-launcher::after,\n#sgo-addon[data-mobile=true][data-state=error] #sgo-launcher::after {\n  content: \"\"; position: absolute; top: 1px; right: 1px; width: 10px; height: 10px;\n  border-radius: 50%; background: var(--sgo-accent); border: 2px solid #142a38;\n}\n#sgo-addon[data-mobile=true][data-state=error] #sgo-launcher::after { background: #ffa695; }\n#sgo-addon[data-mobile=true] header {\n  padding: max(10px, env(safe-area-inset-top)) 12px 10px; gap: 8px;\n}\n#sgo-addon[data-mobile=true] #sgo-collapse { width: 44px; height: 44px; flex-shrink: 0; font-size: 26px; }\n#sgo-addon[data-mobile=true] .sgo-body { flex: 1; overscroll-behavior: contain; padding-bottom: env(safe-area-inset-bottom); }\n#sgo-addon[data-mobile=true] :is(button,input,select) { min-height: 44px; touch-action: manipulation; }\n#sgo-addon[data-mobile=true] :is(input,select) { font-size: 16px; }\n#sgo-addon[data-mobile=true] input[type=checkbox] { width: 22px; height: 22px; min-height: 22px; }\n#sgo-addon[data-mobile=true] .sgo-quantity { grid-template-columns: minmax(0, 1fr); }\n#sgo-addon[data-mobile=true] :is(.sgo-pop-scroll,.sgo-sector-scroll) { max-height: none; overflow: visible; }\n#sgo-addon[data-mobile=true] .sgo-view { height: auto; min-height: 140px; overflow: visible; }\n#sgo-addon[data-mobile=true] #sgo-activity-view { height: 55dvh; min-height: 180px; }\n#sgo-addon[data-mobile=true] :is(#sgo-population-feature,#sgo-sectors-feature) { padding: 12px; }\n#sgo-addon[data-mobile=true] .sgo-sector-card { min-height: 44px; }\n@media (prefers-reduced-motion: reduce) {\n  #sgo-addon button { transition: none; }\n}\ntr.sgo-prefilled-planet > td {\n  background: #193e43 !important;\n  border-top: 2px solid #65dec3 !important;\n  border-bottom: 2px solid #65dec3 !important;\n}\ntr.sgo-prefilled-planet > td:first-child { border-left: 3px solid #65dec3 !important; }\ntr.sgo-prefilled-planet > td:last-child { border-right: 3px solid #65dec3 !important; }\ntr.sgo-prefilled-planet > td a { color: #b7ffea !important; font-weight: bold; }");
 (function (root) {
   "use strict";
   function createStorage(env) {
@@ -713,10 +716,254 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
   else root.SGOSectors = api;
 })(globalThis);
 
+(function (root) {
+  "use strict";
+  function validateDraw(draw) {
+    if (!draw || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(draw.at) ||
+        !Array.isArray(draw.numbers) || draw.numbers.length !== 6 ||
+        draw.numbers.some(n => !Number.isSafeInteger(n) || n < 1) ||
+        new Set(draw.numbers).size !== 6) throw new Error("Neplatný záznam žrebovania.");
+    const [day, time] = draw.at.split("T");
+    const date = new Date(`${day}T${time}:00Z`);
+    if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 16) !== draw.at) throw new Error("Neplatný čas žrebovania.");
+    return { at: draw.at, numbers: [...draw.numbers].sort((a, b) => a - b) };
+  }
+  function merge(...histories) {
+    const result = new Map();
+    for (const history of histories) {
+      if (!Array.isArray(history)) throw new Error("Neplatná história žrebovaní.");
+      for (const item of history) {
+        const draw = validateDraw(item);
+        const existing = result.get(draw.at);
+        if (existing && JSON.stringify(existing.numbers) !== JSON.stringify(draw.numbers)) {
+          throw new Error(`Rozdielne výsledky pre žrebovanie ${draw.at}. Automaticky ich neprepíšem.`);
+        }
+        result.set(draw.at, draw);
+      }
+    }
+    return [...result.values()].sort((a, b) => a.at.localeCompare(b.at));
+  }
+  function readDraws(text) {
+    const pattern = /(?:Předposlední|Poslední)\s+tažená\s+čísla:\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})\s+v\s+(\d{1,2}):(\d{2})\s+((?:\d+\s*,\s*){5}\d+)(?!\s*,)/g;
+    const draws = [...text.matchAll(pattern)].map(m => ({
+      at: `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}T${m[4].padStart(2, "0")}:${m[5]}`,
+      numbers: m[6].split(",").map(n => Number(n.trim()))
+    }));
+    if (!draws.length) throw new Error("Výsledky žrebovaní nie sú čitateľné. História zostala zachovaná.");
+    return merge(draws);
+  }
+  function gistId(value) {
+    const id = value.trim().replace(/^https:\/\/gist\.github\.com\/[^/]+\//, "").replace(/\/$/, "");
+    if (!/^[a-f0-9]{32}$/i.test(id)) throw new Error("Zadaj platné Gist ID alebo odkaz.");
+    return id;
+  }
+  async function request(url, token, method = "GET", data) {
+    const headers = { Accept: "application/vnd.github+json", Authorization: `Bearer ${token}`, "X-GitHub-Api-Version": "2022-11-28" };
+    if (data) headers["Content-Type"] = "application/json";
+    let response;
+    if (typeof root.GM?.xmlHttpRequest === "function") {
+      response = await new Promise((resolve, reject) => root.GM.xmlHttpRequest({
+        url, method, headers, data: data ? JSON.stringify(data) : undefined, timeout: 20000,
+        anonymous: true,
+        onload: resolve,
+        onerror: () => reject(new Error("Spojenie s GitHubom zlyhalo.")),
+        ontimeout: () => reject(new Error("GitHub neodpovedal včas."))
+      }));
+      if (response.status < 200 || response.status >= 300) throw new Error(`GitHub HTTP ${response.status}. Over token, oprávnenie gist a jeho platnosť.`);
+      return JSON.parse(response.responseText);
+    }
+    response = await fetch(url, { method, headers, body: data ? JSON.stringify(data) : undefined, credentials: "omit", signal: AbortSignal.timeout(20000) });
+    if (!response.ok) throw new Error(`GitHub HTTP ${response.status}. Over token, oprávnenie gist a jeho platnosť.`);
+    return response.json();
+  }
+  async function sync(config, local, send = request) {
+    const id = gistId(config.id);
+    if (!config.token?.trim()) throw new Error("Chýba GitHub token. História je uložená iba lokálne.");
+    const url = `https://api.github.com/gists/${id}`;
+    const decode = gist => {
+      const file = gist.files?.["draws.json"];
+      if (!file || file.truncated || typeof file.content !== "string") throw new Error("Gist neobsahuje úplný súbor draws.json.");
+      const data = JSON.parse(file.content);
+      if (data.schemaVersion !== 1) throw new Error("Nepodporovaný formát draws.json.");
+      return merge(data.draws);
+    };
+    const remote = decode(await send(url, config.token));
+    const combined = merge(remote, local);
+    if (JSON.stringify(combined) !== JSON.stringify(remote)) {
+      await send(url, config.token, "PATCH", { files: { "draws.json": { content: JSON.stringify({ schemaVersion: 1, draws: combined }, null, 2) } } });
+      const verified = decode(await send(url, config.token));
+      const union = merge(combined, verified);
+      if (JSON.stringify(union) !== JSON.stringify(verified)) throw new Error("Súbežný zápis do Gistu. Lokálne dáta ostali zachované; zopakuj Aktualizovať.");
+      return verified;
+    }
+    return combined;
+  }
+  const api = { validateDraw, merge, readDraws, gistId, sync };
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+  else root.SGOLottery = api;
+})(globalThis);
+
+(function (root) {
+  "use strict";
+  const C = typeof module !== "undefined" && module.exports ? require("./core.js") : root.SGO;
+  const L = typeof module !== "undefined" && module.exports ? require("./lottery.js") : root.SGOLottery;
+  const routes = {
+    bonus: "game.php?page=prehled&akce=denniBonus",
+    casino: "game.php?page=obchod&s=6",
+    nn: "game.php?page=posta&s=4"
+  };
+  function readBonus(text) {
+    const clean = C.clean(text);
+    if (!/Každý den máte 5 zatočení zdarma/.test(clean)) throw new Error("Nerozpoznaná stránka denného bonusu.");
+    const attempts = clean.match(/(?:^|\s)(\d+)\s*x(?:\s|$)/);
+    return attempts ? `Zobrazené pokusy: ${attempts[1]}. Prevzatie výhry over ručne.` : "Neznáme — počet pokusov nie je čitateľný.";
+  }
+  function readCasino(text) {
+    const clean = C.clean(text);
+    if (!/Super 6/.test(clean)) throw new Error("Nerozpoznaná stránka Herne.");
+    if (/Již máme vsazeno/.test(clean)) {
+      const count = clean.match(/Počet slosování:\s*(\d+)/);
+      return count ? `Vsadené · počet slosovaní: ${count[1]}` : "Vsadené · počet slosovaní neznámy";
+    }
+    return "Neznáme — otvor Herňu a over, či treba vsadiť.";
+  }
+  function readNN(text) {
+    let date;
+    for (const line of text.split("\n")) {
+      const day = line.match(/»\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})/);
+      if (day) date = `${day[1]}. ${day[2]}. ${day[3]}`;
+      const match = line.match(/NN\s*-\s*další\s+(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})/);
+      if (match && date) {
+        return `Posledné hlásenie ${date}: ďalšia NN ${match[1]}–${match[2]} (čas konca môže byť nasledujúci deň).`;
+      }
+    }
+    return "Neznáme — v načítanej pošte nie je čitateľné hlásenie NN.";
+  }
+  function mount(container, { getDocument, log, canEdit, storage }) {
+    container.innerHTML = `<div class="sgo-feature-heading"><span class="sgo-eyebrow">RUČNÁ KONTROLA</span><h3>Strážca</h3></div>
+      <button type="button" id="sgo-guardian-refresh">Aktualizovať</button>
+      <p class="sgo-hint" id="sgo-guardian-status" role="status">Údaje sa načítajú iba po kliknutí. Bonus ani stávku neodosielam.</p>
+      <div id="sgo-guardian-items"></div>
+      <p class="sgo-hint" id="sgo-lottery-history">História: 0 zachytených žrebovaní.</p>
+      <p class="sgo-hint" id="sgo-lottery-sync" role="status">Synchronizácia zatiaľ neoverená.</p>
+      <details><summary>Gist synchronizácia</summary>
+        <label class="sgo-planet">Gist ID alebo odkaz<input id="sgo-gist-id" type="text" autocomplete="off"></label>
+        <label class="sgo-planet">GitHub token (iba oprávnenie gist)<input id="sgo-gist-token" type="password" autocomplete="off" spellcheck="false"></label>
+        <button type="button" id="sgo-gist-save">Uložiť nastavenia</button>
+        <p class="sgo-hint">Token zostáva v lokálnom úložisku tohto zariadenia. Prázdny token vypne synchronizáciu. Uloženie nerobí sieťové požiadavky.</p>
+      </details>`;
+    const $ = selector => container.querySelector(selector);
+    let checking = false;
+    let state = {};
+    let history = [];
+    let config = {};
+    let restored = false;
+    function renderHistory() {
+      $("#sgo-lottery-history").textContent = `História: ${history.length} zachytených žrebovaní.${history.length ? ` Posledné: ${history[history.length - 1].at.replace("T", " ")} (čas hry).` : ""} Nemusí obsahovať všetky žrebovania.`;
+    }
+    function render() {
+      $("#sgo-guardian-items").replaceChildren();
+      for (const [key, title] of [["bonus", "Denný bonus"], ["casino", "Herňa"], ["nn", "NN"]]) {
+        const card = document.createElement("article");
+        card.className = "sgo-attack";
+        const heading = document.createElement("strong"); heading.textContent = title;
+        const detail = document.createElement("p"); detail.className = "sgo-note";
+        detail.textContent = state[key]?.text || "Neznáme";
+        const time = document.createElement("p"); time.className = "sgo-note";
+        time.textContent = state[key]?.time ? `Posledná kontrola: ${new Date(state[key].time).toLocaleString("sk-SK")}` : "Zatiaľ nekontrolované";
+        const link = document.createElement("a"); link.href = routes[key]; link.textContent = "Otvoriť";
+        card.append(heading, detail, time, link); $("#sgo-guardian-items").append(card);
+      }
+    }
+    async function restore() {
+      try {
+        state = await storage.get("sgo-guardian") || {};
+        history = L.merge(await storage.get("sgo-lottery-history") || []);
+        config = await storage.get("sgo-gist-config") || {};
+        $("#sgo-gist-id").value = config.id || "";
+        $("#sgo-gist-token").value = config.token || "";
+        render(); renderHistory(); restored = true;
+      }
+      catch (error) {
+        $("#sgo-guardian-status").textContent = `Chyba načítania uložených kontrol: ${error.message}`;
+        log(`Strážca: ${error.message}`, "error");
+      }
+    }
+    render();
+    const ready = restore();
+    $("#sgo-gist-save").addEventListener("click", async () => {
+      try {
+        await ready;
+        if (!restored || checking) throw new Error("Počkaj na dokončenie načítania alebo kontroly.");
+        const token = $("#sgo-gist-token").value.trim();
+        const id = $("#sgo-gist-id").value.trim();
+        const next = { id: id ? L.gistId(id) : "", token };
+        if (token && !next.id) throw new Error("K tokenu doplň Gist ID.");
+        await storage.set("sgo-gist-config", next);
+        config = next;
+        $("#sgo-lottery-sync").textContent = "Nastavenia uložené. Synchronizácia až po kliknutí na Aktualizovať.";
+      } catch (error) { $("#sgo-lottery-sync").textContent = error.message; }
+    });
+    $("#sgo-guardian-refresh").addEventListener("click", async () => {
+      if (checking) return;
+      checking = true; $("#sgo-guardian-refresh").disabled = true;
+      try {
+        await ready;
+        if (!restored) throw new Error("Uložené údaje sa nepodarilo načítať. Kontrola zastavená.");
+        if (!canEdit()) throw new Error("Najprv zastav útoky a počkaj na dokončenie operácie.");
+        for (const [key, read] of [["bonus", readBonus], ["casino", readCasino], ["nn", readNN]]) {
+          if (!canEdit()) throw new Error("Prebieha iná operácia. Kontrola zastavená.");
+          $("#sgo-guardian-status").textContent = `Kontrolujem: ${{ bonus: "Denný bonus", casino: "Herňa", nn: "NN" }[key]}…`;
+          try {
+            const doc = await getDocument(new URL(routes[key], location.href).href);
+            const body = doc.body.cloneNode(true);
+            body.querySelectorAll("script,style").forEach(element => element.remove());
+            body.querySelectorAll("tr,br,p,div,h1,h2").forEach(element => element.append("\n"));
+            state[key] = { text: read(body.textContent), time: Date.now() };
+            if (key === "casino") {
+              history = L.merge(history, L.readDraws(body.textContent));
+              await storage.set("sgo-lottery-history", history);
+              renderHistory();
+            }
+            log(`Strážca: ${state[key].text}`);
+          } catch (error) {
+            state[key] = { text: `Neznáme — kontrola zlyhala: ${error.message}`, time: Date.now() };
+            log(`Strážca: ${error.message}`, "error");
+            render();
+            await storage.set("sgo-guardian", state);
+            throw error;
+          }
+          render();
+          await storage.set("sgo-guardian", state);
+        }
+        if (config.id && config.token) {
+          $("#sgo-lottery-sync").textContent = "Synchronizujem históriu s Gistom…";
+          try {
+            history = await L.sync(config, history);
+            await storage.set("sgo-lottery-history", history);
+            renderHistory();
+            $("#sgo-lottery-sync").textContent = `Synchronizované ${new Date().toLocaleString("sk-SK")}`;
+          } catch (error) {
+            $("#sgo-lottery-sync").textContent = `Nesynchronizované: ${error.message}`;
+            throw error;
+          }
+        } else $("#sgo-lottery-sync").textContent = "Iba lokálna história — nastav Gist ID a token.";
+        $("#sgo-guardian-status").textContent = "Kontrola dokončená. Ďalšie načítanie iba po kliknutí.";
+      } catch (error) {
+        $("#sgo-guardian-status").textContent = `Kontrola zastavená: ${error.message}`;
+        log(`Strážca: ${error.message}`, "error");
+      } finally { checking = false; $("#sgo-guardian-refresh").disabled = false; }
+    });
+  }
+  const api = { readBonus, readCasino, readNN, mount };
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+  else root.SGOGuardian = api;
+})(globalThis);
+
 (async function () {
   "use strict";
   if (document.readyState === "loading") await new Promise(resolve => document.addEventListener("DOMContentLoaded", resolve, { once: true }));
-  if (location.pathname !== "/www/game.php") return;
+  if (!["/www/game.php", "/game.php"].includes(location.pathname)) return;
   if (document.getElementById("sgo-addon")) return;
   const C = globalThis.SGO;
   const RUN_KEY = "sgo-addon-run";
@@ -753,6 +1000,7 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
         <button type="button" class="sgo-feature-card" id="sgo-open-attacks"><span class="sgo-feature-icon">01</span><span><strong>Útok na Valu</strong><small>Typy útokov, jednotky, cooldown a denník</small></span><span aria-hidden="true">&rarr;</span></button>
         <button type="button" class="sgo-feature-card" id="sgo-open-population"><span class="sgo-feature-icon">02</span><span><strong>Ideálne zaľudnenie</strong><small>Výpočet a predvyplnenie výroben na planétach</small></span><span aria-hidden="true">&rarr;</span></button>
         <button type="button" class="sgo-feature-card" id="sgo-open-sectors"><span class="sgo-feature-icon">03</span><span><strong>Naše sektory</strong><small>Náskok pred súpermi a BBCode hlásenie</small></span><span aria-hidden="true">&rarr;</span></button>
+        <button type="button" class="sgo-feature-card" id="sgo-open-guardian"><span class="sgo-feature-icon">04</span><span><strong>Strážca</strong><small>Denný bonus, Herňa a NN · ručná kontrola</small></span><span aria-hidden="true">&rarr;</span></button>
       </section>
       <section id="sgo-attacks-feature" hidden>
       <div class="sgo-target"><div><span class="sgo-eyebrow">CIEĽ MISIE <span class="sgo-target-tag">Uprchlíci</span></span><strong>Vala Mal Doran</strong></div>
@@ -776,6 +1024,7 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
       </section>
       <section id="sgo-population-feature" hidden></section>
       <section id="sgo-sectors-feature" hidden></section>
+      <section id="sgo-guardian-feature" hidden></section>
       <footer class="sgo-footer"><span class="sgo-footer-dot" aria-hidden="true"></span><span id="sgo-latest">Všetko pod kontrolou. Čakám na nastavenie.</span></footer>
     </div>`;
   document.body.append(root);
@@ -828,13 +1077,14 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
   let population;
   let sectors;
   function showFeature(feature, save = true) {
-    const selected = ["attacks", "population", "sectors"].includes(feature) ? feature : "home";
+    const selected = ["attacks", "population", "sectors", "guardian"].includes(feature) ? feature : "home";
     $("#sgo-home").hidden = selected !== "home";
     $("#sgo-attacks-feature").hidden = selected !== "attacks";
     $("#sgo-population-feature").hidden = selected !== "population";
     $("#sgo-sectors-feature").hidden = selected !== "sectors";
+    $("#sgo-guardian-feature").hidden = selected !== "guardian";
     $("#sgo-back").hidden = selected === "home";
-    $("#sgo-feature-name").textContent = { home: "Prehľad funkcií", attacks: "Útok na Valu", population: "Ideálne zaľudnenie", sectors: "Naše sektory" }[selected];
+    $("#sgo-feature-name").textContent = { home: "Prehľad funkcií", attacks: "Útok na Valu", population: "Ideálne zaľudnenie", sectors: "Naše sektory", guardian: "Strážca" }[selected];
     if (selected === "population") population?.refresh();
     if (selected === "sectors") sectors?.refresh();
     if (save) { data.feature = selected; persist(); }
@@ -920,7 +1170,7 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
     const response = await fetch(url, { credentials: "same-origin", cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}: ${url}`);
     const doc = new DOMParser().parseFromString(await response.text(), "text/html");
-    if (new URL(response.url).pathname !== "/www/game.php" || doc.querySelector('input[type="password"]')) {
+    if (!["/www/game.php", "/game.php"].includes(new URL(response.url).pathname) || doc.querySelector('input[type="password"]')) {
       throw new Error("Prihlasenie vyprsalo. Prihlas sa do hry.");
     }
     const result = C.response(doc);
@@ -1244,6 +1494,8 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
   $("#sgo-open-population").addEventListener("click", () => showFeature("population"));
   population = globalThis.SGOPopulation.mount($("#sgo-population-feature"), { getDocument, log, canEdit: () => !run?.active && !busy, revealGame });
   $("#sgo-open-sectors").addEventListener("click", () => showFeature("sectors"));
+  $("#sgo-open-guardian").addEventListener("click", () => showFeature("guardian"));
+  globalThis.SGOGuardian.mount($("#sgo-guardian-feature"), { getDocument, log, storage, canEdit: () => !run?.active && !busy });
   sectors = globalThis.SGOSectors.mount($("#sgo-sectors-feature"), {
     getDocument, log, canEdit: () => !run?.active && !busy, revealGame,
     navigate: async url => { await writes; location.assign(url); }

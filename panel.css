@@ -130,6 +130,9 @@
 #sgo-addon .sgo-pop-row strong { color: var(--sgo-accent); white-space: nowrap; }
 #sgo-addon .sgo-error { color: #ffb1a3; }
 #sgo-addon #sgo-sectors-feature { padding: 16px 20px; }
+#sgo-addon #sgo-guardian-feature { padding: 16px 20px; }
+#sgo-addon #sgo-guardian-items a { color: var(--sgo-accent); }
+#sgo-addon #sgo-guardian-feature input { display: block; width: 100%; min-width: 0; margin: 5px 0 10px; }
 #sgo-addon .sgo-sector-scroll { max-height: 48dvh; overflow: auto; scrollbar-width: thin; }
 #sgo-addon .sgo-sector-actions { display: flex; gap: 8px; margin: 10px 0; }
 #sgo-addon #sgo-sectors-prefill { border-color: #65dec366; color: var(--sgo-accent); }
