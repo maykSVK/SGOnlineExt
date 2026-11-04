@@ -133,6 +133,12 @@ na jej zastavenie pouzi **Zastavit** v podmenu utokov.
 
 ### Nase sektory
 
+- Pod ciarou sa zobrazuju najviac dva dalsie sektory najblizsie k vedeniu:
+  remizy a potom najmensia strata na najsilnejsiu inu rasu. Pri rovnosti
+  rozhoduje nazov a ID. Nula znamena remizu, zaporne cislo stratu.
+  Ak je kandidatov menej, zobrazi sa ich skutocny pocet. Ide o aktualny stav,
+  nie historicky trend. Tato cast sa nepridava do hlasenia ani tabulky na fore.
+
 - Pri otvoreni sekcie sa z Mapy nacita rasa prihlaseneho hraca a zo Sektorov
   pocty planet jednotlivych ras. Rasa nie je nastavena napevno.
 - Zobrazuju sa iba sektory, kde nasa rasa ma striktne viac planet nez kazda ina

@@ -41,16 +41,26 @@
     }
     return sectors;
   }
-  function leaders(sectors, race) {
-    return sectors.flatMap(sector => {
+  function standings(sectors, race) {
+    return sectors.map(sector => {
       const own = sector.races.find(r => r.race === race)?.count || 0;
       const rivals = sector.races.filter(r => r.race !== race).sort((a, b) => b.count - a.count || a.race.localeCompare(b.race, "cs"));
       const rivalCount = rivals[0]?.count || 0;
-      if (own <= rivalCount) return [];
-      return [{ id: sector.id, name: sector.name, own, rivalCount,
+      return { id: sector.id, name: sector.name, own, rivalCount,
         rivals: rivals.filter(r => r.count === rivalCount).map(r => r.race).join(", ") || "Žiadna",
-        difference: own - rivalCount }];
-    }).sort((a, b) => a.difference - b.difference || a.name.localeCompare(b.name, "cs") || a.id - b.id);
+        difference: own - rivalCount };
+    });
+  }
+  function sectorOrder(a, b) {
+    return a.name.localeCompare(b.name, "cs") || a.id - b.id;
+  }
+  function leaders(sectors, race) {
+    return standings(sectors, race).filter(row => row.difference > 0)
+      .sort((a, b) => a.difference - b.difference || sectorOrder(a, b));
+  }
+  function closest(sectors, race) {
+    return standings(sectors, race).filter(row => row.difference <= 0 && row.rivalCount > 0)
+      .sort((a, b) => b.difference - a.difference || sectorOrder(a, b)).slice(0, 2);
   }
   function bbText(text) {
     return String(text).replace(/\[/g, "［").replace(/\]/g, "］").replace(/[\r\n]+/g, " ");
@@ -119,6 +129,10 @@
       <div id="sgo-sector-summary" class="sgo-sector-summary" hidden></div>
       <p id="sgo-sectors-status" class="sgo-hint" role="status">Načítaj aktuálny prehľad.</p>
       <div class="sgo-sector-scroll"><div id="sgo-sectors-list"></div>
+      <section id="sgo-sectors-nearby" class="sgo-sector-nearby" hidden>
+        <h4>Najbližšie k vedeniu</h4>
+        <div id="sgo-sectors-nearby-list"></div>
+      </section>
       </div><div class="sgo-sector-links"><a href="game.php?page=vesmir&jak=sektory">Mapa / Sektory &nearr;</a><a href="game.php?page=forum&forum=4">Oznámení vedení &nearr;</a></div>`;
     const $ = selector => container.querySelector(selector);
     let loading;
@@ -133,19 +147,24 @@
       draft = null;
       $("#sgo-sector-summary").hidden = true;
       $("#sgo-sectors-list").replaceChildren();
+      $("#sgo-sectors-nearby").hidden = true;
+      $("#sgo-sectors-nearby-list").replaceChildren();
       message("Načítavam tvoju rasu a počty planét v sektoroch...");
       try {
         const map = await getDocument(new URL("game.php?page=vesmir&jak=map", location.href).href);
         const doc = await getDocument(new URL("game.php?page=vesmir&jak=sektory", location.href).href);
         const race = readRace(map);
-        const rows = leaders(readSectors(doc), race);
+        const sectors = readSectors(doc);
+        const rows = leaders(sectors, race);
+        const nearby = closest(sectors, race);
         const time = new Date().toLocaleString("sk-SK");
         draft = forumDraft({ race, rows, time });
         const summary = $("#sgo-sector-summary");
         const identity = document.createElement("span"); identity.textContent = race;
         const total = document.createElement("strong"); total.textContent = `${rows.length} sektorov`;
         summary.replaceChildren(identity, total); summary.hidden = false;
-        for (const row of rows) {
+        for (const row of [...rows, ...nearby]) {
+          const isNearby = row.difference <= 0;
           const card = document.createElement("article");
           card.className = "sgo-sector-card";
           const heading = document.createElement("div"); heading.className = "sgo-sector-heading";
@@ -153,8 +172,10 @@
           const id = document.createElement("small"); id.textContent = `#${row.id}`;
           heading.append(title, id);
           const margin = document.createElement("div"); margin.className = "sgo-sector-margin";
-          const number = document.createElement("b"); number.textContent = `+${row.difference}`;
-          margin.title = "Náskok pred najsilnejšou inou rasou";
+          const number = document.createElement("b"); number.textContent = row.difference > 0 ? `+${row.difference}` : String(row.difference);
+          margin.title = isNearby
+            ? `${row.difference === 0 ? "Remíza" : `Strata ${-row.difference} planét`}. Na vedenie chýba ${1 - row.difference} pri nezmenenom počte súpera.`
+            : "Náskok pred najsilnejšou inou rasou";
           margin.append(number);
           const detail = document.createElement("div"); detail.className = "sgo-sector-comparison";
           const counts = document.createElement("strong"); counts.textContent = `${row.own} : ${row.rivalCount}`;
@@ -162,11 +183,13 @@
           const rival = document.createElement("span"); rival.textContent = row.rivals; rival.title = row.rivals;
           detail.append(counts, rival);
           card.append(heading, detail, margin);
-          $("#sgo-sectors-list").append(card);
+          $(isNearby ? "#sgo-sectors-nearby-list" : "#sgo-sectors-list").append(card);
         }
+        $("#sgo-sectors-nearby").hidden = !nearby.length;
         message(`Aktualizované ${time}${rows.length ? "" : " · Momentálne nikde nevedieme."}`);
         $("#sgo-sectors-prefill").disabled = false;
         log(`Sektory ${race}: ${rows.map(r => `${r.name} ${r.own}:${r.rivalCount} (+${r.difference})`).join(", ") || "žiadne vedenie"}. Stav ${time}.`);
+        if (nearby.length) log(`Najbližšie k vedeniu: ${nearby.map(r => `${r.name} ${r.own}:${r.rivalCount} (${r.difference})`).join(", ")}.`);
         return true;
       } catch (error) { message(error.message, true); log(`Sektory: ${error.message}`, "error"); return false; }
       finally { $("#sgo-sectors-load").disabled = false; }
@@ -210,7 +233,7 @@
     });
     return { refresh, resumeForumDraft };
   }
-  const api = { readRace, readSectors, leaders, bbcode, forumDraft, fillForumDraft, isForum, mount };
+  const api = { readRace, readSectors, leaders, closest, bbcode, forumDraft, fillForumDraft, isForum, mount };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.SGOSectors = api;
 })(globalThis);

@@ -23,6 +23,33 @@ test("all equally strong rivals shown with stable tie sorting", () => {
   assert.deepEqual(S.leaders([], "Terrané"), []);
 });
 
+test("closest sectors include ties then smallest deficits, never current leaders", () => {
+  const sectors = [
+    sector(1, "Leading", { Terrané: 20, Origani: 19 }),
+    sector(2, "Far", { Terrané: 2, Origani: 30 }),
+    sector(3, "Near", { Terrané: 9, Origani: 10, Gallú: 10 }),
+    sector(4, "Tie", { Terrané: 10, Uprchlíci: 10 }),
+    sector(5, "Empty", { Terrané: 0 })
+  ];
+  const near = S.closest(sectors, "Terrané");
+  assert.deepEqual(near.map(r => [r.name, r.difference]), [["Tie", 0], ["Near", -1]]);
+  assert.equal(near[1].rivals, "Gallú, Origani");
+  const draft = S.forumDraft({ race: "Terrané", rows: S.leaders(sectors, "Terrané"), nearby: near, time: "today" });
+  assert.equal(draft.rows, 1);
+  assert.ok(draft.code.includes("Leading"));
+  for (const name of ["Tie", "Near", "Far"]) assert.ok(!draft.code.includes(name));
+});
+
+test("closest sectors have stable tie order and handle fewer than two candidates", () => {
+  const sectors = [sector(3, "Beta", { Terrané: 5, Origani: 6 }),
+    sector(2, "Alfa", { Terrané: 5, Origani: 6 }), sector(1, "Alfa", { Terrané: 5, Origani: 6 })];
+  assert.deepEqual(S.closest(sectors, "Terrané").map(r => r.id), [1, 2]);
+  assert.equal(S.closest([sector(1, "No presence", { Origani: 1 })], "Terrané")[0].own, 0);
+  assert.equal(S.closest(sectors.slice(0, 1), "Terrané").length, 1);
+  assert.deepEqual(S.closest([], "Terrané"), []);
+  assert.deepEqual(S.closest([sector(1, "Ours", { Terrané: 3 })], "Terrané"), []);
+});
+
 test("BBCode uses supported table tags, timestamp and no injectable tags", () => {
   const rows = S.leaders([sector(34, "Auralis", { Terrané: 26, Origani: 25 })], "Terrané");
   const code = S.bbcode({ race: "Terrané", rows, time: "3. 11. 2026 10:00" });

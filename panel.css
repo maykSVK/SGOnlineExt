@@ -144,6 +144,10 @@
 #sgo-addon .sgo-sector-margin { text-align: right; }
 #sgo-addon .sgo-sector-margin b { display: inline-block; color: var(--sgo-accent); background: #65dec310; border-radius: 5px; padding: 2px 5px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
 #sgo-addon .sgo-sector-card:first-child .sgo-sector-margin b { color: #eac57c; }
+#sgo-addon .sgo-sector-nearby { border-top: 1px solid #53647d; margin-top: 14px; padding-top: 10px; }
+#sgo-addon .sgo-sector-nearby h4 { margin: 0 0 8px; color: var(--sgo-muted); font: inherit; font-size: 11px; font-weight: 600; }
+#sgo-addon .sgo-sector-nearby .sgo-sector-card:first-child { box-shadow: none; }
+#sgo-addon .sgo-sector-nearby .sgo-sector-margin b { color: #eac57c; background: #eac57c10; }
 #sgo-addon .sgo-sector-comparison { min-width: 0; display: flex; flex-direction: column; font-size: 10px; line-height: 1.3; color: var(--sgo-muted); }
 #sgo-addon .sgo-sector-comparison strong { color: #b7e9dd; font-size: 11px; font-weight: 500; font-variant-numeric: tabular-nums; }
 #sgo-addon .sgo-sector-comparison span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
