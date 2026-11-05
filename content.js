@@ -217,7 +217,7 @@
     const response = await fetch(url, { credentials: "same-origin", cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}: ${url}`);
     const doc = new DOMParser().parseFromString(await response.text(), "text/html");
-    if (!["/www/game.php", "/game.php"].includes(new URL(response.url).pathname) || doc.querySelector('input[type="password"]')) {
+    if (!["/www/game.php", "/game.php"].includes(new URL(response.url).pathname) || doc.querySelector('input[type="password"]:not(#sgo-addon *)')) {
       throw new Error("Prihlasenie vyprsalo. Prihlas sa do hry.");
     }
     const result = C.response(doc);

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         StarGame pomocnik
 // @namespace    https://github.com/maykSVK/SGOnlineExt
-// @version      0.3.6
+// @version      0.3.7
 // @description  Vala attacks, ideal population and sector forum drafts.
 // @homepageURL  https://github.com/maykSVK/SGOnlineExt
 // @match        https://stargame-online.cz/www/game.php*
@@ -92,7 +92,9 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
 
   function response(doc) {
     const text = pageText(doc);
-    if (doc.querySelector('input[type="password"]') || /neprihlasen|stranka=uvod/.test(doc.URL)) {
+    // The add-on's own Gist token field is a password input and must not count as a login form.
+    const loginField = [...doc.querySelectorAll('input[type="password"]')].some(e => !e.closest("#sgo-addon,#sgo-investigation"));
+    if (loginField || /neprihlasen|stranka=uvod/.test(doc.URL)) {
       return { kind: "stop", message: "Prihlasenie vyprsalo. Prihlas sa a spusti novu seriu." };
     }
     if (/(captcha|overte.{0,30}(clovek|robot)|opiste.{0,30}(kod|obraz)|potvrdte.{0,30}nejste robot)/.test(normalize(text))) {
@@ -1297,7 +1299,7 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
     const response = await fetch(url, { credentials: "same-origin", cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}: ${url}`);
     const doc = new DOMParser().parseFromString(await response.text(), "text/html");
-    if (!["/www/game.php", "/game.php"].includes(new URL(response.url).pathname) || doc.querySelector('input[type="password"]')) {
+    if (!["/www/game.php", "/game.php"].includes(new URL(response.url).pathname) || doc.querySelector('input[type="password"]:not(#sgo-addon *)')) {
       throw new Error("Prihlasenie vyprsalo. Prihlas sa do hry.");
     }
     const result = C.response(doc);

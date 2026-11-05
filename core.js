@@ -43,7 +43,9 @@
 
   function response(doc) {
     const text = pageText(doc);
-    if (doc.querySelector('input[type="password"]') || /neprihlasen|stranka=uvod/.test(doc.URL)) {
+    // The add-on's own Gist token field is a password input and must not count as a login form.
+    const loginField = [...doc.querySelectorAll('input[type="password"]')].some(e => !e.closest("#sgo-addon,#sgo-investigation"));
+    if (loginField || /neprihlasen|stranka=uvod/.test(doc.URL)) {
       return { kind: "stop", message: "Prihlasenie vyprsalo. Prihlas sa a spusti novu seriu." };
     }
     if (/(captcha|overte.{0,30}(clovek|robot)|opiste.{0,30}(kod|obraz)|potvrdte.{0,30}nejste robot)/.test(normalize(text))) {

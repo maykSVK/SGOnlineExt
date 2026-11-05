@@ -86,3 +86,17 @@ test("pacing uses bounded, nonconstant positive delays", () => {
     assert.ok(C.pacingDelay("submit", () => r) >= 1500 && C.pacingDelay("submit", () => r) <= 4000);
   }
 });
+
+test("add-on token field is not a login form, a real login field still stops", () => {
+  const win = "V\u00edt\u011bzstv\u00ed!";
+  const heading = { querySelector: () => ({ textContent: win }), textContent: win };
+  const make = fields => ({
+    URL: "https://stargame-online.cz/www/game.php?page=jednotky&akce=result",
+    body: { cloneNode: () => ({ textContent: win, querySelectorAll: () => [] }) },
+    querySelector: s => s === "#datapl" ? heading : null,
+    querySelectorAll: s => s === 'input[type="password"]' ? fields : []
+  });
+  const own = { closest: s => s.includes("#sgo-addon") ? {} : null };
+  assert.equal(C.response(make([own])).kind, "result");
+  assert.equal(C.response(make([{ closest: () => null }])).kind, "stop");
+});
