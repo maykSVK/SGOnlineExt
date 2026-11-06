@@ -35,7 +35,7 @@
     <div class="sgo-body">
       <nav class="sgo-navigation" aria-label="Funkcie rozšírenia"><button type="button" id="sgo-back" hidden>&larr; Všetky funkcie</button><span id="sgo-feature-name">Prehľad funkcií</span></nav>
       <section id="sgo-home">
-        <section id="sgo-guardian-feature" aria-label="Denné kontroly"></section>
+        <section id="sgo-guardian-feature" aria-label="Prehľad"></section>
         <div class="sgo-feature-grid">
         <button type="button" class="sgo-feature-card" id="sgo-open-attacks" title="Typy útokov, jednotky, cooldown a denník"><span class="sgo-feature-icon">01</span><span><strong>Útok na Valu</strong></span></button>
         <button type="button" class="sgo-feature-card" id="sgo-open-population" title="Výpočet a predvyplnenie výroben na planétach"><span class="sgo-feature-icon">02</span><span><strong>Ideálne zaľudnenie</strong></span></button>

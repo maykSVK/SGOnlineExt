@@ -6,9 +6,12 @@
     bonus: "game.php?page=prehled&akce=denniBonus",
     casino: "game.php?page=obchod&s=6",
     nn: "game.php?page=posta&s=4",
-    ranking: "game.php?page=vesmir&jak=hraci"
+    ranking: "game.php?page=vesmir&jak=hraci",
+    vala: "game.php?page=vesmir&jak=98",
+    odyssean: "game.php?page=vesmir&jak=102"
   };
   const nnDestination = "game.php?page=obchod&s=3";
+  const targets = { vala: "Vala Mal Doran", odyssean: "Odyssean" };
   function readRanking(doc) {
     const table = doc.querySelector("table.serazeniHracuAll");
     const rows = table && [...table.rows].filter(row => !row.querySelector("th")).slice(0, 3);
@@ -28,6 +31,26 @@
     });
     if (new Set(players.map(player => player.name)).size !== 3) throw new Error("Nejednoznačné TOP 3 hráčov.");
     return { status: "ok", text: "TOP 3 načítané", rows: players };
+  }
+  function readTarget(doc, key) {
+    const name = targets[key];
+    const row = [...doc.querySelectorAll("tr")].find(candidate => C.clean(candidate.cells?.[1]?.querySelector("a")?.textContent) === name);
+    if (!row) throw new Error(`${name} sa v zozname nenašla.`);
+    const cells = [...row.cells].map(cell => C.clean(cell.textContent));
+    const power = C.integer(cells[4]);
+    if (power === null) throw new Error(`Nečitateľná vojenská sila: ${name}.`);
+    const attacks = [...row.querySelectorAll("a[href]")].map(link => ({
+      url: new URL(link.getAttribute("href"), "https://stargame-online.cz/www/"),
+      title: C.clean(link.getAttribute("title") || link.querySelector("img")?.getAttribute("title")),
+      icon: link.querySelector("img")?.getAttribute("class") || ""
+    })).filter(link => link.url.searchParams.has("utok") && link.url.searchParams.get("cil") === name);
+    const strength = power.toLocaleString("sk-SK");
+    if (key === "vala") {
+      const conquest = attacks.some(link => /^„?D“?(?:\s|-)|dob[ýy]v/i.test(link.title) || /\bdob[yv]/i.test(link.icon));
+      return { status: conquest ? "action" : "ok", text: conquest ? `Vala UP · D (${strength})` : `Vala bez D (${strength})` };
+    }
+    return { status: attacks.length ? "action" : "ok",
+      text: attacks.length ? `Odyss!!! UP · k dobytiu (${strength})` : `Nelze útočiť (${strength})` };
   }
   function pageText(doc) {
     const body = doc.body.cloneNode(true);
@@ -103,13 +126,13 @@
       }
       return { status: "unknown", text: "Okno NN uplynulo · over poštu" };
     }
-    if (gameDay(entry.time) !== gameDay(now) || (key === "casino" && now - entry.time >= 6 * 3600000)) {
+    if (gameDay(entry.time) !== gameDay(now) || (key === "casino" && now - entry.time >= 6 * 3600000) || ((key === "vala" || key === "odyssean") && now - entry.time >= 3600000)) {
       return { status: "unknown", text: "Neznáme · údaje sú staré" };
     }
     return entry;
   }
   function mount(container, { getDocument, log, canEdit, storage, rankingContainer, syncHistory = L.sync }) {
-    container.innerHTML = `<div class="sgo-watch-heading"><strong>Denné kontroly</strong><button type="button" id="sgo-guardian-refresh">Aktualizovať</button></div>
+    container.innerHTML = `<div class="sgo-watch-heading"><strong>Prehľad</strong><button type="button" id="sgo-guardian-refresh">Aktualizovať</button></div>
       <div id="sgo-guardian-items"></div>
       <p class="sgo-note" id="sgo-guardian-status" role="status">Iba ručná kontrola · bez herných akcií.</p>
       <details class="sgo-watch-settings"><summary>História a Gist</summary>
@@ -128,7 +151,7 @@
     let restored = false;
     function render() {
       $("#sgo-guardian-items").replaceChildren();
-      for (const [key, title] of [["bonus", "Denný bonus"], ["casino", "Herňa"], ["nn", "NN"]]) {
+      for (const [key, title] of [["bonus", "Denný bonus"], ["casino", "Herňa"], ["nn", "NN"], ["vala", "Vala"], ["odyssean", "Odyssean"]]) {
         const view = displayState(key, state[key]);
         const row = document.createElement("a");
         row.className = "sgo-watch-row"; row.href = key === "nn" ? nnDestination : routes[key]; row.dataset.status = view.status;
@@ -218,9 +241,10 @@
         if (!restored) throw new Error("Uložené údaje sa nepodarilo načítať.");
         if (!canEdit()) throw new Error("Najprv zastav útoky a počkaj na dokončenie operácie.");
         for (const [key, read] of [["bonus", readBonus], ["casino", readCasino], ["nn", readNN],
-          ["ranking", (_text, doc) => readRanking(doc)]]) {
+          ["ranking", (_text, doc) => readRanking(doc)], ["vala", (_text, doc) => readTarget(doc, "vala")],
+          ["odyssean", (_text, doc) => readTarget(doc, "odyssean")]]) {
           if (!canEdit()) throw new Error("Prebieha iná operácia. Kontrola zastavená.");
-          $("#sgo-guardian-status").textContent = `Kontrolujem ${{ bonus: "bonus", casino: "Herňu", nn: "NN", ranking: "TOP 3" }[key]}…`;
+          $("#sgo-guardian-status").textContent = `Kontrolujem ${{ bonus: "bonus", casino: "Herňu", nn: "NN", ranking: "TOP 3", vala: "Valu", odyssean: "Odysseana" }[key]}…`;
           let doc;
           try { doc = await getDocument(new URL(routes[key], location.href).href); }
           catch (error) {
@@ -268,7 +292,7 @@
     });
     return { render };
   }
-  const api = { pageText, readBonus, readCasino, readNN, readRanking, displayState, mount };
+  const api = { pageText, readBonus, readCasino, readNN, readRanking, readTarget, displayState, mount };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.SGOGuardian = api;
 })(globalThis);

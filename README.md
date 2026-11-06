@@ -42,21 +42,26 @@ pouzi instalaciu v beznom prehliadaci.
 
 ## Pouzitie
 
-### Denne kontroly na hlavnom prehlade
+### Prehlad na hlavnom paneli
 
-Tri kompaktne riadky hore na hlavnom prehlade zobrazuju denny bonus, Hernu
-a posledne hlasenie NN z rasovej posty. Zelena znamena OK, oranzova nezname
-alebo neoverene udaje a cervena potrebnu akciu. Kliknutim na riadok otvoris
+Pat kompaktnych riadkov hore na hlavnom prehlade zobrazuje denny bonus, Hernu,
+posledne hlasenie NN z rasovej posty, stav dobijania Vala Mal Doran a stav
+Odysseana. Zelena znamena OK (alebo na ciele este neda utocit / dobyvat),
+oranzova nezname alebo neoverene udaje a cervena potrebnu akciu (napr. Vala UP
+s utokom D alebo Odyssean k dobytiu). Kliknutim na riadok otvoris
 prislusnu stranku hry; NN otvara **Obchod > Planety**, ale hlasenia sa
-nadalej citaju z rasovej posty. Cas poslednej kontroly najdes v jeho popise.
+nadalej citaju z rasovej posty. Riadky Vala a Odyssean uvadzaju v zatvorke aj
+ich aktualnu vojensku silu a otvaraju zoznam **Uprchlici** (`jak=98`) a
+**Pribeh** (`jak=102`). Cas poslednej kontroly najdes v popise riadka.
 Otvorenie prehladu ani hernej stranky nic
-nenacitava navyse. Iba **Aktualizovat** vykona postupne styri kontrolne GETy
-(bonus, Herna, NN a celkove poradie hracov),
+nenacitava navyse. Iba **Aktualizovat** vykona postupne sest kontrolnych GETov
+(bonus, Herna, NN, celkove poradie hracov, Uprchlici pre Valu a Pribeh pre Odysseana),
 ulozi stav s casom kontroly a zaloguje vysledky. Chyba citania jednej kontroly
 nezablokuje ostatne; chyba nacitania, prihlasenia alebo overenia zastavi
 postup bez automatickeho opakovania. Chyba historie nezmeni rozpoznany stav
 stavky a nepreskoci NN. Zachovana lokalna historia sa moze stale synchronizovat.
-Udaje bonusu z ineho dna a stavky starsie ako sest hodin su oznacene ako
+Udaje bonusu z ineho dna, stavky starsie ako sest hodin a stavy Valy/Odysseana
+starsie ako hodinu su oznacene ako
 nezname; nejde o zivy stav. Vek a okno NN sa prehodnotia lokalne pri zobrazeni
 prehladu, nie casovacom ani dalsou poziadavkou.
 Bonus netoci a stavky nepodava. Pri nule zostavajucich pokusov oznaci denny
