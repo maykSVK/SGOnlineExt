@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         StarGame pomocnik
 // @namespace    https://github.com/maykSVK/SGOnlineExt
-// @version      0.3.11
+// @version      0.3.12
 // @description  Vala attacks, ideal population and sector forum drafts.
 // @homepageURL  https://github.com/maykSVK/SGOnlineExt
 // @match        https://stargame-online.cz/www/game.php*
@@ -257,6 +257,45 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
     if (!Object.keys(result).length) throw new Error("Nenašiel som zoznam planét v Obchod > Nezaměstnaní.");
     return result;
   }
+  function readOffers(doc) {
+    const offers = [];
+    for (const form of doc.querySelectorAll("form")) {
+      const offerInput = form.querySelector('input[name="nabidka"]');
+      const select = form.querySelector('select[name="planeta"]');
+      const submit = form.querySelector('input[name="presun"]');
+      if (!offerInput || !select || !submit) continue;
+      const row = form.closest("tr");
+      const available = row?.cells?.[1] ? C.integer(row.cells[1].textContent) : null;
+      const options = new Map();
+      for (const option of select.options || []) {
+        const [planetId, roomStr] = String(option.value).split(",");
+        const room = C.integer(roomStr);
+        if (planetId && room !== null) options.set(planetId, { value: option.value, room, label: C.clean(option.textContent) });
+      }
+      offers.push({ id: offerInput.value, available: available ?? 0, options });
+    }
+    return offers;
+  }
+  function nextOfferTransfer(offers, orderedReports) {
+    const activeOffer = offers.find(offer => offer.available > 0);
+    if (!activeOffer) return null;
+    for (const report of orderedReports) {
+      if (!(report.missing > 0)) continue;
+      const opt = activeOffer.options.get(String(report.id));
+      if (opt && opt.room > 0) {
+        return {
+          offerId: activeOffer.id,
+          available: activeOffer.available,
+          planetId: String(report.id),
+          planetName: report.name,
+          optionValue: opt.value,
+          room: opt.room,
+          transferred: Math.min(activeOffer.available, opt.room)
+        };
+      }
+    }
+    return null;
+  }
   function calculate(planet, growth, costs, trade) {
     const perCity = costs.mest ?? CITY_CAPACITY;
     const values = [planet.cities, planet.factories, planet.sdi, planet.bs, planet.labs, planet.built, planet.slots, trade?.room,
@@ -327,16 +366,31 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
     row.scrollIntoView({ block: "center", behavior: "instant" });
     return report.missing;
   }
-  function mount(container, { getDocument, log, canEdit, revealGame = () => {} }) {
+  function mount(container, { getDocument, log, canEdit, revealGame = () => {}, postDocument, delayFn }) {
+    const postTrade = postDocument || (async (url, params) => {
+      const response = await fetch(url, {
+        method: "POST",
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams(params).toString()
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}: ${url}`);
+      return new DOMParser().parseFromString(await response.text(), "text/html");
+    });
+    const stepDelay = delayFn || (() => 900 + Math.floor(Math.random() * 900));
     container.innerHTML = `<div class="sgo-feature-heading"><span class="sgo-eyebrow">PLANÉTY / STAVĚNÍ</span><h3>Ideálne zaľudnenie</h3>
       <p class="sgo-hint">Výpočet a predvyplnenie výroben. Stavbu aj presuny obyvateľov potvrdzuješ sám.</p></div>
       <div class="sgo-pop-tools"><button type="button" id="sgo-pop-load">Prepočítať planéty</button>
+      <button type="button" id="sgo-pop-fill-workers" disabled>Doplniť nezamestnaných</button>
       <a href="game.php?page=planety">Stavění</a><a href="game.php?page=obchod">Nezaměstnaní</a></div>
       <p id="sgo-pop-status" class="sgo-hint" role="status">Načítaj aktuálne stavby, denné prírastky a voľnú kapacitu obyvateľov.</p>
       <div class="sgo-pop-scroll"><label class="sgo-pop-label" for="sgo-pop-planet">Planéta</label><select id="sgo-pop-planet" disabled></select>
       <div id="sgo-pop-report"></div><div id="sgo-pop-list"></div></div>`;
     const $ = selector => container.querySelector(selector);
     let reports = [];
+    let latestOffers = [];
+    let fillingWorkers = false;
     const nativePlanet = buildingForm(document)?.querySelector('[name="planeta"]');
     let selected = nativePlanet?.value || "";
     let nativeSelection = !!selected;
@@ -429,6 +483,7 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
         if (!canEdit()) throw new Error("Najprv zastav sériu útokov a počkaj na dokončenie načítania.");
         loading = true;
         $("#sgo-pop-load").disabled = true;
+        $("#sgo-pop-fill-workers").disabled = true;
         $("#sgo-pop-planet").disabled = true;
         $("#sgo-pop-report").replaceChildren();
         $("#sgo-pop-list").replaceChildren();
@@ -438,6 +493,7 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
         const typesDoc = await getDocument(new URL("game.php?page=planety&s=typy", location.href).href);
         const tradeDoc = await getDocument(new URL("game.php?page=obchod", location.href).href);
         const allReports = snapshot(buildingDoc, typesDoc, tradeDoc);
+        latestOffers = readOffers(tradeDoc);
         reports = allReports.filter(report => report.missing > 0).sort((a, b) =>
           b.idealBirths - a.idealBirths || a.name.localeCompare(b.name, "sk") || a.id.localeCompare(b.id));
         const selector = $("#sgo-pop-planet");
@@ -472,7 +528,61 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
           : "Všetky planéty majú cieľový počet výroben alebo viac. Nie je čo dostavať.");
         return true;
       } catch (error) { message(error.message, true); log(`Zaľudnenie: ${error.message}`, "error"); return false; }
-      finally { loading = false; $("#sgo-pop-load").disabled = false; }
+      finally {
+        loading = false;
+        $("#sgo-pop-load").disabled = fillingWorkers;
+        $("#sgo-pop-fill-workers").disabled = fillingWorkers || !nextOfferTransfer(latestOffers, reports);
+      }
+    }
+    async function fillUnemployedFromOP() {
+      if (fillingWorkers || loading) return;
+      try {
+        if (!canEdit()) throw new Error("Najprv zastav sériu útokov a počkaj na dokončenie načítania.");
+        if (!reports.length && !await refresh()) return;
+        fillingWorkers = true;
+        $("#sgo-pop-load").disabled = true;
+        $("#sgo-pop-fill-workers").disabled = true;
+        const tradeUrl = new URL("game.php?page=obchod", location.href).href;
+        let tradeDoc = await getDocument(tradeUrl);
+        let offers = readOffers(tradeDoc);
+        let step = nextOfferTransfer(offers, reports);
+        if (!step) {
+          message("Na obchodnej planéte nie sú žiadni nezamestnaní pre planéty v zozname.");
+          return;
+        }
+        let count = 0;
+        let totalMoved = 0;
+        while (step) {
+          if (!canEdit()) throw new Error("Operácia bola prerušená inou akciou.");
+          count++;
+          totalMoved += step.transferred;
+          message(`Presúvam nezamestnaných na ${step.planetName} (~${fmt(step.transferred)} ľudí, zostáva na OP: ${fmt(step.available)})…`);
+          log(`Zaľudnenie: presúvam nezamestnaných z OP (ponuka #${step.offerId}) na ${step.planetName} (~${fmt(step.transferred)} ľudí).`);
+          tradeDoc = await postTrade(tradeUrl, {
+            nabidka: step.offerId,
+            planeta: step.optionValue,
+            presun: "Přesunout"
+          });
+          offers = readOffers(tradeDoc);
+          latestOffers = offers;
+          step = nextOfferTransfer(offers, reports);
+          if (step) {
+            const waitMs = stepDelay();
+            if (waitMs > 0) await new Promise(resolve => setTimeout(resolve, waitMs));
+          }
+        }
+        await refresh();
+        const doneMsg = `Doplnení nezamestnaní na ${count} planét (~${fmt(totalMoved)} ľudí).`;
+        message(doneMsg);
+        log(`Zaľudnenie: ${doneMsg}`);
+      } catch (error) {
+        message(error.message, true);
+        log(`Zaľudnenie: ${error.message}`, "error");
+      } finally {
+        fillingWorkers = false;
+        $("#sgo-pop-load").disabled = false;
+        $("#sgo-pop-fill-workers").disabled = !nextOfferTransfer(latestOffers, reports);
+      }
     }
     function refresh() {
       if (loading) return refreshing;
@@ -480,9 +590,10 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
       return refreshing;
     }
     $("#sgo-pop-load").addEventListener("click", refresh);
-    return { refresh };
+    $("#sgo-pop-fill-workers").addEventListener("click", fillUnemployedFromOP);
+    return { refresh, fillUnemployedFromOP };
   }
-  const api = { occupancy, readBuildings, readGrowth, readTrade, calculate, snapshot, fill, mount };
+  const api = { occupancy, readBuildings, readGrowth, readTrade, readOffers, nextOfferTransfer, calculate, snapshot, fill, mount };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.SGOPopulation = api;
 })(globalThis);

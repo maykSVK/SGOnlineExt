@@ -162,10 +162,11 @@ na jej zastavenie pouzi **Zastavit** v podmenu utokov.
   Zmena herneho vyberu prepne aj planetu v doplnku; vlastny vyber v doplnku
   zostava mozny. Ak je herna planeta hotova, zobrazi sa iba oznacenie hotovo,
   nie navrh pre inu planetu. Samotny vyber nic nestavia ani nepredvyplna.
-  Neposiela ziadne formularove akcie ani nemeni ponuky na obchodnej planete.
-  Hra uvadza transport na obchodnu planetu 5 az 20 minut a ma hromadnu akciu
-  naplnenia planet z vlastnych ponuk. Doplnok tieto akcie nepouziva: transporty
-  aj pridelovanie nezamestnanych zatial ovladas vyhradne ty.
+  Tlacidlo **Doplnit nezamestnanych** je aktivne, ak mas na obchodnej planete
+  (v sekcii *Nase nabidky*) volnych nezamestnanych. Po kliknuti ich postupne
+  presuva (`Presunout`) na planety presne v poradi nasho dropdownu (od
+  najvyssieho odhadu narodenych pri idealnom zaludneni), az kym sa ponuky na
+  obchodnej planete nevycerpaju alebo kym sa nenaplnia vsetky planety v zozname.
 - Pre kazdu planetu: `Y = mesta * kapacita_mesta` (cita sa zo stavebneho formulara, napr. `9 000 000` alebo po vylepseni `9 480 000`), `K = 1 + denny prirastok / 100`,
   `idealna populacia = Y / K`. Dennym prirastkom je hodnota z Druhov planet,
   nie spokojenost zo Spravy planet.

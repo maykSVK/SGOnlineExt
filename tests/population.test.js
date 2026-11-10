@@ -134,7 +134,7 @@ test("population selection follows native building form without selecting anothe
     getAttribute: () => "id21",
     closest: () => ({ cells: [cell(""), cell(""), cell(""), cell(""), cell("50 %")] })
   }] };
-  const trade = { querySelectorAll: () => ["1", "2"].map(id => ({
+  const trade = { querySelectorAll: selector => selector === "form" ? [] : ["1", "2"].map(id => ({
     id: `p${id}`, cells: [cell(""), cell(""), cell("0"), cell("0"), cell(""), cell("")]
   })) };
   const elements = new Map();
@@ -186,4 +186,124 @@ test("population selection follows native building form without selecting anothe
   assert.equal(selector.children[0].disabled, true);
   assert.match(container.querySelector("#sgo-pop-report").children[0].textContent, /nepotrebuje/);
   assert.equal(container.querySelector("#sgo-pop-list").children.length, 1, "completed planets stay out of work list");
+});
+
+test("Doplniť nezamestnaných transfers OP offers sequentially in dropdown order until exhausted", async t => {
+  class Element {
+    constructor() {
+      this.children = [];
+      this.listeners = {};
+      this.value = "";
+      this.disabled = false;
+      this.classList = { toggle() {} };
+    }
+    append(...children) { this.children.push(...children); }
+    prepend(child) { this.children.unshift(child); }
+    replaceChildren(...children) {
+      this.children = children;
+      this.value = children[0]?.value || "";
+    }
+    addEventListener(name, listener) { this.listeners[name] = listener; }
+    scrollIntoView() {}
+  }
+  const native = new Element();
+  native.value = "2";
+  native.options = [{ value: "1", textContent: "Alpha" }, { value: "2", textContent: "Beta" }, { value: "3", textContent: "Gamma" }];
+  Object.defineProperty(native, "selectedOptions", { get: () => native.options.filter(o => o.value === native.value) });
+  const form = {
+    querySelector(selector) {
+      if (selector.includes("planeta")) return native;
+      if (selector.includes("postavit")) return {};
+      const name = selector.match(/name="(.+)"/)?.[1];
+      return costs[name] ? { closest: () => ({ textContent: `- ${costs[name]} lidí` }) } : null;
+    }
+  };
+  const cell = textContent => ({ textContent });
+  // Planet 2 (198 cities) > Planet 1 (150 cities) > Planet 3 (100 cities) in birth potential
+  const cityMap = { pln1: "150", pln2: "198", pln3: "100" };
+  const buildings = {
+    forms: [form],
+    getElementById: id => ({ cells: [
+      { querySelector: () => ({ getAttribute: () => "?typ=21" }) },
+      cell(""), cell(cityMap[id]), cell("10 000 / 39 600"),
+      cell("0"), cell("0"), cell("0"), cell("0"), cell("0"),
+      cell("10 000 / 39 600")
+    ] })
+  };
+  const types = { querySelectorAll: () => [{
+    getAttribute: () => "id21",
+    closest: () => ({ cells: [cell(""), cell(""), cell(""), cell(""), cell("50 %")] })
+  }] };
+
+  let opAvailable = 500000000;
+  const rooms = { 1: 300000000, 2: 300000000, 3: 300000000 };
+  function makeTradeDoc() {
+    const offerForm = {
+      closest: () => ({ cells: [cell(""), cell(String(opAvailable))] }),
+      querySelector: selector => {
+        if (selector === 'input[name="nabidka"]') return { value: "1704" };
+        if (selector === 'input[name="presun"]') return { value: "Přesunout" };
+        if (selector === 'select[name="planeta"]') {
+          return {
+            options: Object.entries(rooms)
+              .filter(([, room]) => room > 0)
+              .map(([id, room]) => ({ value: `${id},${room}`, textContent: `P${id}` }))
+          };
+        }
+        return null;
+      }
+    };
+    return {
+      querySelectorAll: selector => {
+        if (selector === "form") return opAvailable > 0 ? [offerForm] : [];
+        return ["1", "2", "3"].map(id => ({
+          id: `p${id}`, cells: [cell(""), cell(""), cell("0"), cell(String(rooms[id])), cell(""), cell("")]
+        }));
+      }
+    };
+  }
+
+  const elements = new Map();
+  const container = {
+    hidden: false,
+    querySelector(selector) {
+      if (!elements.has(selector)) elements.set(selector, new Element());
+      return elements.get(selector);
+    }
+  };
+  const oldDocument = globalThis.document;
+  const oldLocation = globalThis.location;
+  t.after(() => {
+    if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument;
+    if (oldLocation === undefined) delete globalThis.location; else globalThis.location = oldLocation;
+  });
+  globalThis.document = { forms: [form], createElement: () => new Element(), querySelectorAll: () => [] };
+  globalThis.location = { href: "https://stargame-online.cz/www/game.php?page=planety" };
+
+  const posts = [];
+  const module = P.mount(container, {
+    canEdit: () => true,
+    log() {},
+    delayFn: () => 0,
+    getDocument: async url => url.includes("s=typy") ? types : url.includes("page=obchod") ? makeTradeDoc() : buildings,
+    postDocument: async (url, params) => {
+      posts.push(params);
+      const [pid, roomStr] = params.planeta.split(",");
+      const moved = Math.min(opAvailable, Number(roomStr));
+      opAvailable -= moved;
+      rooms[pid] -= moved;
+      return makeTradeDoc();
+    }
+  });
+
+  await module.refresh();
+  assert.deepEqual(container.querySelector("#sgo-pop-planet").children.map(o => o.value), ["2", "1", "3"]);
+  assert.equal(container.querySelector("#sgo-pop-fill-workers").disabled, false, "enabled when OP has unemployed");
+
+  await container.querySelector("#sgo-pop-fill-workers").listeners.click();
+  assert.equal(posts.length, 2, "fills planet 2 (300M) then planet 1 (remaining 200M) and stops when OP is empty");
+  assert.deepEqual(posts[0], { nabidka: "1704", planeta: "2,300000000", presun: "Přesunout" });
+  assert.deepEqual(posts[1], { nabidka: "1704", planeta: "1,300000000", presun: "Přesunout" });
+  assert.equal(opAvailable, 0);
+  assert.equal(container.querySelector("#sgo-pop-fill-workers").disabled, true, "disabled after OP is exhausted");
 });
