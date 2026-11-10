@@ -72,7 +72,14 @@ Stav Herne je zeleny iba pri potvrdenej stavke;
 samotny vyskyt slova vsadit nie je dokaz, ze stavka chyba.
 Pred hlasenym oknom NN zobrazi cakanie, pocas okna upozorni na kontrolu,
 po nom uvadza nezname. Pouziva cas Europe/Prague a zohladnuje polnoc;
-hlasenie nie je potvrdenie aktualnej dostupnosti. Aktualizacia je blokovana pocas utokov.
+hlasenie nie je potvrdenie aktualnej dostupnosti. Pocas aktivneho okna NN sa
+zobrazia tlacidla **Start sledovania NN** a **Stop**: po spusteni na stranke
+**Obchod > Planety** (`page=obchod&s=3`) sleduje ponuky s nahodnym ludskym
+oneskorenim (3,5–9,5 s) oproti pociatocnemu stavu. Pri objaveni novych ponuk
+okamzite vykona 3 rychle kontrolne refreshe za sebou na odfiltrovanie
+falosnych (anti-bot) ponuk a az po 3. potvrdeni vykresli mimo panela cez celu
+obrazovku cervene upozornenie **MAME NN!**, ktore zmizne kliknutim kamkolvek.
+Aktualizacia je blokovana pocas utokov.
 Ak uz v Herni nie su k dispozicii ziadne pokusy (stav `Treba vsadit`), zobrazi sa
 tlacidlo **Stavit** a volba **Cisto nahodne (bez historie)**. Kliknutie na
 **Stavit** presmeruje na Hernu (`page=obchod&s=6`) a predvyplni 6 cisel (1–25)

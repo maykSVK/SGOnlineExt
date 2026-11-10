@@ -147,6 +147,10 @@
 #sgo-addon #sgo-casino-bet { padding: 3px 9px; font-size: 11px; border-color: #65dec366; color: var(--sgo-accent); }
 #sgo-addon .sgo-casino-random { display: inline-flex; align-items: center; gap: 5px; color: var(--sgo-muted); font-size: 10px; cursor: pointer; }
 #sgo-addon #sgo-guardian-feature .sgo-casino-random input { display: inline-block; width: auto; margin: 0; }
+#sgo-addon .sgo-nn-actions { display: flex; align-items: center; gap: 6px; padding: 4px 0; border-bottom: 1px solid #28374e66; font-size: 11px; }
+#sgo-addon .sgo-nn-actions[hidden] { display: none; }
+#sgo-addon #sgo-nn-start { padding: 3px 9px; font-size: 11px; border-color: #ff8e8388; color: #ffb1a3; }
+#sgo-addon #sgo-nn-stop { padding: 3px 9px; font-size: 11px; }
 #sgo-addon .sgo-watch-settings { font-size: 11px; color: var(--sgo-muted); }
 #sgo-addon :is(.sgo-watch-row, .sgo-watch-settings summary):focus-visible { outline: 2px solid var(--sgo-accent); outline-offset: 3px; }
 #sgo-addon #sgo-guardian-status { margin: 3px 0; font-size: 10px; }
@@ -238,3 +242,20 @@ tr.sgo-prefilled-planet > td {
 tr.sgo-prefilled-planet > td:first-child { border-left: 3px solid #65dec3 !important; }
 tr.sgo-prefilled-planet > td:last-child { border-right: 3px solid #65dec3 !important; }
 tr.sgo-prefilled-planet > td a { color: #b7ffea !important; font-weight: bold; }
+#sgo-nn-alert.sgo-nn-alert-overlay {
+  position: fixed; inset: 0; z-index: 2147483647;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(15, 5, 5, 0.72); cursor: pointer;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+#sgo-nn-alert .sgo-nn-alert-box {
+  width: min(440px, 88vw); min-height: 260px; padding: 28px 24px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  background: linear-gradient(145deg, #c91c1c, #7d0c0c);
+  border: 4px solid #ff9d92; border-radius: 18px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85), 0 0 40px rgba(255, 70, 55, 0.6);
+  color: #fff; text-align: center; user-select: none;
+}
+#sgo-nn-alert .sgo-nn-alert-box strong { font-size: clamp(32px, 6vw, 48px); font-weight: 800; letter-spacing: 0.04em; }
+#sgo-nn-alert .sgo-nn-alert-box span { font-size: 16px; color: #ffe2de; }
+#sgo-nn-alert .sgo-nn-alert-box small { font-size: 12px; color: #ffbbb3; opacity: 0.9; }

@@ -316,3 +316,116 @@ test("Staviť button appears when casino needs action, navigates to casino and p
   assert.match(hiddenInput.value, /^(?:\d{2}\.){6}$/);
   assert.equal(revealed, 1);
 });
+
+test("NN watch ignores initial and fake offers, confirms after 3 consecutive refreshes and shows dismissible alert", async t => {
+  class Element {
+    constructor() { this.children = []; this.listeners = {}; this.dataset = {}; this.value = ""; this.hidden = false; this.disabled = false; this.removed = false; }
+    append(...children) { this.children.push(...children); }
+    replaceChildren(...children) { this.children = children; }
+    addEventListener(name, callback) { this.listeners[name] = callback; }
+    setAttribute(name, val) { this[name] = val; }
+    remove() { this.removed = true; }
+  }
+  const oldDoc = globalThis.document;
+  const oldLocation = globalThis.location;
+  const oldSession = globalThis.sessionStorage;
+  const session = new Map();
+  t.after(() => {
+    if (oldDoc === undefined) delete globalThis.document; else globalThis.document = oldDoc;
+    if (oldLocation === undefined) delete globalThis.location; else globalThis.location = oldLocation;
+    if (oldSession === undefined) delete globalThis.sessionStorage; else globalThis.sessionStorage = oldSession;
+  });
+
+  let offerIds = ["nab-1"];
+  let offerText = "Bohužel v obchodě nikdo nenabízí planety ke koupi.";
+  const bodyEl = new Element();
+  let docClickListener = null;
+  globalThis.document = {
+    body: bodyEl,
+    createElement: () => new Element(),
+    getElementById: () => null,
+    addEventListener: (name, cb) => { if (name === "click") docClickListener = cb; },
+    removeEventListener: (name, cb) => { if (name === "click" && docClickListener === cb) docClickListener = null; },
+    querySelectorAll: selector => {
+      if (selector === '[id^="nab-"]') return offerIds.map(id => ({ id }));
+      return [];
+    },
+    querySelector: selector => selector === ".contentStranky" ? {
+      cloneNode: () => ({ querySelectorAll: () => [], textContent: offerText })
+    } : null
+  };
+  globalThis.location = { href: "https://stargame-online.cz/www/game.php?page=obchod&s=3" };
+  globalThis.sessionStorage = {
+    getItem: key => session.get(key) ?? null,
+    setItem: (key, val) => session.set(key, String(val)),
+    removeItem: key => session.delete(key)
+  };
+
+  const elements = new Map();
+  const container = { querySelector(selector) {
+    if (!elements.has(selector)) elements.set(selector, new Element());
+    return elements.get(selector);
+  } };
+
+  const now = new Date();
+  const pragueDay = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Prague", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+  const store = {
+    "sgo-guardian": { nn: { status: "unknown", text: "NN", date: pragueDay, start: "00:00", end: "23:59", time: Date.now() } },
+    "sgo-lottery-history": [],
+    "sgo-gist-config": {}
+  };
+
+  const delays = [];
+  let navigations = 0;
+  const guardian = G.mount(container, {
+    storage: { get: async key => store[key], set: async (key, val) => { store[key] = val; } },
+    log() {}, canEdit: () => true, getDocument: async () => ({}),
+    delayFn: mode => { delays.push(mode); return 0; },
+    navigate: async () => { navigations++; }
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+
+  assert.equal(container.querySelector("#sgo-nn-actions").hidden, false, "Start/Stop visible during active NN window");
+  await container.querySelector("#sgo-nn-start").listeners.click();
+  assert.deepEqual(JSON.parse(session.get("sgo-nn-watch")).baseline, ["nab-1"]);
+  assert.equal(delays.at(-1), "human");
+  await new Promise(r => setTimeout(r, 10));
+  assert.equal(navigations, 1);
+
+  // Fake NN appears on 1st refresh, then disappears on 2nd refresh
+  offerIds = ["nab-1", "nab-fake"];
+  await guardian.resumeNNWatch();
+  assert.equal(JSON.parse(session.get("sgo-nn-watch")).confirmations, 1);
+  assert.equal(delays.at(-1), "confirm");
+  await new Promise(r => setTimeout(r, 10));
+
+  offerIds = ["nab-1"];
+  await guardian.resumeNNWatch();
+  assert.equal(JSON.parse(session.get("sgo-nn-watch")).confirmations, 0, "Fake offer resets confirmations to 0");
+  assert.equal(delays.at(-1), "human");
+  await new Promise(r => setTimeout(r, 10));
+
+  // Real NN stays across 3 consecutive checks
+  offerIds = ["nab-1", "nab-real"];
+  await guardian.resumeNNWatch();
+  assert.equal(JSON.parse(session.get("sgo-nn-watch")).confirmations, 1);
+  assert.equal(delays.at(-1), "confirm");
+  await new Promise(r => setTimeout(r, 10));
+
+  await guardian.resumeNNWatch();
+  assert.equal(JSON.parse(session.get("sgo-nn-watch")).confirmations, 2);
+  assert.equal(delays.at(-1), "confirm");
+  await new Promise(r => setTimeout(r, 10));
+
+  await guardian.resumeNNWatch();
+  assert.equal(session.has("sgo-nn-watch"), false, "Watch stops after 3rd confirmation");
+  assert.equal(bodyEl.children.length, 1, "Full-screen alert appended to document.body outside #sgo-addon");
+  const alertOverlay = bodyEl.children[0];
+  assert.equal(alertOverlay.id, "sgo-nn-alert");
+  await new Promise(r => setTimeout(r, 10));
+  assert.ok(docClickListener, "Document click listener registered to dismiss anywhere");
+  docClickListener();
+  assert.equal(alertOverlay.removed, true, "Clicking anywhere hides the alert");
+});

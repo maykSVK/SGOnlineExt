@@ -560,5 +560,6 @@
   showFeature(run?.active ? "attacks" : data.feature, false);
   sectors.resumeForumDraft();
   guardian.resumeCasinoBet();
+  guardian.resumeNNWatch();
   resume().catch(error => stop(error.message, "error"));
 })();

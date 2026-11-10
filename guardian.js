@@ -12,6 +12,7 @@
   };
   const nnDestination = "game.php?page=obchod&s=3";
   const BET_KEY = "sgo-casino-bet";
+  const NN_WATCH_KEY = "sgo-nn-watch";
   const targets = { vala: "Vala Mal Doran", odyssean: "Odyssean" };
   function readRanking(doc) {
     const table = doc.querySelector("table.serazeniHracuAll");
@@ -107,6 +108,74 @@
     }
     return { status: "unknown", text: "Neznáme · chýba hlásenie NN" };
   }
+  function isPlanetMarket(url) {
+    try {
+      const parsed = new URL(url, "https://stargame-online.cz");
+      return ["/www/game.php", "/game.php"].includes(parsed.pathname) &&
+        parsed.searchParams.get("page") === "obchod" &&
+        parsed.searchParams.get("s") === "3";
+    } catch { return false; }
+  }
+  function readMarketOffers(doc) {
+    const ids = new Set();
+    for (const el of doc.querySelectorAll('[id^="nab-"]')) ids.add(el.id);
+    for (const link of doc.querySelectorAll("a[href]")) {
+      const href = link.getAttribute("href") || "";
+      if (/page=obchod/.test(href) && /(?:koupit|nabidka|planeta|id|akce|buy)=/i.test(href)) {
+        ids.add(href.split("#")[0]);
+      }
+    }
+    const root = doc.querySelector(".contentStranky") || doc.body;
+    if (root) {
+      const copy = root.cloneNode(true);
+      copy.querySelectorAll("script,style,form.prodatPlanetuForm,.sb,#submenu,#sgo-addon,#sgo-nn-alert").forEach(e => e.remove());
+      for (const code of C.clean(copy.textContent).matchAll(/\b[A-Z]{4}-\d{4}-\d{2}\b/g)) {
+        ids.add(code[0]);
+      }
+      if (!ids.size) {
+        const text = C.clean(copy.textContent)
+          .replace(/^Planety\b[\s\d]*/i, "")
+          .replace(/Minimální cena planety[^.]*\./gi, "")
+          .replace(/Maximální cena planety[^.]*\./gi, "")
+          .replace(/\|/g, "")
+          .trim();
+        if (text && !/nikdo nenabízí planety ke koupi/i.test(text)) {
+          ids.add(`offer:${text.replace(/\b\d{2}:\d{2}:\d{2}\b/g, "").replace(/\s+/g, " ").trim().slice(0, 160)}`);
+        }
+      }
+    }
+    return [...ids].sort();
+  }
+  function nnWatchDelay(mode = "human", random = Math.random) {
+    const [min, max] = mode === "confirm" ? [250, 650] : [3500, 9500];
+    return min + Math.floor(random() * (max - min + 1));
+  }
+  function showNNAlert(doc, details = []) {
+    doc.getElementById?.("sgo-nn-alert")?.remove();
+    const overlay = doc.createElement("div");
+    overlay.id = "sgo-nn-alert";
+    overlay.className = "sgo-nn-alert-overlay";
+    overlay.setAttribute("role", "alertdialog");
+    overlay.setAttribute("aria-label", "Potvrdené nové NN v obchode");
+    const box = doc.createElement("div");
+    box.className = "sgo-nn-alert-box";
+    const title = doc.createElement("strong");
+    title.textContent = "MÁME NN!";
+    const sub = doc.createElement("span");
+    sub.textContent = details.length ? `Potvrdené 3× po sebe (${details.length} v ponuke)` : "Potvrdené 3× po sebe v obchode";
+    const hint = doc.createElement("small");
+    hint.textContent = "Klikni kamkoľvek pre zatvorenie";
+    box.append(title, sub, hint);
+    overlay.append(box);
+    const dismiss = () => {
+      overlay.remove();
+      doc.removeEventListener?.("click", dismiss, true);
+    };
+    overlay.addEventListener("click", dismiss);
+    setTimeout(() => doc.addEventListener?.("click", dismiss, true), 0);
+    doc.body?.append(overlay);
+    return overlay;
+  }
   function gameDay(time) {
     return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Prague", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(time));
   }
@@ -133,12 +202,16 @@
     return entry;
   }
   function mount(container, { getDocument, log, canEdit, storage, rankingContainer, syncHistory = L.sync,
-      navigate = url => location.assign(url), revealGame = () => {} }) {
+      navigate = url => location.assign(url), revealGame = () => {}, delayFn = nnWatchDelay }) {
     container.innerHTML = `<div class="sgo-watch-heading"><strong>Prehľad</strong><button type="button" id="sgo-guardian-refresh">Aktualizovať</button></div>
       <div id="sgo-guardian-items"></div>
       <div id="sgo-casino-actions" class="sgo-casino-actions" hidden>
         <button type="button" id="sgo-casino-bet">Staviť</button>
         <label class="sgo-casino-random"><input type="checkbox" id="sgo-casino-pure-random"> Čisto náhodne (bez histórie)</label>
+      </div>
+      <div id="sgo-nn-actions" class="sgo-nn-actions" hidden>
+        <button type="button" id="sgo-nn-start">Start sledovania NN</button>
+        <button type="button" id="sgo-nn-stop" disabled>Stop</button>
       </div>
       <p class="sgo-note" id="sgo-guardian-status" role="status">Iba ručná kontrola · bez herných akcií.</p>
       <details class="sgo-watch-settings"><summary>História a Gist</summary>
@@ -156,6 +229,16 @@
     let history = [];
     let config = {};
     let restored = false;
+    let nnTimer = null;
+    function readNNWatch() {
+      if (typeof sessionStorage === "undefined") return null;
+      try { return JSON.parse(sessionStorage.getItem(NN_WATCH_KEY) || "null"); } catch { return null; }
+    }
+    function writeNNWatch(watch) {
+      if (typeof sessionStorage === "undefined") return;
+      if (watch) sessionStorage.setItem(NN_WATCH_KEY, JSON.stringify(watch));
+      else sessionStorage.removeItem(NN_WATCH_KEY);
+    }
     function render() {
       $("#sgo-guardian-items").replaceChildren();
       for (const [key, title] of [["bonus", "Denný bonus"], ["casino", "Herňa"], ["nn", "NN"], ["vala", "Vala"], ["odyssean", "Odyssean"]]) {
@@ -171,6 +254,12 @@
       const casinoView = displayState("casino", state.casino);
       $("#sgo-casino-actions").hidden = casinoView.status !== "action";
       $("#sgo-casino-pure-random").checked = Boolean(config.pureRandom);
+      const nnView = displayState("nn", state.nn);
+      const watch = readNNWatch();
+      const watching = Boolean(watch?.active);
+      $("#sgo-nn-actions").hidden = nnView.status !== "action" && !watching;
+      $("#sgo-nn-start").disabled = watching;
+      $("#sgo-nn-stop").disabled = !watching;
       $("#sgo-lottery-history").textContent = `Zachytené žrebovania: ${history.length}. Nemusí ísť o úplnú históriu.`;
       const stats = L.analyze(history);
       $("#sgo-lottery-stats").textContent = stats.totalDraws
@@ -353,9 +442,95 @@
         log(`Herňa: ${error.message}`, "error");
       }
     });
-    return { render, resumeCasinoBet };
+    function stopNNWatch(message = "Sledovanie NN zastavené.") {
+      clearTimeout(nnTimer);
+      nnTimer = null;
+      writeNNWatch(null);
+      render();
+      $("#sgo-guardian-status").textContent = message;
+      log(`NN: ${message}`);
+    }
+    function stepNNWatch(watch) {
+      const current = readMarketOffers(document);
+      if (!Array.isArray(watch.baseline)) {
+        watch.baseline = current;
+        watch.confirmations = 0;
+        writeNNWatch(watch);
+      }
+      const baselineSet = new Set(watch.baseline);
+      const added = current.filter(item => !baselineSet.has(item));
+      if (added.length > 0) {
+        watch.confirmations = (watch.confirmations || 0) + 1;
+        if (watch.confirmations >= 3) {
+          clearTimeout(nnTimer);
+          nnTimer = null;
+          writeNNWatch(null);
+          render();
+          showNNAlert(document, added);
+          $("#sgo-guardian-status").textContent = `POTVRDENÉ NOVÉ NN (${added.length})! Klikni kamkoľvek pre zatvorenie upozornenia.`;
+          log(`NN: POTVRDENÉ 3× po sebe! Nové ponuky v obchode: ${added.join(", ")}.`, "success");
+          return;
+        }
+        writeNNWatch(watch);
+        const fastDelay = delayFn("confirm");
+        $("#sgo-guardian-status").textContent = `Zachytené nové NN (${watch.confirmations}/3) · okamžité overenie…`;
+        log(`NN: zachytená nová ponuka (${watch.confirmations}/3): ${added.join(", ")}. Okamžitý kontrolný refresh.`);
+        nnTimer = setTimeout(() => {
+          navigate(new URL(nnDestination, location.href).href);
+        }, fastDelay);
+        return;
+      }
+      if (watch.confirmations > 0) {
+        log("NN: predchádzajúca ponuka zmizla (falošný poplach). Pokračujem v sledovaní.", "warn");
+        watch.confirmations = 0;
+      }
+      watch.baseline = current;
+      writeNNWatch(watch);
+      const waitMs = delayFn("human");
+      const sec = (waitMs / 1000).toFixed(1);
+      $("#sgo-guardian-status").textContent = `Sledujem NN (základ: ${current.length}) · ďalší refresh o ${sec} s…`;
+      nnTimer = setTimeout(() => {
+        navigate(new URL(nnDestination, location.href).href);
+      }, waitMs);
+    }
+    async function resumeNNWatch() {
+      const watch = readNNWatch();
+      if (!watch?.active) return;
+      await ready;
+      render();
+      if (!isPlanetMarket(location.href)) {
+        $("#sgo-guardian-status").textContent = "Sledovanie NN aktívne · presmerúvam do obchodu s planétami…";
+        await navigate(new URL(nnDestination, location.href).href);
+        return;
+      }
+      stepNNWatch(watch);
+    }
+    $("#sgo-nn-start").addEventListener("click", async () => {
+      try {
+        await ready;
+        if (!canEdit()) throw new Error("Najprv zastav útoky a počkaj na dokončenie operácie.");
+        const watch = { active: true, baseline: isPlanetMarket(location.href) ? readMarketOffers(document) : null, confirmations: 0 };
+        writeNNWatch(watch);
+        render();
+        if (!isPlanetMarket(location.href)) {
+          log("NN: spúšťam sledovanie a otváram Obchod > Planéty.");
+          await navigate(new URL(nnDestination, location.href).href);
+          return;
+        }
+        log(`NN: sledovanie spustené (počiatočné ponuky: ${watch.baseline.length}).`);
+        stepNNWatch(watch);
+      } catch (error) {
+        $("#sgo-guardian-status").textContent = `NN: ${error.message}`;
+        log(`NN: ${error.message}`, "error");
+      }
+    });
+    $("#sgo-nn-stop").addEventListener("click", () => stopNNWatch());
+    return { render, resumeCasinoBet, resumeNNWatch };
   }
-  const api = { pageText, readBonus, readCasino, readNN, readRanking, readTarget, displayState, mount };
+  const api = {
+    pageText, readBonus, readCasino, readNN, readRanking, readTarget,
+    isPlanetMarket, readMarketOffers, nnWatchDelay, showNNAlert, displayState, mount
+  };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.SGOGuardian = api;
 })(globalThis);
