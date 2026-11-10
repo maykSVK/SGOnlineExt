@@ -136,22 +136,29 @@
 #sgo-addon #sgo-guardian-feature { padding: 0 0 6px; margin-bottom: 8px; border-bottom: 1px solid var(--sgo-line); }
 #sgo-addon .sgo-watch-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; }
 #sgo-addon #sgo-guardian-refresh { padding: 5px 9px; font-size: 11px; }
-#sgo-addon .sgo-watch-row { display: grid; grid-template-columns: 7px 76px minmax(0, 1fr); align-items: center; gap: 6px; padding: 4px 0; color: var(--sgo-text); text-decoration: none; font-size: 11px; line-height: 1.35; border-bottom: 1px solid #28374e66; }
-#sgo-addon .sgo-watch-row::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #f1b363; }
+#sgo-addon .sgo-watch-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 4px 0; color: var(--sgo-text); text-decoration: none; font-size: 11px; line-height: 1.35; border-bottom: 1px solid #28374e66; }
+#sgo-addon .sgo-watch-row::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #f1b363; flex-shrink: 0; }
+#sgo-addon .sgo-watch-row strong { width: 76px; flex-shrink: 0; }
+#sgo-addon .sgo-watch-row .sgo-watch-detail,
+#sgo-addon .sgo-watch-row > span { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; color: #f1b363; }
+#sgo-addon .sgo-watch-row[data-status=ok] :is(.sgo-watch-detail, > span) { color: #80dc9c; }
+#sgo-addon .sgo-watch-row[data-status=action] :is(.sgo-watch-detail, > span) { color: #ff8e83; }
 #sgo-addon .sgo-watch-row[data-status=ok]::before { background: #80dc9c; }
 #sgo-addon .sgo-watch-row[data-status=action]::before { background: #ff8e83; }
-#sgo-addon .sgo-watch-row span { overflow-wrap: anywhere; color: #f1b363; }
-#sgo-addon .sgo-watch-row[data-status=ok] span { color: #80dc9c; }
-#sgo-addon .sgo-watch-row[data-status=action] span { color: #ff8e83; }
-#sgo-addon .sgo-casino-actions { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid #28374e66; font-size: 11px; }
-#sgo-addon .sgo-casino-actions[hidden] { display: none; }
+
+
+
+#sgo-addon .sgo-casino-actions,
+#sgo-addon .sgo-nn-actions { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; font-size: 11px; }
+#sgo-addon :is(.sgo-casino-actions, .sgo-nn-actions)[hidden] { display: none !important; }
 #sgo-addon #sgo-casino-bet { padding: 3px 9px; font-size: 11px; border-color: #65dec366; color: var(--sgo-accent); }
 #sgo-addon .sgo-casino-random { display: inline-flex; align-items: center; gap: 5px; color: var(--sgo-muted); font-size: 10px; cursor: pointer; }
 #sgo-addon #sgo-guardian-feature .sgo-casino-random input { display: inline-block; width: auto; margin: 0; }
-#sgo-addon .sgo-nn-actions { display: flex; align-items: center; gap: 6px; padding: 4px 0; border-bottom: 1px solid #28374e66; font-size: 11px; }
-#sgo-addon .sgo-nn-actions[hidden] { display: none; }
+
+
 #sgo-addon #sgo-nn-start { padding: 3px 9px; font-size: 11px; border-color: #ff8e8388; color: #ffb1a3; }
 #sgo-addon #sgo-nn-stop { padding: 3px 9px; font-size: 11px; }
+#sgo-addon #sgo-nn-stop:not(:disabled) { border-color: #ff8e8388; color: #ffb1a3; background: #ff9a8918; }
 #sgo-addon .sgo-watch-settings { font-size: 11px; color: var(--sgo-muted); }
 #sgo-addon :is(.sgo-watch-row, .sgo-watch-settings summary):focus-visible { outline: 2px solid var(--sgo-accent); outline-offset: 3px; }
 #sgo-addon #sgo-guardian-status { margin: 3px 0; font-size: 10px; }

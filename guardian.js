@@ -209,7 +209,7 @@
         <button type="button" id="sgo-casino-bet">Staviť</button>
         <label class="sgo-casino-random"><input type="checkbox" id="sgo-casino-pure-random"> Čisto náhodne (bez histórie)</label>
       </div>
-      <div id="sgo-nn-actions" class="sgo-nn-actions" hidden>
+      <div id="sgo-nn-actions" class="sgo-nn-actions">
         <button type="button" id="sgo-nn-start">Start sledovania NN</button>
         <button type="button" id="sgo-nn-stop" disabled>Stop</button>
       </div>
@@ -224,6 +224,10 @@
         <p class="sgo-note">Prázdny token vypne synchronizáciu. Uloženie neposiela požiadavky.</p>
       </details>`;
     const $ = selector => container.querySelector(selector);
+    const casinoActions = $("#sgo-casino-actions");
+    const nnActions = $("#sgo-nn-actions");
+    casinoActions?.addEventListener("click", e => e.stopPropagation());
+    nnActions?.addEventListener("click", e => e.stopPropagation());
     let checking = false;
     let state = {};
     let history = [];
@@ -246,10 +250,13 @@
         const row = document.createElement("a");
         row.className = "sgo-watch-row"; row.href = key === "nn" ? nnDestination : routes[key]; row.dataset.status = view.status;
         const label = document.createElement("strong"); label.textContent = title;
-        const detail = document.createElement("span"); detail.textContent = view.text;
+        const detail = document.createElement("span"); detail.className = "sgo-watch-detail"; detail.textContent = view.text;
         const stamp = state[key]?.time ? new Date(state[key].time).toLocaleString("sk-SK") : "Zatiaľ nekontrolované";
         row.title = `${view.text} · ${stamp}${state[key]?.error ? ` · ${state[key].error}` : ""}`;
-        row.append(label, detail); $("#sgo-guardian-items").append(row);
+        row.append(label, detail);
+        if (key === "casino" && casinoActions) row.append(casinoActions);
+        if (key === "nn" && nnActions) row.append(nnActions);
+        $("#sgo-guardian-items").append(row);
       }
       const casinoView = displayState("casino", state.casino);
       $("#sgo-casino-actions").hidden = casinoView.status !== "action";
@@ -257,7 +264,7 @@
       const nnView = displayState("nn", state.nn);
       const watch = readNNWatch();
       const watching = Boolean(watch?.active);
-      $("#sgo-nn-actions").hidden = nnView.status !== "action" && !watching;
+      $("#sgo-nn-actions").hidden = false;
       $("#sgo-nn-start").disabled = watching;
       $("#sgo-nn-stop").disabled = !watching;
       $("#sgo-lottery-history").textContent = `Zachytené žrebovania: ${history.length}. Nemusí ísť o úplnú históriu.`;
@@ -423,7 +430,9 @@
         log(`Herňa: ${error.message}`, "error");
       }
     }
-    $("#sgo-casino-bet").addEventListener("click", async () => {
+    $("#sgo-casino-bet").addEventListener("click", async e => {
+      e?.stopPropagation?.();
+      e?.preventDefault?.();
       try {
         await ready;
         if (!canEdit()) throw new Error("Najprv zastav útoky a počkaj na dokončenie operácie.");
@@ -505,7 +514,9 @@
       }
       stepNNWatch(watch);
     }
-    $("#sgo-nn-start").addEventListener("click", async () => {
+    $("#sgo-nn-start").addEventListener("click", async e => {
+      e?.stopPropagation?.();
+      e?.preventDefault?.();
       try {
         await ready;
         if (!canEdit()) throw new Error("Najprv zastav útoky a počkaj na dokončenie operácie.");
@@ -524,7 +535,11 @@
         log(`NN: ${error.message}`, "error");
       }
     });
-    $("#sgo-nn-stop").addEventListener("click", () => stopNNWatch());
+    $("#sgo-nn-stop").addEventListener("click", e => {
+      e?.stopPropagation?.();
+      e?.preventDefault?.();
+      stopNNWatch();
+    });
     return { render, resumeCasinoBet, resumeNNWatch };
   }
   const api = {

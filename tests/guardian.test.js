@@ -300,6 +300,7 @@ test("Staviť button appears when casino needs action, navigates to casino and p
   await Promise.resolve();
   await Promise.resolve();
   assert.equal(container.querySelector("#sgo-casino-actions").hidden, false, "Staviť actions shown when casino status is action");
+  assert.ok(container.querySelector("#sgo-guardian-items").children[1].children.includes(container.querySelector("#sgo-casino-actions")), "casino actions are placed directly inside casino row");
   assert.match(container.querySelector("#sgo-lottery-stats").textContent, /Najčastejšie: 8 \(2×\), 22 \(2×\)/);
 
   container.querySelector("#sgo-casino-pure-random").checked = true;
@@ -388,6 +389,11 @@ test("NN watch ignores initial and fake offers, confirms after 3 consecutive ref
   await Promise.resolve();
 
   assert.equal(container.querySelector("#sgo-nn-actions").hidden, false, "Start/Stop visible during active NN window");
+  assert.ok(container.querySelector("#sgo-guardian-items").children[2].children.includes(container.querySelector("#sgo-nn-actions")), "NN actions are placed directly inside NN row");
+  store["sgo-guardian"].nn = { status: "unknown", text: "Neznáme · chýba hlásenie NN" };
+  guardian.render();
+  assert.equal(container.querySelector("#sgo-nn-actions").hidden, false, "Start/Stop visible even outside NN window or when unknown");
+  assert.equal(container.querySelector("#sgo-nn-start").disabled, false, "Start enabled outside NN window");
   await container.querySelector("#sgo-nn-start").listeners.click();
   assert.deepEqual(JSON.parse(session.get("sgo-nn-watch")).baseline, ["nab-1"]);
   assert.equal(delays.at(-1), "human");
