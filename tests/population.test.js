@@ -307,6 +307,7 @@ test("Doplniť nezamestnaných transfers OP offers sequentially in dropdown orde
   assert.equal(opAvailable, 0);
   assert.equal(container.querySelector("#sgo-pop-fill-workers").disabled, true, "disabled after OP is exhausted");
   assert.equal(P.nextOfferTransfer([], [], "ideal"), null);
+  assert.equal(P.nextOfferTransfer([], []), null, "defaults to capacity mode");
 
   const p1 = P.calculate({ ...planet, id: "1", name: "AtIdealButUnbuilt", cities: 198, factories: 35000, built: 35000, slots: 39600 }, 50, costs, { room: 400000000 });
   const p2 = P.calculate({ ...planet, id: "2", name: "FullCapacity", cities: 250, factories: 50000, built: 50000, slots: 50000 }, 50, costs, { room: 400000000 });
@@ -323,4 +324,5 @@ test("Doplniť nezamestnaných transfers OP offers sequentially in dropdown orde
   }];
   assert.equal(P.nextOfferTransfer(offers, ranked, "ideal").planetId, "3", "ideal mode skips full (p2) and already-at-ideal (p1) planets");
   assert.equal(P.nextOfferTransfer(offers, ranked, "capacity").planetId, "1", "capacity mode skips full planet (p2) but includes unbuilt-to-max planet (p1)");
+  assert.equal(P.nextOfferTransfer(offers, ranked).planetId, "1", "default mode is capacity (skips p2, fills p1)");
 });

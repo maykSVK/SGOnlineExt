@@ -166,7 +166,7 @@ na jej zastavenie pouzi **Zastavit** v podmenu utokov.
   (v sekcii *Nase nabidky*) volnych nezamestnanych. Po kliknuti ich postupne
   presuva (`Presunout`) na planety presne v poradi nasho dropdownu (od
   najvyssieho odhadu narodenych pri idealnom zaludneni), az kym sa ponuky na
-  obchodnej planete nevycerpaju alebo kym sa nenaplnia vsetky planety v zozname. Vedla tlacidla si mozes zvolit rezim **Podla idealu (dropdown)** (len planety, kde chybaju vyrobne do idealu) alebo **Nepostavene do maxima** (vsetky planety, kde este nie su postavene vsetky vyrobne / plna kapacita `postavene < max`).
+  obchodnej planete nevycerpaju alebo kym sa nenaplnia vsetky planety v zozname. Vedla tlacidla si mozes zvolit rezim: predvolene **Nepostavene do maxima** (vsetky planety, kde este nie su postavene vsetky vyrobne / plna kapacita `postavene < max`) alebo **Podla idealu (dropdown)** (len planety, kde chybaju vyrobne do idealu).
 - Pre kazdu planetu: `Y = mesta * kapacita_mesta` (cita sa zo stavebneho formulara, napr. `9 000 000` alebo po vylepseni `9 480 000`), `K = 1 + denny prirastok / 100`,
   `idealna populacia = Y / K`. Dennym prirastkom je hodnota z Druhov planet,
   nie spokojenost zo Spravy planet.

@@ -105,7 +105,7 @@
     }
     return offers;
   }
-  function nextOfferTransfer(offers, orderedReports, mode = "ideal") {
+  function nextOfferTransfer(offers, orderedReports, mode = "capacity") {
     const activeOffer = offers.find(offer => offer.available > 0);
     if (!activeOffer) return null;
     for (const report of orderedReports) {
@@ -216,8 +216,8 @@
       <div class="sgo-pop-tools"><button type="button" id="sgo-pop-load">Prepočítať planéty</button>
       <button type="button" id="sgo-pop-fill-workers" disabled>Doplniť nezamestnaných</button>
       <select id="sgo-pop-fill-mode" aria-label="Režim dopĺňania nezamestnaných" title="Režim dopĺňania nezamestnaných">
+        <option value="capacity" selected>Nepostavené do maxima</option>
         <option value="ideal">Podľa ideálu (dropdown)</option>
-        <option value="capacity">Nepostavené do maxima</option>
       </select>
       <a href="game.php?page=planety">Stavění</a><a href="game.php?page=obchod">Nezaměstnaní</a></div>
       <p id="sgo-pop-status" class="sgo-hint" role="status">Načítaj aktuálne stavby, denné prírastky a voľnú kapacitu obyvateľov.</p>
@@ -228,7 +228,7 @@
     let rankedReports = [];
     let latestOffers = [];
     let fillingWorkers = false;
-    const currentMode = () => $("#sgo-pop-fill-mode")?.value === "capacity" ? "capacity" : "ideal";
+    const currentMode = () => $("#sgo-pop-fill-mode")?.value === "ideal" ? "ideal" : "capacity";
     const updateFillButton = () => {
       $("#sgo-pop-fill-workers").disabled = fillingWorkers || loading || !nextOfferTransfer(latestOffers, rankedReports, currentMode());
     };
