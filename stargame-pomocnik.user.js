@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         StarGame pomocnik
 // @namespace    https://github.com/maykSVK/SGOnlineExt
-// @version      0.3.10
+// @version      0.3.11
 // @description  Vala attacks, ideal population and sector forum drafts.
 // @homepageURL  https://github.com/maykSVK/SGOnlineExt
 // @match        https://stargame-online.cz/www/game.php*
@@ -194,15 +194,23 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
   }
   function workerCost(form, name) {
     const input = form.querySelector(`[name="${name}"]`);
-    const match = input?.closest(".inf")?.textContent.match(/-\s*([\d\s\u00a0]+)\s*lidí/);
+    const match = input?.closest(".inf")?.textContent.match(/[+-]\s*([\d\s\u00a0]+)\s*lidí/);
     const workers = match ? number(match[1], `zamestnanci ${name}`) : null;
     if (!workers) throw new Error(`Chýba počet pracovníkov budovy ${name}.`);
     return workers;
   }
+  function cityCapacity(form) {
+    const input = form.querySelector('[name="mest"]');
+    const match = input?.closest(".inf")?.textContent.match(/\+\s*([\d\s\u00a0]+)\s*lidí/);
+    return match ? number(match[1], "kapacita mesta") : CITY_CAPACITY;
+  }
   function readBuildings(doc) {
     const form = buildingForm(doc);
     if (!form) throw new Error("Nenašiel som formulár Planety > Stavění.");
-    const costs = Object.fromEntries(["vyroben", "sdi", "bs", "laboratori"].map(name => [name, workerCost(form, name)]));
+    const costs = {
+      ...Object.fromEntries(["vyroben", "sdi", "bs", "laboratori"].map(name => [name, workerCost(form, name)])),
+      mest: cityCapacity(form)
+    };
     const options = [...form.querySelector('[name="planeta"]').options];
     const planets = options.map(option => {
       const row = doc.getElementById(`pln${option.value}`);
@@ -250,12 +258,13 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
     return result;
   }
   function calculate(planet, growth, costs, trade) {
+    const perCity = costs.mest ?? CITY_CAPACITY;
     const values = [planet.cities, planet.factories, planet.sdi, planet.bs, planet.labs, planet.built, planet.slots, trade?.room,
-      costs.vyroben, costs.sdi, costs.bs, costs.laboratori];
-    if (values.some(v => !Number.isSafeInteger(v) || v < 0) || !costs.vyroben || !Number.isFinite(growth) || growth < 0) {
+      costs.vyroben, costs.sdi, costs.bs, costs.laboratori, perCity];
+    if (values.some(v => !Number.isSafeInteger(v) || v < 0) || !costs.vyroben || !perCity || !Number.isFinite(growth) || growth < 0) {
       throw new Error(`Neplatné vstupy výpočtu pre ${planet.name}.`);
     }
-    const capacity = planet.cities * CITY_CAPACITY;
+    const capacity = planet.cities * perCity;
     const constant = 1 + growth / 100;
     const idealPopulation = capacity / constant;
     const idealBirths = Math.floor(idealPopulation * growth / 100);
@@ -368,7 +377,7 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
       metrics.className = "sgo-pop-metrics";
       const entries = [
         ["Počet miest X", fmt(report.cities)],
-        ["Mestá × 9 000 000", fmt(report.capacity)],
+        [`Mestá × ${(report.workforce?.mest ?? CITY_CAPACITY).toLocaleString("sk-SK")}`, fmt(report.capacity)],
         [`Denný prírastok ${report.growth} % · K`, report.constant.toLocaleString("sk-SK")],
         ["Ideálna populácia Y / K", fmt(report.idealPopulation)],
         ["Odhad narodených pri ideále / deň", `+${fmt(report.idealBirths)}`],

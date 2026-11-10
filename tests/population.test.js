@@ -78,6 +78,17 @@ test("birth potential accounts for size and growth, not just percentage or curre
     P.calculate(planet, 50, costs, { room: 0 }).idealBirths);
 });
 
+test("upgraded city capacity from Město card is used instead of hardcoded 9 000 000", () => {
+  const aafm = { id: "2382098", name: "AAFM-6757-45", type: "5", cities: 678, factories: 105937, sdi: 0, bs: 0, labs: 0, built: 105937, slots: 142380 };
+  assert.throws(() => P.calculate(aafm, 50, costs, { room: 2613708000 }), /zmenili alebo nesúhlasia/);
+  const upgraded = P.calculate(aafm, 50, { ...costs, mest: 9480000 }, { room: 2613708000 });
+  assert.equal(upgraded.capacity, 6427440000);
+  assert.equal(upgraded.population, 3813732000);
+  assert.equal(upgraded.unemployed, 0);
+  assert.equal(upgraded.targetFactories, 119026);
+  assert.equal(upgraded.missing, 13089);
+});
+
 test("population selection follows native building form without selecting another planet when done", async t => {
   class Element {
     constructor() {

@@ -166,7 +166,7 @@ na jej zastavenie pouzi **Zastavit** v podmenu utokov.
   Hra uvadza transport na obchodnu planetu 5 az 20 minut a ma hromadnu akciu
   naplnenia planet z vlastnych ponuk. Doplnok tieto akcie nepouziva: transporty
   aj pridelovanie nezamestnanych zatial ovladas vyhradne ty.
-- Pre kazdu planetu: `Y = mesta * 9 000 000`, `K = 1 + denny prirastok / 100`,
+- Pre kazdu planetu: `Y = mesta * kapacita_mesta` (cita sa zo stavebneho formulara, napr. `9 000 000` alebo po vylepseni `9 480 000`), `K = 1 + denny prirastok / 100`,
   `idealna populacia = Y / K`. Dennym prirastkom je hodnota z Druhov planet,
   nie spokojenost zo Spravy planet.
 - Dropdown aj zoznam planet su zoradene od najvyssieho odhadu narodenych
