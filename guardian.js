@@ -189,15 +189,15 @@
       tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
       const endDay = overnight ? tomorrow.toISOString().slice(0, 10) : entry.date;
       if (today < entry.date || (today === entry.date && clock < entry.start)) {
-        return { status: "ok", text: `NN čakáme ${entry.start}–${entry.end}` };
+        return { status: "ok", text: `Čakáme ${entry.start}–${entry.end}` };
       }
       if (today < endDay || (today === endDay && clock <= entry.end)) {
-        return { status: "action", text: `Over NN · okno ${entry.start}–${entry.end}` };
+        return { status: "action", text: `Okno ${entry.start}–${entry.end}` };
       }
-      return { status: "unknown", text: "Okno NN uplynulo · over poštu" };
+      return { status: "unknown", text: "Okno uplynulo" };
     }
     if (gameDay(entry.time) !== gameDay(now) || (key === "casino" && now - entry.time >= 6 * 3600000) || ((key === "vala" || key === "odyssean") && now - entry.time >= 3600000)) {
-      return { status: "unknown", text: "Neznáme · údaje sú staré" };
+      return { status: "unknown", text: "Staré údaje" };
     }
     return entry;
   }
@@ -207,10 +207,10 @@
       <div id="sgo-guardian-items"></div>
       <div id="sgo-casino-actions" class="sgo-casino-actions" hidden>
         <button type="button" id="sgo-casino-bet">Staviť</button>
-        <label class="sgo-casino-random"><input type="checkbox" id="sgo-casino-pure-random"> Čisto náhodne (bez histórie)</label>
+        <label class="sgo-casino-random" title="Čisto náhodné čísla bez histórie"><input type="checkbox" id="sgo-casino-pure-random"> Čisto náhodne</label>
       </div>
       <div id="sgo-nn-actions" class="sgo-nn-actions">
-        <button type="button" id="sgo-nn-start">Start sledovania NN</button>
+        <button type="button" id="sgo-nn-start" title="Sledovať ponuky NN v obchode">Sledovať</button>
         <button type="button" id="sgo-nn-stop" disabled>Stop</button>
       </div>
       <p class="sgo-note" id="sgo-guardian-status" role="status">Iba ručná kontrola · bez herných akcií.</p>
