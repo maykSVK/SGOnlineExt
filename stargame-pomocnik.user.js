@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         StarGame pomocnik
 // @namespace    https://github.com/maykSVK/SGOnlineExt
-// @version      0.3.15
+// @version      0.3.16
 // @description  Vala attacks, ideal population and sector forum drafts.
 // @homepageURL  https://github.com/maykSVK/SGOnlineExt
 // @match        https://stargame-online.cz/www/game.php*
@@ -186,8 +186,9 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
   function occupancy(text, capacity) {
     if (C.clean(text).includes("/")) return pair(text, "zastavanosť");
     const built = number(text, "zastavanosť");
-    if (built !== capacity) throw new Error("Nečitateľná zastavanosť: samostatný počet nezodpovedá plnej kapacite.");
-    return [built, capacity];
+    const expected = capacity ?? built;
+    if (built !== expected) throw new Error("Nečitateľná zastavanosť: samostatný počet nezodpovedá plnej kapacite.");
+    return [built, expected];
   }
   function buildingForm(doc) {
     return [...doc.forms].find(f => f.querySelector('[name="vyroben"]') && f.querySelector('select[name="planeta"]') && f.querySelector('[name="postavit"]'));
@@ -219,12 +220,17 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
       const typeLink = cells[0].querySelector('a[href*="typ="]');
       const type = typeLink ? new URL(typeLink.getAttribute("href"), "https://stargame-online.cz/www/game.php").searchParams.get("typ") : null;
       if (!type) throw new Error(`Chýba druh planéty ${option.textContent}.`);
-      const [factories, factorySlots] = pair(cells[3].textContent, "výrobne / kapacita");
-      const [built, slots] = occupancy(cells[9].textContent, factorySlots);
-      if (slots !== factorySlots) throw new Error("Nesúhlasí stavebná kapacita planéty.");
+      const factories = C.clean(cells[3].textContent).includes("/")
+        ? pair(cells[3].textContent, "výrobne / kapacita")[0]
+        : number(cells[3].textContent, "výrobne");
+      const [built, slots] = occupancy(cells[9].textContent);
+      const cities = C.clean(cells[2].textContent).includes("/")
+        ? pair(cells[2].textContent, "mestá")[0]
+        : number(cells[2].textContent, "mestá");
+
       return {
         id: option.value, name: C.clean(option.textContent), type,
-        cities: number(cells[2].textContent, "mestá"), factories, built, slots,
+        cities, factories, built, slots,
         sdi: number(cells[4].textContent, "SDI"), bs: number(cells[5].textContent, "BS"),
         labs: number(cells[7].textContent, "laboratóriá")
       };

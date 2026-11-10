@@ -89,6 +89,33 @@ test("upgraded city capacity from Město card is used instead of hardcoded 9 000
   assert.equal(upgraded.missing, 13089);
 });
 
+test("planets with partially built cities (e.g. 10 / 60) read current cities and capacity", () => {
+  const cell = textContent => ({ textContent });
+  const form = {
+    querySelector: selector => selector.includes("planeta")
+      ? { options: [{ value: "2382863", textContent: "LBDY-5864-53" }] }
+      : selector.includes("postavit") ? {} : { closest: () => ({ textContent: "- 36 000 lidí" }) }
+  };
+  const doc = {
+    forms: [form],
+    getElementById: id => id === "pln2382863" ? {
+      cells: [
+        { querySelector: () => ({ getAttribute: () => "?typ=27" }) },
+        cell("LBDY-5864-53"),
+        cell("10 / 60"),
+        cell("0 / 12 600"),
+        cell("0"), cell("0"), cell("0"), cell("0"), cell("0"),
+        cell("0 / 2 100")
+      ]
+    } : null
+  };
+  const { planets } = P.readBuildings(doc);
+  assert.equal(planets[0].cities, 10);
+  assert.equal(planets[0].factories, 0);
+  assert.equal(planets[0].built, 0);
+  assert.equal(planets[0].slots, 2100);
+});
+
 test("population selection follows native building form without selecting another planet when done", async t => {
   class Element {
     constructor() {
