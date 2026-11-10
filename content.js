@@ -541,7 +541,8 @@
   population = globalThis.SGOPopulation.mount($("#sgo-population-feature"), { getDocument, log, canEdit: () => !run?.active && !busy, revealGame });
   $("#sgo-open-sectors").addEventListener("click", () => showFeature("sectors"));
   guardian = globalThis.SGOGuardian.mount($("#sgo-guardian-feature"), {
-    getDocument, log, storage, rankingContainer: $("#sgo-ranking"), canEdit: () => !run?.active && !busy
+    getDocument, log, storage, rankingContainer: $("#sgo-ranking"), canEdit: () => !run?.active && !busy,
+    revealGame, navigate: async url => { await writes; location.assign(url); }
   });
   sectors = globalThis.SGOSectors.mount($("#sgo-sectors-feature"), {
     getDocument, log, canEdit: () => !run?.active && !busy, revealGame,
@@ -558,5 +559,6 @@
   showTab(data.uiTab === "activity" ? "activity" : "attacks", false);
   showFeature(run?.active ? "attacks" : data.feature, false);
   sectors.resumeForumDraft();
+  guardian.resumeCasinoBet();
   resume().catch(error => stop(error.message, "error"));
 })();

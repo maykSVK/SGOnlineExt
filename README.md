@@ -73,8 +73,13 @@ samotny vyskyt slova vsadit nie je dokaz, ze stavka chyba.
 Pred hlasenym oknom NN zobrazi cakanie, pocas okna upozorni na kontrolu,
 po nom uvadza nezname. Pouziva cas Europe/Prague a zohladnuje polnoc;
 hlasenie nie je potvrdenie aktualnej dostupnosti. Aktualizacia je blokovana pocas utokov.
-Automaticke nahodne vsadenie na 12 slosovani zatial nie je implementovane:
-pred jeho pridanim treba overit aktualny nativny formular, cenu a potvrdenie.
+Ak uz v Herni nie su k dispozicii ziadne pokusy (stav `Treba vsadit`), zobrazi sa
+tlacidlo **Stavit** a volba **Cisto nahodne (bez historie)**. Kliknutie na
+**Stavit** presmeruje na Hernu (`page=obchod&s=6`) a predvyplni 6 cisel (1–25)
+vo formulari Super 6 podla vazenej pseudonahody z historickych tahov (alebo
+rovnomerne nahodne, ak je zaskrtnuty checkbox). Samotne odoslanie stavky
+tlacidlom **Vsadit** ostava na pouzivatelovi. V casti **Historia a Gist** sa
+zobrazuju aj najcastejsie tazene cisla zo zachytenych zrebovani.
 
 #### TOP 3 celkovo
 

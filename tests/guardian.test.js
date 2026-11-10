@@ -243,3 +243,76 @@ test("one explicit refresh checks all pages; history errors never replace casino
   assert.equal(saved["sgo-guardian"].bonus.status, "unknown");
   assert.match(saved["sgo-guardian"].bonus.error, /Offline/);
 });
+
+test("Staviť button appears when casino needs action, navigates to casino and prefills numbers", async t => {
+  class Element {
+    constructor() { this.children = []; this.listeners = {}; this.dataset = {}; this.value = ""; this.hidden = false; this.checked = false; }
+    append(...children) { this.children.push(...children); }
+    replaceChildren(...children) { this.children = children; }
+    addEventListener(name, callback) { this.listeners[name] = callback; }
+  }
+  const oldDoc = globalThis.document;
+  const oldLocation = globalThis.location;
+  const oldSession = globalThis.sessionStorage;
+  const session = new Map();
+  t.after(() => {
+    if (oldDoc === undefined) delete globalThis.document; else globalThis.document = oldDoc;
+    if (oldLocation === undefined) delete globalThis.location; else globalThis.location = oldLocation;
+    if (oldSession === undefined) delete globalThis.sessionStorage; else globalThis.sessionStorage = oldSession;
+  });
+  const hiddenInput = { value: "" };
+  const cells = {};
+  const slots = {};
+  for (let n = 1; n <= 25; n++) cells[`#vsaz-${n}`] = { className: "" };
+  for (let i = 1; i <= 6; i++) slots[`#los-${i}`] = { textContent: "" };
+  globalThis.document = {
+    createElement: () => new Element(),
+    querySelector: selector => cells[selector] || slots[selector] || (selector === "#cisla" ? hiddenInput : null)
+  };
+  globalThis.location = { href: "https://stargame-online.cz/www/game.php?page=prehled" };
+  globalThis.sessionStorage = {
+    getItem: key => session.get(key) ?? null,
+    setItem: (key, val) => session.set(key, String(val)),
+    removeItem: key => session.delete(key)
+  };
+  const elements = new Map();
+  const container = { querySelector(selector) {
+    if (!elements.has(selector)) elements.set(selector, new Element());
+    return elements.get(selector);
+  } };
+  const store = {
+    "sgo-guardian": { casino: { status: "action", text: "Treba vsadiť", time: Date.now() } },
+    "sgo-lottery-history": [
+      { at: "2026-11-04T02:00", numbers: [4, 8, 11, 19, 22, 23] },
+      { at: "2026-11-04T08:00", numbers: [5, 6, 7, 8, 10, 22] }
+    ],
+    "sgo-gist-config": { id: "", token: "", pureRandom: false }
+  };
+  let navigatedTo = null;
+  let revealed = 0;
+  const guardian = G.mount(container, {
+    storage: { get: async key => store[key], set: async (key, val) => { store[key] = val; } },
+    log() {}, canEdit: () => true, getDocument: async () => ({}),
+    navigate: async url => { navigatedTo = url; },
+    revealGame: () => { revealed++; }
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(container.querySelector("#sgo-casino-actions").hidden, false, "Staviť actions shown when casino status is action");
+  assert.match(container.querySelector("#sgo-lottery-stats").textContent, /Najčastejšie: 8 \(2×\), 22 \(2×\)/);
+
+  container.querySelector("#sgo-casino-pure-random").checked = true;
+  await container.querySelector("#sgo-casino-pure-random").listeners.change();
+  assert.equal(store["sgo-gist-config"].pureRandom, true);
+
+  await container.querySelector("#sgo-casino-bet").listeners.click();
+  assert.match(navigatedTo, /page=obchod&s=6$/);
+  assert.ok(session.get("sgo-casino-bet"));
+
+  globalThis.location.href = navigatedTo;
+  await guardian.resumeCasinoBet();
+  assert.equal(session.has("sgo-casino-bet"), false);
+  assert.match(hiddenInput.value, /^(?:\d{2}\.){6}$/);
+  assert.equal(revealed, 1);
+});

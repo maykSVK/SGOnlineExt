@@ -74,3 +74,55 @@ test("Tampermonkey transport authenticates only to GitHub and reports HTTP failu
   await assert.rejects(context.SGOLottery.sync(config, []), error =>
     error.message.includes("401") && !error.message.includes(config.token));
 });
+
+test("statistical analysis and weighted/pure-random number selection", () => {
+  const history = [
+    draw("2026-11-04T02:00", [4, 8, 11, 19, 22, 23]),
+    draw("2026-11-04T08:00", [5, 6, 7, 8, 10, 22]),
+    draw("2026-11-04T14:00", [3, 8, 10, 15, 16, 22])
+  ];
+  const stats = L.analyze(history);
+  assert.equal(stats.totalDraws, 3);
+  assert.equal(stats.numbers.length, 25);
+  assert.equal(stats.hot[0].number, 8);
+  assert.equal(stats.hot[0].count, 3);
+  assert.equal(stats.hot[1].number, 22);
+  assert.equal(stats.hot[1].count, 3);
+
+  let step = 0;
+  const rolls = [0.01, 0.15, 0.3, 0.5, 0.7, 0.9];
+  const weighted = L.pickNumbers(history, { pureRandom: false, random: () => rolls[step++ % rolls.length] });
+  assert.equal(weighted.length, 6);
+  assert.equal(new Set(weighted).size, 6);
+  assert.deepEqual(weighted, [...weighted].sort((a, b) => a - b));
+
+  step = 0;
+  const uniform = L.pickNumbers(history, { pureRandom: true, random: () => rolls[step++ % rolls.length] });
+  assert.equal(uniform.length, 6);
+  assert.equal(new Set(uniform).size, 6);
+  assert.notDeepEqual(weighted, uniform);
+});
+
+test("fillBetForm marks 6 balls, updates hidden input and cost without submitting", () => {
+  const cells = {};
+  const slots = {};
+  for (let n = 1; n <= 25; n++) cells[`#vsaz-${n}`] = { className: "cislo-vsazeno" };
+  for (let i = 1; i <= 6; i++) slots[`#los-${i}`] = { textContent: "99" };
+  const hidden = { value: "01." };
+  const drawsInput = { value: "12" };
+  const cost = { textContent: "0" };
+  const doc = {
+    querySelector: selector => cells[selector] || slots[selector] ||
+      (selector === "#cisla" ? hidden : selector === "#pocet-slos" ? drawsInput : selector === "#naq-del" ? cost : null)
+  };
+  const selected = L.fillBetForm(doc, [22, 6, 8, 19, 23, 15]);
+  assert.deepEqual(selected, [6, 8, 15, 19, 22, 23]);
+  assert.equal(hidden.value, "06.08.15.19.22.23.");
+  assert.equal(cells["#vsaz-6"].className, "cislo-vsazeno");
+  assert.equal(cells["#vsaz-1"].className, "");
+  assert.equal(slots["#los-1"].textContent, "6");
+  assert.equal(slots["#los-6"].textContent, "23");
+  assert.equal(cost.textContent, "18000000");
+  assert.throws(() => L.fillBetForm(doc, [1, 2, 3, 4, 5]), /Neplatná/);
+  assert.throws(() => L.fillBetForm({ querySelector: () => null }, [1, 2, 3, 4, 5, 6]), /nie je na stránke/);
+});

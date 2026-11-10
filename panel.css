@@ -142,6 +142,11 @@
 #sgo-addon .sgo-watch-row span { overflow-wrap: anywhere; color: #f1b363; }
 #sgo-addon .sgo-watch-row[data-status=ok] span { color: #80dc9c; }
 #sgo-addon .sgo-watch-row[data-status=action] span { color: #ff8e83; }
+#sgo-addon .sgo-casino-actions { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid #28374e66; font-size: 11px; }
+#sgo-addon .sgo-casino-actions[hidden] { display: none; }
+#sgo-addon #sgo-casino-bet { padding: 3px 9px; font-size: 11px; border-color: #65dec366; color: var(--sgo-accent); }
+#sgo-addon .sgo-casino-random { display: inline-flex; align-items: center; gap: 5px; color: var(--sgo-muted); font-size: 10px; cursor: pointer; }
+#sgo-addon #sgo-guardian-feature .sgo-casino-random input { display: inline-block; width: auto; margin: 0; }
 #sgo-addon .sgo-watch-settings { font-size: 11px; color: var(--sgo-muted); }
 #sgo-addon :is(.sgo-watch-row, .sgo-watch-settings summary):focus-visible { outline: 2px solid var(--sgo-accent); outline-offset: 3px; }
 #sgo-addon #sgo-guardian-status { margin: 3px 0; font-size: 10px; }

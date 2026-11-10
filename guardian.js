@@ -11,6 +11,7 @@
     odyssean: "game.php?page=vesmir&jak=102"
   };
   const nnDestination = "game.php?page=obchod&s=3";
+  const BET_KEY = "sgo-casino-bet";
   const targets = { vala: "Vala Mal Doran", odyssean: "Odyssean" };
   function readRanking(doc) {
     const table = doc.querySelector("table.serazeniHracuAll");
@@ -131,12 +132,18 @@
     }
     return entry;
   }
-  function mount(container, { getDocument, log, canEdit, storage, rankingContainer, syncHistory = L.sync }) {
+  function mount(container, { getDocument, log, canEdit, storage, rankingContainer, syncHistory = L.sync,
+      navigate = url => location.assign(url), revealGame = () => {} }) {
     container.innerHTML = `<div class="sgo-watch-heading"><strong>Prehľad</strong><button type="button" id="sgo-guardian-refresh">Aktualizovať</button></div>
       <div id="sgo-guardian-items"></div>
+      <div id="sgo-casino-actions" class="sgo-casino-actions" hidden>
+        <button type="button" id="sgo-casino-bet">Staviť</button>
+        <label class="sgo-casino-random"><input type="checkbox" id="sgo-casino-pure-random"> Čisto náhodne (bez histórie)</label>
+      </div>
       <p class="sgo-note" id="sgo-guardian-status" role="status">Iba ručná kontrola · bez herných akcií.</p>
       <details class="sgo-watch-settings"><summary>História a Gist</summary>
         <p class="sgo-note" id="sgo-lottery-history"></p>
+        <p class="sgo-note" id="sgo-lottery-stats"></p>
         <p class="sgo-note" id="sgo-lottery-sync" role="status">Synchronizácia zatiaľ neoverená.</p>
         <label class="sgo-planet">Gist ID alebo odkaz<input id="sgo-gist-id" type="text" autocomplete="off"></label>
         <label class="sgo-planet">GitHub token (gist)<input id="sgo-gist-token" type="password" autocomplete="off" spellcheck="false"></label>
@@ -161,7 +168,14 @@
         row.title = `${view.text} · ${stamp}${state[key]?.error ? ` · ${state[key].error}` : ""}`;
         row.append(label, detail); $("#sgo-guardian-items").append(row);
       }
+      const casinoView = displayState("casino", state.casino);
+      $("#sgo-casino-actions").hidden = casinoView.status !== "action";
+      $("#sgo-casino-pure-random").checked = Boolean(config.pureRandom);
       $("#sgo-lottery-history").textContent = `Zachytené žrebovania: ${history.length}. Nemusí ísť o úplnú históriu.`;
+      const stats = L.analyze(history);
+      $("#sgo-lottery-stats").textContent = stats.totalDraws
+        ? `Najčastejšie: ${stats.hot.map(item => `${item.number} (${item.count}×)`).join(", ")}`
+        : "Štatistika čaká na prvé zachytené žrebovanie.";
       if (rankingContainer) {
         rankingContainer.replaceChildren();
         const heading = document.createElement("a");
@@ -208,6 +222,7 @@
         config = await storage.get("sgo-gist-config") || {};
         $("#sgo-gist-id").value = config.id || "";
         $("#sgo-gist-token").value = config.token || "";
+        $("#sgo-casino-pure-random").checked = Boolean(config.pureRandom);
         restored = true; render();
       } catch (error) {
         $("#sgo-guardian-status").textContent = `Chyba uložených kontrol: ${error.message}`;
@@ -222,7 +237,7 @@
         if (!restored || checking) throw new Error("Počkaj na dokončenie kontroly.");
         const token = $("#sgo-gist-token").value.trim();
         const id = $("#sgo-gist-id").value.trim();
-        const next = { id: id ? L.gistId(id) : "", token };
+        const next = { id: id ? L.gistId(id) : "", token, pureRandom: Boolean(config.pureRandom) };
         if (token && !next.id) throw new Error("K tokenu doplň Gist ID.");
         await storage.set("sgo-gist-config", next);
         config = next;
@@ -290,7 +305,55 @@
         log(`Kontroly: ${error.message}`, "error");
       } finally { checking = false; $("#sgo-guardian-refresh").disabled = false; }
     });
-    return { render };
+    $("#sgo-casino-pure-random").addEventListener("change", async () => {
+      try {
+        await ready;
+        config = { ...config, pureRandom: Boolean($("#sgo-casino-pure-random").checked) };
+        await storage.set("sgo-gist-config", config);
+      } catch (error) {
+        log(`Herňa: ${error.message}`, "error");
+      }
+    });
+    function applyCasinoBet(bet) {
+      const selected = L.fillBetForm(document, bet.numbers);
+      const modeLabel = bet.pureRandom ? "čisto náhodne" : `podľa histórie (${bet.draws || 0} ťahov)`;
+      $("#sgo-guardian-status").textContent = `Predvyplnené čísla (${modeLabel}): ${selected.join(", ")}. Skontroluj a odošli Vsadit.`;
+      log(`Herňa: vybrané čísla (${modeLabel}): ${selected.join(", ")}. Formulár nebol odoslaný.`);
+      revealGame();
+    }
+    async function resumeCasinoBet() {
+      if (!L.isCasino?.(location.href) || typeof sessionStorage === "undefined") return;
+      try {
+        const raw = sessionStorage.getItem(BET_KEY);
+        if (!raw) return;
+        sessionStorage.removeItem(BET_KEY);
+        await ready;
+        applyCasinoBet(JSON.parse(raw));
+      } catch (error) {
+        $("#sgo-guardian-status").textContent = `Herňa: ${error.message}`;
+        log(`Herňa: ${error.message}`, "error");
+      }
+    }
+    $("#sgo-casino-bet").addEventListener("click", async () => {
+      try {
+        await ready;
+        if (!canEdit()) throw new Error("Najprv zastav útoky a počkaj na dokončenie operácie.");
+        const pureRandom = Boolean($("#sgo-casino-pure-random").checked);
+        const numbers = L.pickNumbers(history, { pureRandom });
+        const bet = { numbers, pureRandom, draws: history.length };
+        if (L.isCasino?.(location.href) && document.querySelector("#cisla")) {
+          applyCasinoBet(bet);
+          return;
+        }
+        if (typeof sessionStorage !== "undefined") sessionStorage.setItem(BET_KEY, JSON.stringify(bet));
+        log(`Herňa: otváram Super 6 na predvyplnenie čísel (${numbers.join(", ")}).`);
+        await navigate(new URL(routes.casino, location.href).href);
+      } catch (error) {
+        $("#sgo-guardian-status").textContent = `Herňa: ${error.message}`;
+        log(`Herňa: ${error.message}`, "error");
+      }
+    });
+    return { render, resumeCasinoBet };
   }
   const api = { pageText, readBonus, readCasino, readNN, readRanking, readTarget, displayState, mount };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
