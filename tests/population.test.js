@@ -306,4 +306,21 @@ test("Doplniť nezamestnaných transfers OP offers sequentially in dropdown orde
   assert.deepEqual(posts[1], { nabidka: "1704", planeta: "1,300000000", presun: "Přesunout" });
   assert.equal(opAvailable, 0);
   assert.equal(container.querySelector("#sgo-pop-fill-workers").disabled, true, "disabled after OP is exhausted");
+  assert.equal(P.nextOfferTransfer([], [], "ideal"), null);
+
+  const p1 = P.calculate({ ...planet, id: "1", name: "AtIdealButUnbuilt", cities: 198, factories: 35000, built: 35000, slots: 39600 }, 50, costs, { room: 400000000 });
+  const p2 = P.calculate({ ...planet, id: "2", name: "FullCapacity", cities: 250, factories: 50000, built: 50000, slots: 50000 }, 50, costs, { room: 400000000 });
+  const p3 = P.calculate({ ...planet, id: "3", name: "NeedsIdeal", cities: 100, factories: 10000, built: 10000, slots: 20000 }, 50, costs, { room: 400000000 });
+  const ranked = [p2, p1, p3];
+  const offers = [{
+    id: "1704",
+    available: 250000000,
+    options: new Map([
+      ["1", { value: "1,400000000", room: 400000000, label: "P1" }],
+      ["2", { value: "2,400000000", room: 400000000, label: "P2" }],
+      ["3", { value: "3,400000000", room: 400000000, label: "P3" }]
+    ])
+  }];
+  assert.equal(P.nextOfferTransfer(offers, ranked, "ideal").planetId, "3", "ideal mode skips full (p2) and already-at-ideal (p1) planets");
+  assert.equal(P.nextOfferTransfer(offers, ranked, "capacity").planetId, "1", "capacity mode skips full planet (p2) but includes unbuilt-to-max planet (p1)");
 });

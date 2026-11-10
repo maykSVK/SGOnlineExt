@@ -120,6 +120,7 @@
 #sgo-addon #sgo-population-feature { padding: 16px 20px; }
 #sgo-addon .sgo-feature-heading h3 { margin: 5px 0 0; font-size: 19px; color: var(--sgo-text); text-align: left; }
 #sgo-addon .sgo-pop-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+#sgo-addon #sgo-pop-fill-mode { width: auto; margin-top: 0; }
 #sgo-addon .sgo-pop-tools a { color: var(--sgo-accent); font-size: 11px; }
 #sgo-addon .sgo-pop-scroll { max-height: 48dvh; overflow: auto; scrollbar-width: thin; }
 #sgo-addon .sgo-pop-label { color: var(--sgo-muted); font-size: 11px; }

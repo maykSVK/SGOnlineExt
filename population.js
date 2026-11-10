@@ -105,11 +105,14 @@
     }
     return offers;
   }
-  function nextOfferTransfer(offers, orderedReports) {
+  function nextOfferTransfer(offers, orderedReports, mode = "ideal") {
     const activeOffer = offers.find(offer => offer.available > 0);
     if (!activeOffer) return null;
     for (const report of orderedReports) {
-      if (!(report.missing > 0)) continue;
+      const needsFill = mode === "capacity"
+        ? report.built < report.slots || report.factories < report.slots
+        : report.missing > 0;
+      if (!needsFill) continue;
       const opt = activeOffer.options.get(String(report.id));
       if (opt && opt.room > 0) {
         return {
@@ -212,14 +215,23 @@
       <p class="sgo-hint">Výpočet a predvyplnenie výroben. Stavbu aj presuny obyvateľov potvrdzuješ sám.</p></div>
       <div class="sgo-pop-tools"><button type="button" id="sgo-pop-load">Prepočítať planéty</button>
       <button type="button" id="sgo-pop-fill-workers" disabled>Doplniť nezamestnaných</button>
+      <select id="sgo-pop-fill-mode" aria-label="Režim dopĺňania nezamestnaných" title="Režim dopĺňania nezamestnaných">
+        <option value="ideal">Podľa ideálu (dropdown)</option>
+        <option value="capacity">Nepostavené do maxima</option>
+      </select>
       <a href="game.php?page=planety">Stavění</a><a href="game.php?page=obchod">Nezaměstnaní</a></div>
       <p id="sgo-pop-status" class="sgo-hint" role="status">Načítaj aktuálne stavby, denné prírastky a voľnú kapacitu obyvateľov.</p>
       <div class="sgo-pop-scroll"><label class="sgo-pop-label" for="sgo-pop-planet">Planéta</label><select id="sgo-pop-planet" disabled></select>
       <div id="sgo-pop-report"></div><div id="sgo-pop-list"></div></div>`;
     const $ = selector => container.querySelector(selector);
     let reports = [];
+    let rankedReports = [];
     let latestOffers = [];
     let fillingWorkers = false;
+    const currentMode = () => $("#sgo-pop-fill-mode")?.value === "capacity" ? "capacity" : "ideal";
+    const updateFillButton = () => {
+      $("#sgo-pop-fill-workers").disabled = fillingWorkers || loading || !nextOfferTransfer(latestOffers, rankedReports, currentMode());
+    };
     const nativePlanet = buildingForm(document)?.querySelector('[name="planeta"]');
     let selected = nativePlanet?.value || "";
     let nativeSelection = !!selected;
@@ -323,8 +335,9 @@
         const tradeDoc = await getDocument(new URL("game.php?page=obchod", location.href).href);
         const allReports = snapshot(buildingDoc, typesDoc, tradeDoc);
         latestOffers = readOffers(tradeDoc);
-        reports = allReports.filter(report => report.missing > 0).sort((a, b) =>
+        rankedReports = [...allReports].sort((a, b) =>
           b.idealBirths - a.idealBirths || a.name.localeCompare(b.name, "sk") || a.id.localeCompare(b.id));
+        reports = rankedReports.filter(report => report.missing > 0);
         const selector = $("#sgo-pop-planet");
         selector.replaceChildren(...reports.map(report => {
           const option = document.createElement("option"); option.value = report.id;
@@ -360,23 +373,24 @@
       finally {
         loading = false;
         $("#sgo-pop-load").disabled = fillingWorkers;
-        $("#sgo-pop-fill-workers").disabled = fillingWorkers || !nextOfferTransfer(latestOffers, reports);
+        updateFillButton();
       }
     }
     async function fillUnemployedFromOP() {
       if (fillingWorkers || loading) return;
       try {
         if (!canEdit()) throw new Error("Najprv zastav sériu útokov a počkaj na dokončenie načítania.");
-        if (!reports.length && !await refresh()) return;
+        if (!rankedReports.length && !await refresh()) return;
         fillingWorkers = true;
         $("#sgo-pop-load").disabled = true;
         $("#sgo-pop-fill-workers").disabled = true;
+        const mode = currentMode();
         const tradeUrl = new URL("game.php?page=obchod", location.href).href;
         let tradeDoc = await getDocument(tradeUrl);
         let offers = readOffers(tradeDoc);
-        let step = nextOfferTransfer(offers, reports);
+        let step = nextOfferTransfer(offers, rankedReports, mode);
         if (!step) {
-          message("Na obchodnej planéte nie sú žiadni nezamestnaní pre planéty v zozname.");
+          message("Na obchodnej planéte nie sú žiadni nezamestnaní pre zvolený režim.");
           return;
         }
         let count = 0;
@@ -386,7 +400,7 @@
           count++;
           totalMoved += step.transferred;
           message(`Presúvam nezamestnaných na ${step.planetName} (~${fmt(step.transferred)} ľudí, zostáva na OP: ${fmt(step.available)})…`);
-          log(`Zaľudnenie: presúvam nezamestnaných z OP (ponuka #${step.offerId}) na ${step.planetName} (~${fmt(step.transferred)} ľudí).`);
+          log(`Zaľudnenie (${mode === "capacity" ? "do maxima" : "ideál"}): presúvam nezamestnaných z OP (ponuka #${step.offerId}) na ${step.planetName} (~${fmt(step.transferred)} ľudí).`);
           tradeDoc = await postTrade(tradeUrl, {
             nabidka: step.offerId,
             planeta: step.optionValue,
@@ -394,7 +408,7 @@
           });
           offers = readOffers(tradeDoc);
           latestOffers = offers;
-          step = nextOfferTransfer(offers, reports);
+          step = nextOfferTransfer(offers, rankedReports, mode);
           if (step) {
             const waitMs = stepDelay();
             if (waitMs > 0) await new Promise(resolve => setTimeout(resolve, waitMs));
@@ -410,7 +424,7 @@
       } finally {
         fillingWorkers = false;
         $("#sgo-pop-load").disabled = false;
-        $("#sgo-pop-fill-workers").disabled = !nextOfferTransfer(latestOffers, reports);
+        updateFillButton();
       }
     }
     function refresh() {
@@ -420,6 +434,7 @@
     }
     $("#sgo-pop-load").addEventListener("click", refresh);
     $("#sgo-pop-fill-workers").addEventListener("click", fillUnemployedFromOP);
+    $("#sgo-pop-fill-mode").addEventListener("change", updateFillButton);
     return { refresh, fillUnemployedFromOP };
   }
   const api = { occupancy, readBuildings, readGrowth, readTrade, readOffers, nextOfferTransfer, calculate, snapshot, fill, mount };
