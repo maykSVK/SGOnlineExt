@@ -132,6 +132,7 @@
     $("#sgo-back").hidden = selected === "home";
     $("#sgo-feature-name").textContent = { home: "Prehľad funkcií", attacks: "Útok na RR", population: "Ideálne zaľudnenie", sectors: "Naše sektory" }[selected];
     if (selected === "home") guardian?.render();
+    if (selected === "attacks") loadTargets();
     if (selected === "population") population?.refresh();
     if (selected === "sectors") sectors?.refresh();
     if (save) { data.feature = selected; persist(); }
@@ -312,6 +313,34 @@
     persist();
     controls();
   }
+  function fillTargets(targets) {
+    const select = $("#sgo-target-select");
+    select.innerHTML = "";
+    for (const t of targets) {
+      const option = document.createElement("option");
+      option.value = t.name;
+      option.textContent = `${t.name} (${t.planets} pl. · sila ${t.power.toLocaleString("sk-SK")})`;
+      select.append(option);
+    }
+    let current = data.target || C.TARGET;
+    if (!targets.some(t => t.name === current)) {
+      current = targets[0].name;
+      data.target = current;
+      persist();
+    }
+    select.value = current;
+    return current;
+  }
+  let targetsLoading = false;
+  async function loadTargets() {
+    if (targetsLoading || busy || run?.active) return;
+    targetsLoading = true;
+    try {
+      const targets = C.readRefugeeTargets(await getDocument(gameUrl({ page: "vesmir", jak: "98" })), C.TARGET);
+      if (targets.length) fillTargets(targets);
+    } catch (error) { console.warn("SGO: zoznam cielov sa nenacital", error); }
+    finally { targetsLoading = false; }
+  }
   async function discover() {
     if (busy || run?.active) return;
     const ownOperation = ++operation;
@@ -322,22 +351,7 @@
       if (ownOperation !== operation) return;
       const targets = C.readRefugeeTargets(refugees, C.TARGET);
       if (!targets.length) throw new Error("V zozname Uprchlici sa nenasli ziadne vhodne ciele.");
-      const select = $("#sgo-target-select");
-      select.innerHTML = "";
-      for (const t of targets) {
-        const option = document.createElement("option");
-        option.value = t.name;
-        const powerText = t.power !== null ? ` · sila ${t.power.toLocaleString("sk-SK")}` : "";
-        option.textContent = `${t.name} (${t.planets} pl.${powerText})`;
-        select.append(option);
-      }
-      let currentTarget = data.target || C.TARGET;
-      if (!targets.some(t => t.name === currentTarget)) {
-        currentTarget = targets[0].name;
-        data.target = currentTarget;
-        persist();
-      }
-      select.value = currentTarget;
+      const currentTarget = fillTargets(targets);
       const target = [...refugees.querySelectorAll("a")].find(a => C.clean(a.textContent) === currentTarget);
       const row = target?.closest("tr");
       if (!row) throw new Error(`${currentTarget} sa v zozname Uprchlici nenasiel.`);
