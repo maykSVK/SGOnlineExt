@@ -139,7 +139,7 @@
 #sgo-addon #sgo-guardian-refresh { padding: 5px 9px; font-size: 11px; }
 #sgo-addon .sgo-watch-row { display: flex; align-items: center; gap: 6px; padding: 4px 0; color: var(--sgo-text); text-decoration: none; font-size: 11px; line-height: 1.35; border-bottom: 1px solid #28374e66; min-width: 0; }
 #sgo-addon .sgo-watch-row::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #f1b363; flex-shrink: 0; }
-#sgo-addon .sgo-watch-row strong { width: 68px; flex-shrink: 0; }
+#sgo-addon .sgo-watch-row strong { width: 84px; flex-shrink: 0; white-space: nowrap; }
 #sgo-addon .sgo-watch-row .sgo-watch-detail,
 #sgo-addon .sgo-watch-row > span { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #f1b363; }
 #sgo-addon .sgo-watch-row[data-status=ok] :is(.sgo-watch-detail, > span) { color: #80dc9c; }
