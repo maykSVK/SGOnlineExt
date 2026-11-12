@@ -8,6 +8,7 @@
     nn: "game.php?page=posta&s=4",
     ranking: "game.php?page=vesmir&jak=hraci",
     vala: "game.php?page=vesmir&jak=98",
+    runner: "game.php?page=vesmir&jak=98",
     odyssean: "game.php?page=vesmir&jak=102"
   };
   const nnDestination = "game.php?page=obchod&s=3";
@@ -53,6 +54,29 @@
     }
     return { status: attacks.length ? "action" : "ok",
       text: attacks.length ? `Odyss!!! UP · k dobytiu (${strength})` : `Nelze útočiť (${strength})` };
+  }
+  function readRunner(doc) {
+    const found = [];
+    for (const row of doc.querySelectorAll("tr")) {
+      const name = C.clean(row.cells?.[1]?.querySelector("a")?.textContent);
+      if (!name || name === targets.vala) continue;
+      const planets = C.integer(C.clean(row.cells[2]?.textContent));
+      if (planets === null || planets <= 1) continue;
+      const power = C.integer(C.clean(row.cells[4]?.textContent));
+      const conquest = [...row.querySelectorAll("a[href]")].some(link => {
+        const url = new URL(link.getAttribute("href"), "https://stargame-online.cz/www/");
+        if (!url.searchParams.has("utok") || url.searchParams.get("cil") !== name) return false;
+        const title = C.clean(link.getAttribute("title") || link.querySelector("img")?.getAttribute("title"));
+        const icon = link.querySelector("img")?.getAttribute("class") || "";
+        return /^„?D“?(?:\s|-)|dob[ýy]v/i.test(title) || /\bdob[yv]/i.test(icon);
+      });
+      found.push({ name, planets, power, conquest });
+    }
+    if (!found.length) return { status: "ok", text: "Runner: nikto s >1 pl." };
+    const open = found.filter(entry => entry.conquest);
+    if (!open.length) return { status: "ok", text: `Runner bez D (${found.length})` };
+    const first = open[0];
+    return { status: "action", text: `Runner UP · D ${first.name} (${first.planets} pl.${open.length > 1 ? `, +${open.length - 1}` : ""})` };
   }
   function pageText(doc) {
     const body = doc.body.cloneNode(true);
@@ -196,7 +220,7 @@
       }
       return { status: "unknown", text: "Okno uplynulo" };
     }
-    if (gameDay(entry.time) !== gameDay(now) || (key === "casino" && now - entry.time >= 6 * 3600000) || ((key === "vala" || key === "odyssean") && now - entry.time >= 3600000)) {
+    if (gameDay(entry.time) !== gameDay(now) || (key === "casino" && now - entry.time >= 6 * 3600000) || ((key === "vala" || key === "odyssean" || key === "runner") && now - entry.time >= 3600000)) {
       return { status: "unknown", text: "Staré údaje" };
     }
     return entry;
@@ -245,7 +269,7 @@
     }
     function render() {
       $("#sgo-guardian-items").replaceChildren();
-      for (const [key, title] of [["bonus", "Denný bonus"], ["casino", "Herňa"], ["nn", "NN"], ["vala", "Vala"], ["odyssean", "Odyssean"]]) {
+      for (const [key, title] of [["bonus", "Denný bonus"], ["casino", "Herňa"], ["nn", "NN"], ["vala", "Vala"], ["odyssean", "Odyssean"], ["runner", "Runner"]]) {
         const view = displayState(key, state[key]);
         const row = document.createElement("a");
         row.className = "sgo-watch-row"; row.href = key === "nn" ? nnDestination : routes[key]; row.dataset.status = view.status;
@@ -353,9 +377,9 @@
         if (!canEdit()) throw new Error("Najprv zastav útoky a počkaj na dokončenie operácie.");
         for (const [key, read] of [["bonus", readBonus], ["casino", readCasino], ["nn", readNN],
           ["ranking", (_text, doc) => readRanking(doc)], ["vala", (_text, doc) => readTarget(doc, "vala")],
-          ["odyssean", (_text, doc) => readTarget(doc, "odyssean")]]) {
+          ["odyssean", (_text, doc) => readTarget(doc, "odyssean")], ["runner", (_text, doc) => readRunner(doc)]]) {
           if (!canEdit()) throw new Error("Prebieha iná operácia. Kontrola zastavená.");
-          $("#sgo-guardian-status").textContent = `Kontrolujem ${{ bonus: "bonus", casino: "Herňu", nn: "NN", ranking: "TOP 3", vala: "Valu", odyssean: "Odysseana" }[key]}…`;
+          $("#sgo-guardian-status").textContent = `Kontrolujem ${{ bonus: "bonus", casino: "Herňu", nn: "NN", ranking: "TOP 3", vala: "Valu", odyssean: "Odysseana", runner: "Runnera" }[key]}…`;
           let doc;
           try { doc = await getDocument(new URL(routes[key], location.href).href); }
           catch (error) {
@@ -543,7 +567,7 @@
     return { render, resumeCasinoBet, resumeNNWatch };
   }
   const api = {
-    pageText, readBonus, readCasino, readNN, readRanking, readTarget,
+    pageText, readBonus, readCasino, readNN, readRanking, readTarget, readRunner,
     isPlanetMarket, readMarketOffers, nnWatchDelay, showNNAlert, displayState, mount
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

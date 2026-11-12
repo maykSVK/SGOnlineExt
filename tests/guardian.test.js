@@ -94,6 +94,22 @@ test("target checks detect Vala conquest D and Odyssean attack availability with
   assert.throws(() => G.readTarget(targetDoc("Odyssean", "unknown", []), "odyssean"), /Nečitateľná/);
 });
 
+test("runner check flags defectors with more than 1 planet that can be conquered", () => {
+  const mk = (name, planets, links) => ({
+    cells: [{ textContent: "1." }, { textContent: name, querySelector: () => ({ textContent: name }) }, { textContent: planets }, { textContent: "1 800" }, { textContent: "0" }],
+    querySelectorAll: () => links.map(title => ({
+      getAttribute: a => a === "href" ? `game.php?page=jednotky&utok=1&cil=${name}` : (a === "title" ? title : null),
+      querySelector: () => null
+    }))
+  });
+  const doc = rows => ({ querySelectorAll: s => s === "tr" ? rows : [] });
+  const vala = mk("Vala Mal Doran", "81", ["„D“ - Dobývací útok, zbývá: 1"]);
+  assert.deepEqual(G.readRunner(doc([vala, mk("mrk", "4", ["„P“ - Partyzánský útok"])])), { status: "ok", text: "Runner bez D (1)" });
+  assert.equal(G.readRunner(doc([vala, mk("mrk", "4", ["„D“ - Dobývací útok, zbývá: 1"])])).status, "action");
+  assert.match(G.readRunner(doc([vala, mk("mrk", "4", ["„D“ - Dobývací útok, zbývá: 1"])])).text, /Runner UP · D mrk \(4 pl\.\)/);
+  assert.equal(G.readRunner(doc([vala, mk("x", "1", ["„D“ - Dobývací útok"])])).status, "ok");
+});
+
 test("status colors reflect pending actions, freshness and NN windows in game timezone", () => {
   const now = Date.parse("2026-11-04T08:20:00Z");
   assert.equal(G.displayState("bonus", undefined, now).status, "unknown");
@@ -194,11 +210,12 @@ test("one explicit refresh checks all pages; history errors never replace casino
   assert.equal(rankingContainer.children.length, 2, "ranking starts without invented player rows");
   assert.match(rankingContainer.children[1].textContent, /Neznáme/);
   await container.querySelector("#sgo-guardian-refresh").listeners.click();
-  assert.equal(requests.length, 6);
+  assert.equal(requests.length, 7);
   assert.match(requests[2], /page=posta&s=4$/, "NN checks still read race mail");
   assert.match(requests[3], /page=vesmir&jak=hraci$/, "ranking uses overall player order");
   assert.match(requests[4], /page=vesmir&jak=98$/, "Vala checks Uprchlíci list");
   assert.match(requests[5], /page=vesmir&jak=102$/, "Odyssean checks Příběh list");
+  assert.match(requests[6], /page=vesmir&jak=98$/, "Runner checks Uprchlíci list");
   const nnLink = container.querySelector("#sgo-guardian-items").children[2];
   assert.equal(nnLink.href, "game.php?page=obchod&s=3", "NN click opens trade planets");
   const valaLink = container.querySelector("#sgo-guardian-items").children[3];
@@ -225,11 +242,11 @@ test("one explicit refresh checks all pages; history errors never replace casino
   assert.equal(synced, 1);
   guardian.render();
   await Promise.resolve();
-  assert.equal(requests.length, 6, "render makes no requests, and there are no automatic retries or refreshes");
+  assert.equal(requests.length, 7, "render makes no requests, and there are no automatic retries or refreshes");
   badHistory = true;
   badRanking = true;
   await container.querySelector("#sgo-guardian-refresh").listeners.click();
-  assert.equal(requests.length, 12);
+  assert.equal(requests.length, 14);
   assert.equal(saved["sgo-guardian"].ranking.status, "unknown");
   assert.match(rankingContainer.children[1].textContent, /Neznáme/);
   assert.equal(saved["sgo-guardian"].casino.status, "ok");
@@ -239,7 +256,7 @@ test("one explicit refresh checks all pages; history errors never replace casino
   assert.match(container.querySelector("#sgo-guardian-status").textContent, /Časť kontroly zlyhala/);
   fail = true;
   await container.querySelector("#sgo-guardian-refresh").listeners.click();
-  assert.equal(requests.length, 13, "network failure stops the sequence");
+  assert.equal(requests.length, 15, "network failure stops the sequence");
   assert.equal(saved["sgo-guardian"].bonus.status, "unknown");
   assert.match(saved["sgo-guardian"].bonus.error, /Offline/);
 });
