@@ -100,3 +100,76 @@ test("add-on token field is not a login form, a real login field still stops", (
   assert.equal(C.response(make([own])).kind, "result");
   assert.equal(C.response(make([{ closest: () => null }])).kind, "stop");
 });
+
+test("readRefugeeTargets filters Vala and defectors with more than 1 planet, skips <=1 planet defectors and totals", () => {
+  const rows = [
+    // Header row
+    { cells: ["#", "Jméno", "Planety", "Populace", "Síla", "Rozloha", "Dobyt", "Útoky", ""], attackUrls: [] },
+    // Vala Mal Doran (always included)
+    { cells: ["1.", "Vala Mal Doran", "81", "15 358", "958 160", "1 115 613", "8×", "", ""], attackUrls: ["game.php?page=jednotky&utok=2&cil=Vala Mal Doran"] },
+    // mrk (> 1 planet, included)
+    { cells: ["2.", "mrk", "4", "1 800", "0", "0", "1×", "", ""], attackUrls: ["game.php?page=jednotky&utok=2&cil=mrk"] },
+    // DrErrorBekCZ (1 planet, excluded)
+    { cells: ["3.", "DrErrorBekCZ", "1", "896", "24 000", "400", "0×", "nelze", ""], attackUrls: [] },
+    // Simurgh (1 planet, excluded)
+    { cells: ["4.", "Simurgh", "1", "943", "24 000", "400", "0×", "nelze", ""], attackUrls: [] },
+    // Total row (empty rank, excluded)
+    { cells: ["", "87", "18 997", "1 006 160", "1 116 413", "9×", ""], attackUrls: [] }
+  ].map(({ cells, attackUrls }) => ({
+    querySelectorAll: sel => sel === "td, th" ? cells.map((textContent, idx) => ({
+      textContent,
+      querySelector: subSel => idx === 1 && (subSel.includes("hledat=") || subSel === "a") ? {
+        textContent,
+        childNodes: [{ textContent }]
+      } : null
+    })) : (sel === 'a[href*="utok="]' ? attackUrls.map(href => ({ getAttribute: a => a === "href" ? href : null })) : [])
+  }));
+
+  const doc = { querySelectorAll: sel => sel === "table tr" ? rows : [] };
+  const targets = C.readRefugeeTargets(doc);
+  assert.equal(targets.length, 2);
+  assert.equal(targets[0].name, "Vala Mal Doran");
+  assert.equal(targets[0].planets, 81);
+  assert.equal(targets[0].power, 958160);
+  assert.equal(targets[0].attackable, true);
+  assert.equal(targets[1].name, "mrk");
+  assert.equal(targets[1].planets, 4);
+  assert.equal(targets[1].power, 0);
+  assert.equal(targets[1].attackable, true);
+});
+
+test("attackPage validates custom target matches form", () => {
+  const makeDoc = targetName => ({
+    URL: `https://stargame-online.cz/www/game.php?page=jednotky&utok=2&cil=${encodeURIComponent(targetName)}`,
+    body: { cloneNode: () => ({ textContent: "", querySelectorAll: () => [] }) },
+    querySelector: sel => {
+      if (sel === "#formular") return {
+        querySelector: sub => sub === '[name="zautocit"]' ? {} : null,
+        querySelectorAll: sub => {
+          if (sub === 'input[name^="pocet_"]') return [{
+            name: "pocet_zlodej",
+            closest: () => ({ textContent: "100 ks", querySelector: () => ({ textContent: "Zlodej" }) })
+          }];
+          if (sub === '[name="planeta2"] option') return [{ value: "QGUY-4237-76", textContent: "QGUY-4237-76" }];
+          return [];
+        }
+      };
+      if (sel === "#nepritele") return { textContent: targetName };
+      return null;
+    },
+    querySelectorAll: sel => sel === "a.lowopacity" ? [{
+      getAttribute: () => "game.php?page=jednotky&utok=2&cil=" + targetName,
+      querySelector: () => ({ textContent: "12" }),
+      childNodes: [{ nodeType: 3, textContent: "Partyzánský" }, { nodeType: 1 }, { nodeType: 3, textContent: "12" }]
+    }] : []
+  });
+
+  const mrkDoc = makeDoc("mrk");
+  const entryVala = C.attackPage(mrkDoc, "2", mrkDoc.URL, "Vala Mal Doran");
+  assert.equal(entryVala.available, false, "Should be unavailable when target does not match expected");
+
+  const entryMrk = C.attackPage(mrkDoc, "2", mrkDoc.URL, "mrk");
+  assert.equal(entryMrk.available, true, "Should be available when target matches custom target");
+  assert.equal(entryMrk.target, "mrk");
+  assert.equal(entryMrk.planets.length, 1);
+});

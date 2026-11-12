@@ -64,7 +64,7 @@
     return { kind: "unknown", message: text };
   }
 
-  function attackPage(doc, id, url) {
+  function attackPage(doc, id, url, expectedTarget = TARGET) {
     const link = [...doc.querySelectorAll("a.lowopacity")].find(a => new URL(a.getAttribute("href"), url).searchParams.get("utok") === String(id));
     const count = link ? counters(link) : { remaining: null, maximum: null };
     const form = doc.querySelector("#formular");
@@ -85,9 +85,37 @@
     const reason = clean(doc.querySelector(".hlaska")?.textContent || doc.querySelector("#nastvu")?.textContent || status.message);
     return {
       id: String(id), url, ...count, target, fields, planets,
-      available: Boolean(submit && target === TARGET && fields.length && fields.every(f => f.available !== null)),
+      available: Boolean(submit && (!expectedTarget || target === expectedTarget) && fields.length && fields.every(f => f.available !== null)),
       reason, status
     };
+  }
+
+  function readRefugeeTargets(doc, defaultTarget = TARGET) {
+    const rows = [...doc.querySelectorAll("table tr")];
+    const targets = [];
+    for (const row of rows) {
+      const cells = [...row.querySelectorAll("td, th")];
+      if (cells.length < 5) continue;
+      const rank = clean(cells[0].textContent);
+      if (!/^\d+\.?$/.test(rank)) continue;
+      const link = cells[1].querySelector('a[href*="hledat="]') || cells[1].querySelector("a");
+      const name = clean(link?.childNodes[0]?.textContent || link?.textContent || cells[1].textContent);
+      if (!name) continue;
+      const planets = integer(cells[2]?.textContent) || 0;
+      const power = integer(cells[4]?.textContent) || 0;
+      const attackLinks = [...row.querySelectorAll('a[href*="utok="]')];
+      if (name === defaultTarget || planets > 1) {
+        targets.push({
+          rank,
+          name,
+          planets,
+          power,
+          attackable: attackLinks.length > 0,
+          attackUrls: attackLinks.map(a => a.getAttribute("href"))
+        });
+      }
+    }
+    return targets;
   }
 
   function quantities(fields, config) {
@@ -115,7 +143,7 @@
     return null;
   }
 
-  const api = { TARGET, clean, normalize, integer, counters, pageText, cooldown, exhausted, pacingDelay, response, attackPage, quantities, nextAttack };
+  const api = { TARGET, clean, normalize, integer, counters, pageText, cooldown, exhausted, pacingDelay, response, attackPage, readRefugeeTargets, quantities, nextAttack };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.SGO = api;
 })(globalThis);

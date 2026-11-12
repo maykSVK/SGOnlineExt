@@ -52,6 +52,7 @@
 #sgo-addon #sgo-collapse:focus-visible { outline-offset: -3px; }
 #sgo-addon .sgo-target { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 18px 20px 12px; }
 #sgo-addon .sgo-target strong { display: block; font-size: 19px; font-weight: 650; letter-spacing: -.4px; margin-top: 5px; }
+#sgo-addon .sgo-target select { display: block; margin-top: 5px; font-size: 13px; font-weight: 600; max-width: 250px; }
 #sgo-addon .sgo-target-tag { color: var(--sgo-accent); letter-spacing: .3px; margin-left: 7px; font-weight: 500; text-transform: none; }
 #sgo-addon #sgo-load { background: transparent; font-size: 12px; color: #b6c8df; padding: 7px 12px; }
 #sgo-addon .sgo-status-box { margin: 0 20px 12px; border: 1px solid var(--sgo-line); background: #152136; border-radius: 10px; padding: 10px 12px; }

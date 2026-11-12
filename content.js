@@ -37,14 +37,14 @@
       <section id="sgo-home">
         <section id="sgo-guardian-feature" aria-label="Prehľad"></section>
         <div class="sgo-feature-grid">
-        <button type="button" class="sgo-feature-card" id="sgo-open-attacks" title="Typy útokov, jednotky, cooldown a denník"><span class="sgo-feature-icon">01</span><span><strong>Útok na Valu</strong></span></button>
+        <button type="button" class="sgo-feature-card" id="sgo-open-attacks" title="Typy útokov, jednotky, cooldown a denník"><span class="sgo-feature-icon">01</span><span><strong>Útok na RR</strong></span></button>
         <button type="button" class="sgo-feature-card" id="sgo-open-population" title="Výpočet a predvyplnenie výroben na planétach"><span class="sgo-feature-icon">02</span><span><strong>Ideálne zaľudnenie</strong></span></button>
         <button type="button" class="sgo-feature-card" id="sgo-open-sectors" title="Náskok pred súpermi a BBCode hlásenie"><span class="sgo-feature-icon">03</span><span><strong>Naše sektory</strong></span></button>
         </div>
         <section id="sgo-ranking" aria-label="TOP 3 hráčov celkovo"></section>
       </section>
       <section id="sgo-attacks-feature" hidden>
-      <div class="sgo-target"><div><span class="sgo-eyebrow">CIEĽ MISIE <span class="sgo-target-tag">Uprchlíci</span></span><strong>Vala Mal Doran</strong></div>
+      <div class="sgo-target"><div><span class="sgo-eyebrow">CIEĽ MISIE <span class="sgo-target-tag">Uprchlíci</span></span><select id="sgo-target-select" aria-label="Cieľ útokov"></select></div>
         <button type="button" id="sgo-load" title="Znovu načítať limity, jednotky a planéty">Obnoviť</button>
       </div>
       <div class="sgo-status-box"><span id="sgo-state">PRIPRAVENÝ</span><div id="sgo-status" class="sgo-status" role="status"></div></div>
@@ -130,7 +130,7 @@
     $("#sgo-population-feature").hidden = selected !== "population";
     $("#sgo-sectors-feature").hidden = selected !== "sectors";
     $("#sgo-back").hidden = selected === "home";
-    $("#sgo-feature-name").textContent = { home: "Prehľad funkcií", attacks: "Útok na Valu", population: "Ideálne zaľudnenie", sectors: "Naše sektory" }[selected];
+    $("#sgo-feature-name").textContent = { home: "Prehľad funkcií", attacks: "Útok na RR", population: "Ideálne zaľudnenie", sectors: "Naše sektory" }[selected];
     if (selected === "home") guardian?.render();
     if (selected === "population") population?.refresh();
     if (selected === "sectors") sectors?.refresh();
@@ -190,6 +190,7 @@
     container.scrollTop = container.scrollHeight;
   }
   function controls() {
+    $("#sgo-target-select").disabled = busy || Boolean(run?.active);
     $("#sgo-load").disabled = busy || Boolean(run?.active);
     $("#sgo-start").disabled = busy || Boolean(run?.active) || !catalog.length;
     $("#sgo-stop").disabled = !run?.active && !busy;
@@ -319,12 +320,30 @@
       log("Nacitavam Vesmir > Uprchlici. Ziadny utok sa pri nacitani neodosiela.");
       const refugees = await getDocument(gameUrl({ page: "vesmir", jak: "98" }));
       if (ownOperation !== operation) return;
-      const target = [...refugees.querySelectorAll("a")].find(a => C.clean(a.textContent) === C.TARGET);
+      const targets = C.readRefugeeTargets(refugees, C.TARGET);
+      if (!targets.length) throw new Error("V zozname Uprchlici sa nenasli ziadne vhodne ciele.");
+      const select = $("#sgo-target-select");
+      select.innerHTML = "";
+      for (const t of targets) {
+        const option = document.createElement("option");
+        option.value = t.name;
+        const powerText = t.power !== null ? ` · sila ${t.power.toLocaleString("sk-SK")}` : "";
+        option.textContent = `${t.name} (${t.planets} pl.${powerText})`;
+        select.append(option);
+      }
+      let currentTarget = data.target || C.TARGET;
+      if (!targets.some(t => t.name === currentTarget)) {
+        currentTarget = targets[0].name;
+        data.target = currentTarget;
+        persist();
+      }
+      select.value = currentTarget;
+      const target = [...refugees.querySelectorAll("a")].find(a => C.clean(a.textContent) === currentTarget);
       const row = target?.closest("tr");
-      if (!row) throw new Error("Vala Mal Doran sa v zozname Uprchlici nenasla.");
+      if (!row) throw new Error(`${currentTarget} sa v zozname Uprchlici nenasiel.`);
       const links = [...row.querySelectorAll("a[href]")].map(a => new URL(a.getAttribute("href"), location.href))
-        .filter(u => u.searchParams.has("utok") && u.searchParams.get("cil") === C.TARGET);
-      if (!links.length) throw new Error("Na riadku Valy nie su odkazy na utoky.");
+        .filter(u => u.searchParams.has("utok") && u.searchParams.get("cil") === currentTarget);
+      if (!links.length) throw new Error(`Na riadku ${currentTarget} nie su odkazy na utoky.`);
       const firstDoc = await getDocument(links[0].href);
       if (ownOperation !== operation) return;
       const attackLinks = [...firstDoc.querySelectorAll("a.lowopacity[href]")];
@@ -332,14 +351,14 @@
         id: new URL(a.getAttribute("href"), location.href).searchParams.get("utok"),
         label: C.clean(a.firstChild.textContent),
         url: new URL(a.getAttribute("href"), location.href).href
-      })).filter(a => a.id && new URL(a.url).searchParams.get("cil") === C.TARGET);
+      })).filter(a => a.id && new URL(a.url).searchParams.get("cil") === currentTarget);
       if (!definitions.length) throw new Error("Nenasiel som typy utokov a ich limity.");
       const found = [];
       for (const definition of definitions) {
         if (ownOperation !== operation) return;
         const doc = definition.url === links[0].href ? firstDoc : await getDocument(definition.url);
         if (ownOperation !== operation) return;
-        const entry = { ...C.attackPage(doc, definition.id, definition.url), label: definition.label };
+        const entry = { ...C.attackPage(doc, definition.id, definition.url, currentTarget), label: definition.label };
         found.push(entry);
         log(`${entry.label}: ${entry.remaining ?? "?"}/${entry.maximum ?? "?"}; ${entry.available ? entry.fields.map(f => `${f.label}: ${f.available}`).join(", ") : entry.reason.slice(0, 300)}`);
       }
@@ -394,11 +413,12 @@
     }
     run.cursor = next.cursor;
     const id = next.id;
-    const url = gameUrl({ page: "jednotky", utok: id, cil: C.TARGET });
+    const targetName = run.target || data.target || C.TARGET;
+    const url = gameUrl({ page: "jednotky", utok: id, cil: targetName });
     status(`Kontrola: ${run.labels[id]}`);
     const doc = await getDocument(url);
     if (run !== activeRun || !run.active) return;
-    const entry = C.attackPage(doc, id, url);
+    const entry = C.attackPage(doc, id, url, targetName);
     catalog = catalog.map(previous => previous.id === id ? { ...entry, label: previous.label } : previous);
     data.catalog = catalog;
     drawPlans();
@@ -420,8 +440,9 @@
     if (!activeRun?.active) return;
     const url = location.href;
     const params = new URL(url).searchParams;
-    if (params.get("utok") !== id || params.get("cil") !== C.TARGET) throw new Error("Otvorena ina stranka nez ocakavany formular. Zastavene.");
-    const entry = C.attackPage(document, id, url);
+    const targetName = activeRun.target || data.target || C.TARGET;
+    if (params.get("utok") !== id || params.get("cil") !== targetName) throw new Error("Otvorena ina stranka nez ocakavany formular. Zastavene.");
+    const entry = C.attackPage(document, id, url, targetName);
     if (entry.remaining === null) throw new Error("Nie je mozne overit limit.");
     if (entry.remaining <= 0) return retire(id, entry.status.kind === "exhausted" ? entry.status.message : "Limit útokov je vyčerpaný.");
     if (entry.status.kind === "cooldown") { run.preparing = null; return defer(id, entry.status); }
@@ -451,7 +472,7 @@
       input.dispatchEvent(new Event("change", { bubbles: true }));
     }
     const action = new URL(form.action, url);
-    if (action.origin !== location.origin || action.searchParams.get("cil") !== C.TARGET || action.searchParams.get("utok") !== id || form.method !== "post") {
+    if (action.origin !== location.origin || action.searchParams.get("cil") !== targetName || action.searchParams.get("utok") !== id || form.method !== "post") {
       throw new Error("Formular ma neocakavany ciel alebo metodu.");
     }
     run.pending = { id, remaining: entry.remaining, sent: Date.now(), planet: planet.value };
@@ -475,7 +496,8 @@
       if (result.kind === "exhausted") return retire(pending.id, result.message);
       if (result.kind === "cooldown") return defer(pending.id, result);
       if (result.kind !== "result") throw new Error(`Neznamy vysledok; utok neopakujem. ${result.message.slice(0, 1600)}`);
-      if (!result.text.includes(C.TARGET) || !result.message.includes(pending.planet)) throw new Error("Vysledok nezodpoveda cielu/planete. Utok neopakujem.");
+      const targetName = run.target || data.target || C.TARGET;
+      if (!result.text.includes(targetName) || !result.message.includes(pending.planet)) throw new Error("Vysledok nezodpoveda cielu/planete. Utok neopakujem.");
       log(`${run.labels[pending.id]}: ${result.message}`, C.normalize(result.message).startsWith("vitezstvi") ? "success" : "warn");
       const unitSummary = document.querySelector("#datapl")?.parentElement;
       if (unitSummary) {
@@ -491,6 +513,18 @@
     if (run.preparing) return submitPrepared(run.preparing);
     schedule();
   }
+  const initialTarget = data.target || C.TARGET;
+  const initialOpt = document.createElement("option");
+  initialOpt.value = initialTarget;
+  initialOpt.textContent = initialTarget;
+  $("#sgo-target-select").append(initialOpt);
+  $("#sgo-target-select").value = initialTarget;
+  $("#sgo-target-select").addEventListener("change", () => {
+    if (busy || run?.active) return;
+    data.target = $("#sgo-target-select").value;
+    persist();
+    discover();
+  });
   $("#sgo-load").addEventListener("click", discover);
   $("#sgo-start").addEventListener("click", () => {
     try {
@@ -504,9 +538,10 @@
         if (!entry.available || entry.remaining === null || entry.remaining <= 0) throw new Error(`${entry.label}: nedostupny alebo vycerpany.`);
         C.quantities(entry.fields, data.plans[entry.id].units);
       }
-      if (!confirm(`Spustit ${selected.map(e => e.label).join(", ")} na ${C.TARGET}? Pocet utokov urcuju zostavajuce limity hry. Jednotky mozu byt stratene.`)) return;
+      const targetName = data.target || C.TARGET;
+      if (!confirm(`Spustit ${selected.map(e => e.label).join(", ")} na ${targetName}? Pocet utokov urcuju zostavajuce limity hry. Jednotky mozu byt stratene.`)) return;
       run = {
-        active: true, plans: JSON.parse(JSON.stringify(data.plans)),
+        active: true, target: targetName, plans: JSON.parse(JSON.stringify(data.plans)),
         order: selected.map(e => e.id), labels: Object.fromEntries(selected.map(e => [e.id, e.label])),
         cursor: 0, deadlines: {}, retries: {}, pending: null, preparing: null
       };

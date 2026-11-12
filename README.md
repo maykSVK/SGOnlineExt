@@ -1,7 +1,7 @@
 # StarGame pomocnik
 
 Tampermonkey userscript aj lokalne rozsirenie Manifest V3 pre kompatibilne prehliadace.
-Funkcie su dostupne z hlavneho menu: **Utok na Valu**, **Idealne zaludnenie**
+Funkcie su dostupne z hlavneho menu: **Utok na RR**, **Idealne zaludnenie**
 a **Nase sektory**.
 Volitelna synchronizacia posiela iba historiu zrebovani do nastaveneho Gistu.
 Doplnok nepozaduje pristup k hernemu heslu.
@@ -197,7 +197,11 @@ na jej zastavenie pouzi **Zastavit** v podmenu utokov.
   Nadbytocne vyrobne iba oznami. Pohyb nezamestnanych riesis zatial rucne.
 - Vypocet vsetkych planet aj predvyplnenie sa zaznamena do spolocneho dennika.
 
-### Utok na Valu
+### Utok na RR (Vala a zbehovia)
+
+- Vyber ciela misie: rozbalovaci zoznam nacita hracov z rasy Uprchlici (`page=vesmir&jak=98`).
+  V zozname ponuka Valu Mal Doran a hracov s viac ako 1 planetou, spolu s poctom planet a vojenskou silou.
+  Hracov s najviac 1 planetou odfiltruje, kedze na nich hra nedovoluje zautocit.
 
 - Panel ma karty **Utoky** a **Dennik**. Nevybrane utoky su kompaktne;
   nastavenia jednotiek a planety sa zobrazuju iba pri vybranych typoch.
