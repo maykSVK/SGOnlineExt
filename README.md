@@ -92,8 +92,11 @@ zobrazuju aj najcastejsie tazene cisla zo zachytenych zrebovani.
 
 Sekcia **Vojna** nacita udaje iba po rucnom kliknuti na **Obnovit**. Zobrazi
 vlastne univerzaly oproti cielu 10 000, prehlad planet s deficitom cielovej
-obrany 500 SDI a 500 BS na planetu a prijate spionazne zaznamy za poslednych
-24 hodin. Meno hraca sa automaticky precita z Prehladu > Obecna statistika.
+obrany a prijate spionazne zaznamy za poslednych 24 hodin. V rozbalovacej casti
+**Nastavenia obrany** sa ukladaju minima na planetu (predvolene 200 SDI a 500 BS).
+Ulozenie ihned prepocita zobrazeny deficit aj predvyplnenie stavby; nastavenia
+zostavaju zachovane po obnoveni stranky.
+Meno hraca sa automaticky precita z Prehladu > Obecna statistika.
 Pouzije sa nativny vyhladavaci filter **Na hrace**, **Spionazni** a **Vsechny**
 (uspesne aj neuspesne). Cita aj dalsie stranky az po poslednu alebo starsie
 zaznamy nez 24 hodin. Vyhladavanie je POST do denníka, nie odoslanie utoku.

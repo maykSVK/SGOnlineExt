@@ -38,8 +38,20 @@ test("planet reader maps titled headers despite the extra planet-type cell in da
   const planets = W.readPlanets({ querySelector: selector => selector === "table.planet-build-table" ? table : null }, "https://game.test/game.php");
   assert.deepEqual(planets[0], {
     id: "123", name: "AAFM-1234-56", cities: 20, maxCities: 30, sdi: 450, bs: 25,
-    sdiDeficit: 50, bsDeficit: 475, cityDeficit: 10
+    sdiDeficit: 0, bsDeficit: 475, cityDeficit: 10
   });
+  const custom = W.readPlanets({ querySelector: () => table }, "https://game.test/game.php", { sdi: 500, bs: 25 });
+  assert.equal(custom[0].sdiDeficit, 50);
+  assert.equal(custom[0].bsDeficit, 0);
+});
+
+test("defense settings allow zero and reject missing, negative, fractional or unsafe minima", () => {
+  assert.deepEqual(W.defenseTargets(), { sdi: 200, bs: 500 });
+  assert.deepEqual(W.defenseTargets({ sdi: 0, bs: 0 }), { sdi: 0, bs: 0 });
+  for (const value of [null, {}, { sdi: "200", bs: 500 }, { sdi: -1, bs: 500 },
+    { sdi: 1.5, bs: 500 }, { sdi: 200, bs: Infinity }, { sdi: 200, bs: Number.MAX_SAFE_INTEGER + 1 }]) {
+    assert.throws(() => W.defenseTargets(value), /celé čísla/);
+  }
 });
 
 test("planet reader leaves an undisclosed city maximum unknown rather than guessing", () => {
@@ -272,6 +284,103 @@ function warContainer(nativeDoc = { forms: [] }) {
   };
   return container;
 }
+
+test("defense settings persist, recalculate existing planets and prefill only configured deficits", async t => {
+  const oldLocation = globalThis.location;
+  globalThis.location = { href: "https://game.test/game.php?page=vesmir" };
+  t.after(() => { if (oldLocation === undefined) delete globalThis.location; else globalThis.location = oldLocation; });
+  const saved = new Map();
+  let writeFails = false;
+  let destination;
+  let requests = 0;
+  const storage = {
+    get: async key => saved.get(key),
+    set: async (key, value) => {
+      if (writeFails) throw new Error("Write failed");
+      saved.set(key, value);
+    }
+  };
+  const headers = row([cell("", "Název planety"), cell("", "Města"), cell("", "SDI"), cell("", "BS")]);
+  const planet = row([cell(""), cell("AAFM-1234-56"), cell("20"), cell("200"), cell("500")],
+    { textContent: "AAFM-1234-56", getAttribute: () => "game.php?page=planety&planeta=2" });
+  const options = {
+    storage, navigate: async url => { destination = url; },
+    getDocument: async url => {
+      requests++;
+      const params = new URL(url).searchParams;
+      if (params.get("page") === "prehled") return {
+        querySelector: () => ({ getAttribute: () => "game.php?page=vesmir&hledat=mayk" })
+      };
+      if (params.get("akce") === "armada") return {
+        querySelector: () => ({ closest: () => ({ textContent: "Je v RA20 000Máme10 000Z RADo RA" }) })
+      };
+      return { querySelector: () => ({ rows: [headers, planet] }) };
+    },
+    postDocument: async () => spyDoc()
+  };
+  const container = warContainer();
+  const war = W.mount(container, options);
+  await war.refresh();
+  const input = id => container.querySelector(`#sgo-war-${id}-target`);
+  const save = () => container.querySelector("#sgo-war-defense-save").listeners.click();
+  const summary = container.querySelector("#sgo-war-defense-summary");
+  assert.equal(input("sdi").value, "200");
+  assert.equal(input("bs").value, "500");
+  assert.equal(summary.textContent, "1 planét · 0 pod cieľom");
+  const initialRequests = requests;
+  input("sdi").value = "250";
+  input("bs").value = "600";
+  await save();
+  assert.equal(requests, initialRequests, "saving recalculates without network refresh");
+  assert.equal(summary.textContent, "1 planét · 1 pod cieľom");
+  assert.deepEqual(saved.get("sgo-war-defense-settings"), { sdi: 250, bs: 600 });
+  const defenseRow = container.querySelector("#sgo-war-planets").children[0];
+  assert.equal(defenseRow.children[4].textContent, "SDI 50 · BS 100");
+  await defenseRow.children[5].children[0].listeners.click();
+  assert.match(destination, /page=planety$/);
+  assert.deepEqual(
+    { sdi: saved.get("sgo-war-planet-draft").sdi, bs: saved.get("sgo-war-planet-draft").bs },
+    { sdi: 50, bs: 100 }
+  );
+  const reloaded = warContainer();
+  const next = W.mount(reloaded, options);
+  await next.refresh();
+  assert.equal(reloaded.querySelector("#sgo-war-sdi-target").value, "250");
+  assert.equal(reloaded.querySelector("#sgo-war-bs-target").value, "600");
+  assert.equal(reloaded.querySelector("#sgo-war-defense-summary").textContent, "1 planét · 1 pod cieľom");
+
+  for (const invalid of ["", "-1", "1.5", "NaN", "9007199254740992"]) {
+    input("sdi").value = invalid;
+    await save();
+    assert.equal(container.querySelector("#sgo-war-status").dataset.state, "error");
+    assert.deepEqual(saved.get("sgo-war-defense-settings"), { sdi: 250, bs: 600 });
+  }
+  input("sdi").value = "0";
+  input("bs").value = "0";
+  writeFails = true;
+  await save();
+  assert.match(container.querySelector("#sgo-war-status").textContent, /Write failed/);
+  assert.equal(summary.textContent, "1 planét · 1 pod cieľom", "failed write does not apply unsaved values");
+  writeFails = false;
+  await save();
+  assert.equal(summary.textContent, "1 planét · 0 pod cieľom");
+  assert.deepEqual(saved.get("sgo-war-defense-settings"), { sdi: 0, bs: 0 });
+});
+
+test("failed defense settings restore prevents refresh with misleading default targets", async t => {
+  const oldLocation = globalThis.location;
+  globalThis.location = { href: "https://game.test/game.php?page=vesmir" };
+  t.after(() => { if (oldLocation === undefined) delete globalThis.location; else globalThis.location = oldLocation; });
+  const container = warContainer();
+  const war = W.mount(container, {
+    storage: { get: async () => { throw new Error("Read failed"); } },
+    getDocument: async () => assert.fail("must not fetch after failed restore")
+  });
+  assert.equal(await war.ready, false);
+  assert.match(container.querySelector("#sgo-war-status").textContent, /Read failed/);
+  await war.refresh();
+  assert.equal(container.querySelector("#sgo-war-status").dataset.state, "error");
+});
 
 test("war refresh auto-detects owner, renders grouped rename actions and hands off a one-shot tab-local draft", async t => {
   const oldLocation = globalThis.location;

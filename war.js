@@ -2,12 +2,28 @@
   "use strict";
   const C = typeof module !== "undefined" && module.exports ? require("./core.js") : root.SGO;
   const ARMY_TARGET = 10000;
-  const DEFENSE_TARGET = 500;
+  const DEFAULT_DEFENSE_TARGETS = Object.freeze({ sdi: 200, bs: 500 });
+  const DEFENSE_SETTINGS_KEY = "sgo-war-defense-settings";
   const SPY_KEY = "sgo-war-spies";
   const ARMY_DRAFT_KEY = "sgo-war-army-draft";
   const PLANET_DRAFT_KEY = "sgo-war-planet-draft";
   const RENAME_DRAFT_KEY = "sgo-war-rename-draft";
   const clean = value => String(value || "").replace(/\s+/g, " ").trim();
+
+  function defenseTargets(value = DEFAULT_DEFENSE_TARGETS) {
+    if (!value || ![value.sdi, value.bs].every(target => Number.isSafeInteger(target) && target >= 0)) {
+      throw new Error("Minimá SDI a BS musia byť nezáporné celé čísla.");
+    }
+    return { sdi: value.sdi, bs: value.bs };
+  }
+
+  function defenseDeficits(planet, targets) {
+    return {
+      ...planet,
+      sdiDeficit: Math.max(0, targets.sdi - planet.sdi),
+      bsDeficit: Math.max(0, targets.bs - planet.bs)
+    };
+  }
 
   function readOwner(doc) {
     const link = doc.querySelector('#os a[href*="hledat="]');
@@ -153,7 +169,9 @@
     return clean(image?.getAttribute("title") || image?.getAttribute("alt") || cell.textContent);
   }
 
-  function readPlanets(doc, baseUrl = root.location?.href || "https://stargame-online.cz/game.php") {
+  function readPlanets(doc, baseUrl = root.location?.href || "https://stargame-online.cz/game.php",
+    targets = DEFAULT_DEFENSE_TARGETS) {
+    targets = defenseTargets(targets);
     const table = doc.querySelector("table.planet-build-table");
     if (!table?.rows?.length) throw new Error("Nenašiel sa prehľad stavieb planét.");
     const headers = [...table.rows[0].cells].map(headerLabel);
@@ -181,12 +199,10 @@
       if (!id || !name || cities === null || sdi === null || bs === null) {
         throw new Error(`Nečitateľné údaje o planéte ${name || "(bez názvu)"}.`);
       }
-      planets.push({
+      planets.push(defenseDeficits({
         id, name, cities, maxCities, sdi, bs,
-        sdiDeficit: Math.max(0, DEFENSE_TARGET - sdi),
-        bsDeficit: Math.max(0, DEFENSE_TARGET - bs),
         cityDeficit: maxCities === null ? null : Math.max(0, maxCities - cities)
-      });
+      }, targets));
     }
     if (!planets.length) throw new Error("Prehľad planét neobsahuje žiadne planéty.");
     return planets;
@@ -284,6 +300,14 @@
       <div id="sgo-war-status" class="sgo-war-status" role="status">Zatiaľ neobnovené.</div>
       <section class="sgo-war-card"><strong>Univerzály</strong><div id="sgo-war-army"></div></section>
       <section class="sgo-war-card"><strong>Obrana planét</strong><div id="sgo-war-defense-summary"></div>
+        <details class="sgo-watch-settings"><summary>Nastavenia obrany</summary>
+          <div class="sgo-war-defense-settings">
+            <label>Minimum SDI<input id="sgo-war-sdi-target" type="number" min="0" step="1"></label>
+            <label>Minimum BS<input id="sgo-war-bs-target" type="number" min="0" step="1"></label>
+            <button type="button" id="sgo-war-defense-save">Uložiť</button>
+          </div>
+          <p class="sgo-note">Minimá na každej planéte; zmena ihneď prepočíta prehľad aj predvyplnenie.</p>
+        </details>
         <div class="sgo-war-table-scroll"><table class="sgo-war-table"><thead><tr><th>Planéta</th><th>Mestá</th><th>SDI</th><th>BS</th><th>Chýba</th><th></th></tr></thead><tbody id="sgo-war-planets"></tbody></table></div>
       </section>
       <section class="sgo-war-card"><strong>Prijaté špionáže · 24 h</strong>
@@ -298,6 +322,8 @@
     let checking = false;
     let lastUpdated = null;
     let ownerName = "";
+    let targets = defenseTargets();
+    let savingSettings = false;
     const renameSuggestions = new Map();
 
     function status(text, error = false) {
@@ -345,7 +371,7 @@
       body.replaceChildren();
       if (planets.length) {
         const deficient = planets.filter(planet => planet.cityDeficit > 0 || planet.sdiDeficit || planet.bsDeficit);
-        summary.textContent = `${planets.length} planét · cieľ ${DEFENSE_TARGET} SDI + ${DEFENSE_TARGET} BS na každej · ${deficient.length} pod cieľom`;
+        summary.textContent = `${planets.length} planét · ${deficient.length} pod cieľom`;
         for (const planet of deficient) {
           const row = container.ownerDocument.createElement("tr");
           const values = [
@@ -428,6 +454,10 @@
 
     async function refresh() {
       if (checking) return;
+      if (savingSettings) {
+        status("Najprv počkaj na uloženie nastavení obrany.", true);
+        return;
+      }
       if (!canEdit()) {
         status("Najprv zastav prebiehajúcu operáciu.", true);
         return;
@@ -436,11 +466,12 @@
       $("#sgo-war-refresh").disabled = true;
       status("Načítavam armádu, planéty a denník útokov…");
       try {
+        if (!await ready) throw new Error("Nastavenia obrany sa nepodarilo načítať; obnov stránku.");
         ownerName = readOwner(await getDocument(gameUrl({ page: "prehled" })));
         const armyDoc = await getDocument(gameUrl({ page: "jednotky", akce: "armada" }));
         const nextArmy = readArmy(armyDoc);
         const planetDoc = await getDocument(gameUrl({ page: "planety" }));
-        const nextPlanets = readPlanets(planetDoc);
+        const nextPlanets = readPlanets(planetDoc, undefined, targets);
         const current = await loadSpies(gameUrl({ page: "jednotky" }), ownerName, postDocument);
         const previous = await storage.get(SPY_KEY) || [];
         const cutoff = Date.now() - 24 * 60 * 60 * 1000;
@@ -597,13 +628,53 @@
       }
     }
 
+    async function restoreDefenseSettings() {
+      try {
+        const saved = await storage.get(DEFENSE_SETTINGS_KEY);
+        targets = defenseTargets(saved == null ? undefined : saved);
+        $("#sgo-war-sdi-target").value = String(targets.sdi);
+        $("#sgo-war-bs-target").value = String(targets.bs);
+        return true;
+      } catch (error) {
+        status(`Načítanie nastavení obrany zlyhalo: ${error.message}`, true);
+        log(`Vojna: načítanie nastavení obrany zlyhalo: ${error.message}`, "error");
+        return false;
+      }
+    }
+
+    const ready = restoreDefenseSettings();
+    $("#sgo-war-defense-save").addEventListener("click", async () => {
+      if (savingSettings) return;
+      savingSettings = true;
+      $("#sgo-war-defense-save").disabled = true;
+      try {
+        if (!await ready) throw new Error("Nastavenia obrany sa nepodarilo načítať; obnov stránku.");
+        if (checking || !canEdit()) throw new Error("Najprv počkaj na dokončenie prebiehajúcej operácie.");
+        const sdi = $("#sgo-war-sdi-target").value.trim();
+        const bs = $("#sgo-war-bs-target").value.trim();
+        if (!sdi || !bs) throw new Error("Vyplň obe minimá obrany.");
+        const next = defenseTargets({ sdi: Number(sdi), bs: Number(bs) });
+        await storage.set(DEFENSE_SETTINGS_KEY, next);
+        targets = next;
+        planets = planets.map(planet => defenseDeficits(planet, targets));
+        render();
+        status("Nastavenia obrany uložené; prehľad je prepočítaný.");
+        log(`Vojna: minimá obrany uložené: ${targets.sdi} SDI + ${targets.bs} BS na planétu.`);
+      } catch (error) {
+        status(`Uloženie nastavení obrany zlyhalo: ${error.message}`, true);
+        log(`Vojna: uloženie nastavení obrany zlyhalo: ${error.message}`, "error");
+      } finally {
+        savingSettings = false;
+        $("#sgo-war-defense-save").disabled = false;
+      }
+    });
     $("#sgo-war-refresh").addEventListener("click", refresh);
     render();
     applyPendingDrafts();
-    return { refresh, render };
+    return { refresh, render, ready };
   }
 
-  const api = { ARMY_TARGET, DEFENSE_TARGET, readOwner, spyFilter, loadSpies, randomPlanetName, spiedPlanets,
+  const api = { ARMY_TARGET, DEFAULT_DEFENSE_TARGETS, defenseTargets, readOwner, spyFilter, loadSpies, randomPlanetName, spiedPlanets,
     applyRenameDraft, readArmy, readPlanets, readSpies, recentSpies, applyArmyDraft, applyPlanetDraft, mount };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.SGOWar = api;

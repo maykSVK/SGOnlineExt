@@ -143,6 +143,10 @@
 #sgo-addon .sgo-war-card { min-width: 0; margin: 0 0 9px; padding: 10px; border: 1px solid var(--sgo-line); border-radius: 9px; background: #152136; }
 #sgo-addon .sgo-war-card > strong { display: block; margin-bottom: 5px; font-size: 12px; }
 #sgo-addon .sgo-war-card p { margin: 4px 0; font-size: 11px; }
+#sgo-addon .sgo-war-defense-settings { display: flex; flex-wrap: wrap; align-items: end; gap: 6px; margin: 6px 0; }
+#sgo-addon .sgo-war-defense-settings label { flex: 1; min-width: 70px; }
+#sgo-addon .sgo-war-defense-settings input { display: block; width: 100%; min-width: 0; margin-top: 3px; }
+#sgo-addon .sgo-war-defense-settings button { padding: 5px 7px; font-size: 10px; }
 #sgo-addon .sgo-war-action { color: #ffcb82; font-size: 11px; }
 #sgo-addon .sgo-war-action button, #sgo-addon .sgo-war-table button { margin: 3px 0; padding: 5px 7px; font-size: 10px; }
 #sgo-addon .sgo-war-ok { color: #83e0b3; font-size: 11px; }
