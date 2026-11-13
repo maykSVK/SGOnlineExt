@@ -6,7 +6,126 @@
   const SPY_KEY = "sgo-war-spies";
   const ARMY_DRAFT_KEY = "sgo-war-army-draft";
   const PLANET_DRAFT_KEY = "sgo-war-planet-draft";
+  const RENAME_DRAFT_KEY = "sgo-war-rename-draft";
   const clean = value => String(value || "").replace(/\s+/g, " ").trim();
+
+  function readOwner(doc) {
+    const link = doc.querySelector('#os a[href*="hledat="]');
+    const owner = link && new URL(link.getAttribute("href"), "https://stargame-online.cz/game.php").searchParams.get("hledat");
+    if (!owner) throw new Error("Nepodarilo sa zistiť meno prihláseného hráča z prehľadu.");
+    return owner;
+  }
+
+  function spyFilter(owner) {
+    if (!clean(owner)) throw new Error("Chýba meno hráča pre filter špionáží.");
+    return new URLSearchParams({
+      rasa1: "0", rasa2: "0", stav: "0", utoky: "7", texty: "2", text: owner, najit: "Najít"
+    });
+  }
+
+  async function loadSpies(url, owner, postDocument, now = Date.now()) {
+    const collected = [];
+    const visited = new Set();
+    let next = url;
+    while (next) {
+      if (visited.has(next)) throw new Error("Stránkovanie špionáží sa opakuje.");
+      visited.add(next);
+      const doc = await postDocument(next, spyFilter(owner));
+      const form = [...doc.forms].find(f => f.elements.namedItem("texty"));
+      if (!form || form.elements.namedItem("texty")?.value !== "2" ||
+        form.elements.namedItem("utoky")?.value !== "7" ||
+        form.elements.namedItem("stav")?.value !== "0" ||
+        form.elements.namedItem("text")?.value !== owner) {
+        throw new Error("Hra nepotvrdila filter špionáží na tvojho hráča.");
+      }
+      const table = [...doc.querySelectorAll("table")].find(t =>
+        [...t.querySelectorAll("th")].some(cell => clean(cell.textContent) === "Obránce"));
+      if (!table) throw new Error("Nenašiel sa filtrovaný denník útokov.");
+      const entries = readSpies(doc, owner);
+      collected.push(...entries);
+      const older = entries.some(entry => entry.time < now - 86400000);
+      const link = [...doc.querySelectorAll("a[href]")].find(a => /^Další\s*»/.test(clean(a.textContent)));
+      if (!link || older) break;
+      const candidate = new URL(link.getAttribute("href"), next);
+      const start = new URL(url);
+      if (candidate.origin !== start.origin || candidate.pathname !== start.pathname ||
+        candidate.searchParams.get("page") !== "jednotky" ||
+        !/^\d+$/.test(candidate.searchParams.get("strana") || "")) {
+        throw new Error("Nerozpoznaný odkaz na ďalšiu stránku denníka.");
+      }
+      next = candidate.href;
+    }
+    return recentSpies(collected, now);
+  }
+
+  function randomPlanetName(existing, random = () => {
+    const value = new Uint32Array(1);
+    root.crypto.getRandomValues(value);
+    return value[0] / 4294967296;
+  }) {
+    const used = new Set(existing.map(name => clean(name).toUpperCase()));
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const letters = Array.from({ length: 4 }, () => String.fromCharCode(65 + Math.floor(random() * 26))).join("");
+      const name = `${letters}-${1000 + Math.floor(random() * 9000)}-${10 + Math.floor(random() * 90)}`;
+      if (!used.has(name)) return name;
+    }
+    throw new Error("Nepodarilo sa vytvoriť voľný názov planéty.");
+  }
+
+  function spiedPlanets(spies, planets) {
+    const grouped = new Map();
+    for (const spy of spies) {
+      if (!grouped.has(spy.planet)) {
+        grouped.set(spy.planet, {
+          name: spy.planet, planet: planets.find(planet => planet.name === spy.planet) || null, events: []
+        });
+      }
+      grouped.get(spy.planet).events.push(spy);
+    }
+    return [...grouped.values()];
+  }
+
+  function gameTimestamp(year, month, day, hour, minute, second) {
+    const utc = Date.UTC(year, month - 1, day, hour, minute, second);
+    const formatter = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Prague", year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23"
+    });
+    let result = utc;
+    for (let step = 0; step < 2; step++) {
+      const parts = Object.fromEntries(formatter.formatToParts(result).map(part => [part.type, part.value]));
+      result += utc - Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day),
+        Number(parts.hour), Number(parts.minute), Number(parts.second));
+    }
+    return result;
+  }
+
+  function applyRenameDraft(doc, draft) {
+    const form = [...doc.forms].find(f => f.elements.namedItem("novy") && f.elements.namedItem("planeta"));
+    if (!form) throw new Error("Nenašiel sa formulár premenovania v Správe planét.");
+    const selector = form.elements.namedItem("planeta");
+    const input = form.elements.namedItem("novy");
+    const options = [...selector.options];
+    const target = options.find(option => option.value === draft.planetId);
+    if (!target || clean(target.textContent) !== draft.oldName) {
+      throw new Error("Planéta už nemá pôvodný názov alebo ju už nevlastníš. Obnov prehľad.");
+    }
+    if (!/^[A-Z]{4}-\d{4}-\d{2}$/.test(draft.newName) ||
+      options.some(option => clean(option.textContent) === draft.newName)) {
+      throw new Error("Navrhnutý názov je neplatný alebo sa už používa.");
+    }
+    const selected = options.find(option => option.value === selector.value);
+    if (clean(input.value) && clean(input.value) !== clean(selected?.textContent) && input.value !== draft.newName) {
+      throw new Error("Formulár už obsahuje rozpracovaný názov; nič som neprepísal.");
+    }
+    selector.value = draft.planetId;
+    selector.dispatchEvent(new Event("change", { bubbles: true }));
+    input.value = draft.newName;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    input.focus();
+    form.scrollIntoView({ block: "center" });
+  }
 
   function number(text) {
     const match = String(text || "").match(/\d[\d\s\u00a0]*/);
@@ -85,15 +204,15 @@
         if (dateMatch) reportDate = dateMatch.slice(1).map(Number);
         continue;
       }
-      if (cells.length !== 4 || !reportDate) continue;
+      if (cells.length !== 4) continue;
       const [time, attacker, defender, result] = cells.map(cell => clean(cell.textContent));
       if (!/\binformace\b/i.test(result)) continue;
       const defenderName = defender.replace(/\s*\([^)]*\)\s*$/, "");
       if (C.normalize(defenderName) !== owner) continue;
       const timeMatch = time.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
-      if (!timeMatch) continue;
+      if (!timeMatch || !reportDate) throw new Error("Nepodarilo sa prečítať dátum alebo čas prijatej špionáže.");
       const [day, month, year] = reportDate;
-      const timestamp = new Date(year, month - 1, day, Number(timeMatch[1]), Number(timeMatch[2]), Number(timeMatch[3])).getTime();
+      const timestamp = gameTimestamp(year, month, day, Number(timeMatch[1]), Number(timeMatch[2]), Number(timeMatch[3]));
       const planetMatch = result.match(/„([^“]+)“|“([^”]+)”|"([^"]+)"/);
       const planet = planetMatch?.slice(1).find(Boolean) || "Planéta sa nedala prečítať";
       const id = `${timestamp}|${attacker}|${defender}|${result}`;
@@ -157,7 +276,8 @@
     draftForm(form, { fields });
   }
 
-  function mount(container, { getDocument, storage, navigate = url => location.assign(url), log = () => {}, canEdit = () => true }) {
+  function mount(container, { getDocument, postDocument, storage, session = root.sessionStorage,
+    navigate = url => location.assign(url), log = () => {}, canEdit = () => true, revealGame = () => {} }) {
     container.innerHTML = `<section class="sgo-war">
       <div class="sgo-watch-heading"><strong>Vojna · vlastná pripravenosť</strong><button type="button" id="sgo-war-refresh">Obnoviť</button></div>
       <p class="sgo-note">Obnovenie je ručné. Akcie iba predvyplnia formulár hry; nič sa neodošle automaticky.</p>
@@ -167,7 +287,6 @@
         <div class="sgo-war-table-scroll"><table class="sgo-war-table"><thead><tr><th>Planéta</th><th>Mestá</th><th>SDI</th><th>BS</th><th>Chýba</th><th></th></tr></thead><tbody id="sgo-war-planets"></tbody></table></div>
       </section>
       <section class="sgo-war-card"><strong>Prijaté špionáže · 24 h</strong>
-        <label class="sgo-war-owner">Meno môjho hráča<input id="sgo-war-owner" type="text" autocomplete="off" placeholder="Zadaj presné meno z hry"></label>
         <div id="sgo-war-spy-summary"></div><div id="sgo-war-spies"></div>
       </section>
     </section>`;
@@ -179,6 +298,7 @@
     let checking = false;
     let lastUpdated = null;
     let ownerName = "";
+    const renameSuggestions = new Map();
 
     function status(text, error = false) {
       const element = $("#sgo-war-status");
@@ -265,24 +385,42 @@
       const spyList = $("#sgo-war-spies");
       spyList.replaceChildren();
       spySummary.textContent = !ownerName
-        ? "Zadaj presné meno hráča, aby sa oddelili útoky na tvoj účet."
+        ? "Obnov prehľad: meno hráča a filter sa nastavia automaticky z hry."
         : !lastUpdated
           ? "Zatiaľ neobnovené; klikni na Obnoviť."
-          : `${spies.length} záznamov za posledných 24 hodín.`;
-      for (const spy of spies) {
+          : `${ownerName} · ${spies.length} špionáží za 24 h · ${spiedPlanets(spies, planets).length} dotknutých planét.`;
+      for (const group of spiedPlanets(spies, planets)) {
+        const spy = group.events[0];
         const row = container.ownerDocument.createElement("div");
         row.className = "sgo-war-spy-row";
         const time = container.ownerDocument.createElement("time");
         time.dateTime = new Date(spy.time).toISOString();
         time.textContent = new Date(spy.time).toLocaleString("sk-SK");
         const details = container.ownerDocument.createElement("span");
-        details.textContent = `${spy.attacker} · ${spy.planet} · ${spy.result}`;
+        details.textContent = `${group.name} · ${group.events.length}× · ${spy.attacker} · ${spy.result}`;
         row.append(time, details);
-        if (newSpyIds.has(spy.id)) {
+        if (group.events.some(event => newSpyIds.has(event.id))) {
           const badge = container.ownerDocument.createElement("b");
           badge.textContent = "NOVÉ";
           row.append(badge);
         }
+        const action = container.ownerDocument.createElement("div");
+        action.className = "sgo-war-rename";
+        if (group.planet) {
+          if (!renameSuggestions.has(group.planet.id)) {
+            renameSuggestions.set(group.planet.id, randomPlanetName([
+              ...planets.map(planet => planet.name), ...renameSuggestions.values()
+            ]));
+          }
+          const suggestion = renameSuggestions.get(group.planet.id);
+          const label = container.ownerDocument.createElement("span");
+          label.textContent = `Nový názov: ${suggestion}`;
+          action.append(label, button("Premenovať…", "Otvorí Správu planét a predvyplní názov. Potvrdíš ho tlačidlom Přejmenovat v hre.",
+            () => prepareRename(group.planet, suggestion)));
+        } else {
+          action.textContent = "Planéta už nie je pod týmto názvom v tvojom zozname (premenovaná alebo nevlastnená).";
+        }
+        row.append(action);
         spyList.append(row);
       }
       if (lastUpdated) $("#sgo-war-status").dataset.updated = new Date(lastUpdated).toLocaleString("sk-SK");
@@ -290,37 +428,34 @@
 
     async function refresh() {
       if (checking) return;
+      if (!canEdit()) {
+        status("Najprv zastav prebiehajúcu operáciu.", true);
+        return;
+      }
       checking = true;
       $("#sgo-war-refresh").disabled = true;
       status("Načítavam armádu, planéty a denník útokov…");
       try {
+        ownerName = readOwner(await getDocument(gameUrl({ page: "prehled" })));
         const armyDoc = await getDocument(gameUrl({ page: "jednotky", akce: "armada" }));
         const nextArmy = readArmy(armyDoc);
         const planetDoc = await getDocument(gameUrl({ page: "planety" }));
         const nextPlanets = readPlanets(planetDoc);
-        const attackDoc = await getDocument(gameUrl({ page: "jednotky" }));
-        ownerName = $("#sgo-war-owner").value.trim();
-        await storage.set("sgo-war-owner", ownerName);
-        const current = ownerName ? readSpies(attackDoc, ownerName) : [];
-        if (ownerName) {
-          const previous = await storage.get(SPY_KEY) || [];
-          const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-          const validPrevious = recentSpies(previous, Date.now()).filter(entry =>
-            C.normalize(entry.defender.replace(/\s*\([^)]*\)\s*$/, "")) === C.normalize(ownerName)
-          );
-          const known = new Set(validPrevious.map(entry => entry.id));
-          newSpyIds = new Set(current.filter(entry => entry.time >= cutoff && !known.has(entry.id)).map(entry => entry.id));
-          spies = recentSpies([...validPrevious, ...current], Date.now());
-          for (const entry of current) {
-            if (newSpyIds.has(entry.id)) {
-              log(`Vojna: nová špionáž od ${entry.attacker} na planétu ${entry.planet}: ${entry.result}`);
-            }
+        const current = await loadSpies(gameUrl({ page: "jednotky" }), ownerName, postDocument);
+        const previous = await storage.get(SPY_KEY) || [];
+        const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+        const validPrevious = recentSpies(previous, Date.now()).filter(entry =>
+          C.normalize(entry.defender.replace(/\s*\([^)]*\)\s*$/, "")) === C.normalize(ownerName)
+        );
+        const known = new Set(validPrevious.map(entry => entry.id));
+        newSpyIds = new Set(current.filter(entry => entry.time >= cutoff && !known.has(entry.id)).map(entry => entry.id));
+        spies = recentSpies([...validPrevious, ...current], Date.now());
+        for (const entry of current) {
+          if (newSpyIds.has(entry.id)) {
+            log(`Vojna: nová špionáž od ${entry.attacker} na planétu ${entry.planet}: ${entry.result}`);
           }
-          await storage.set(SPY_KEY, spies);
-        } else {
-          spies = [];
-          newSpyIds = new Set();
         }
+        await storage.set(SPY_KEY, spies);
         army = nextArmy;
         planets = nextPlanets;
         lastUpdated = Date.now();
@@ -341,6 +476,29 @@
       const url = new URL("game.php", location.href);
       url.search = new URLSearchParams(params);
       return url.href;
+    }
+
+    async function prepareRename(planet, newName) {
+      if (!canEdit()) {
+        status("Najprv zastav prebiehajúcu operáciu.", true);
+        return;
+      }
+      try {
+        const draft = { planetId: planet.id, oldName: planet.name, newName, createdAt: Date.now() };
+        const params = new URL(location.href).searchParams;
+        if (params.get("page") === "planety" && params.get("s") === "sp") {
+          applyRenameDraft(container.ownerDocument, draft);
+          revealGame();
+          status(`Premenovanie ${planet.name} → ${newName} je predvyplnené. Potvrď ho v hre.`);
+        } else {
+          session.setItem(RENAME_DRAFT_KEY, JSON.stringify(draft));
+          await navigate(gameUrl({ page: "planety", s: "sp" }));
+        }
+        log(`Vojna: pripravené premenovanie ${planet.name} → ${newName}; potvrdenie zostáva na používateľovi.`);
+      } catch (error) {
+        status(`Premenovanie sa nepodarilo pripraviť: ${error.message}`, true);
+        log(`Vojna: príprava premenovania zlyhala: ${error.message}`, "error");
+      }
     }
 
     async function prepareArmy() {
@@ -396,21 +554,29 @@
 
     async function applyPendingDrafts() {
       const params = new URL(location.href).searchParams;
-      const key = params.get("page") === "planety"
+      const rename = params.get("page") === "planety" && params.get("s") === "sp";
+      const key = rename ? RENAME_DRAFT_KEY : params.get("page") === "planety"
         ? PLANET_DRAFT_KEY
         : params.get("page") === "jednotky" && params.get("akce") === "armada"
           ? ARMY_DRAFT_KEY
           : null;
       if (!key) return;
       try {
-        const draft = await storage.get(key);
+        const draft = rename ? JSON.parse(session.getItem(key) || "null") : await storage.get(key);
         if (!draft) return;
+        if (rename) session.removeItem(key);
         if (!Number.isFinite(draft.createdAt) || Date.now() - draft.createdAt >= 10 * 60 * 1000) {
-          await storage.set(key, null);
+          if (!rename) await storage.set(key, null);
           status("Čakajúce predvyplnenie vypršalo; znovu ho spusti z prehľadu Vojna.", true);
           return;
         }
-        if (key === ARMY_DRAFT_KEY) {
+        if (rename) {
+          if (!canEdit()) throw new Error("Najprv zastav prebiehajúcu operáciu a znovu priprav premenovanie.");
+          applyRenameDraft(container.ownerDocument, draft);
+          revealGame();
+          status(`Premenovanie ${draft.oldName} → ${draft.newName} je predvyplnené. Potvrď ho v hre.`);
+          log(`Vojna: predvyplnené premenovanie ${draft.oldName} → ${draft.newName}; nič nebolo odoslané.`);
+        } else if (key === ARMY_DRAFT_KEY) {
           applyArmyDraft(document, draft);
           status(`Pole „Z RA“ je predvyplnené na ${draft.amount.toLocaleString("sk-SK")}; skontroluj formulár a odošli ho ručne.`);
           log(`Vojna: predvyplnený presun ${draft.amount} univerzálov z RA; odoslanie čaká na používateľa.`);
@@ -419,10 +585,10 @@
           status("Formulár stavby je predvyplnený; skontroluj ho a odošli ručne.");
           log(`Vojna: predvyplnený formulár obrany planéty ${draft.planetId}; odoslanie čaká na používateľa.`);
         }
-        await storage.set(key, null);
+        if (!rename) await storage.set(key, null);
       } catch (error) {
         let message = error.message;
-        try { await storage.set(key, null); }
+        try { if (rename) session.removeItem(key); else await storage.set(key, null); }
         catch (cleanupError) {
           message += `; návrh ${key} sa nepodarilo zrušiť: ${cleanupError.message}`;
         }
@@ -432,26 +598,13 @@
     }
 
     $("#sgo-war-refresh").addEventListener("click", refresh);
-    $("#sgo-war-owner").addEventListener("change", async () => {
-      ownerName = $("#sgo-war-owner").value.trim();
-      spies = [];
-      newSpyIds = new Set();
-      lastUpdated = null;
-      render();
-      status("Meno zmenené; obnov prehľad špionáží.");
-      try { await storage.set("sgo-war-owner", ownerName); }
-      catch (error) { status(`Meno sa nepodarilo uložiť: ${error.message}`, true); }
-    });
-    Promise.resolve(storage.get("sgo-war-owner")).then(value => {
-      ownerName = typeof value === "string" ? value : "";
-      $("#sgo-war-owner").value = ownerName;
-      render();
-    }).catch(error => status(`Nastavenie mena sa nepodarilo načítať: ${error.message}`, true));
+    render();
     applyPendingDrafts();
     return { refresh, render };
   }
 
-  const api = { ARMY_TARGET, DEFENSE_TARGET, readArmy, readPlanets, readSpies, recentSpies, applyArmyDraft, applyPlanetDraft, mount };
+  const api = { ARMY_TARGET, DEFENSE_TARGET, readOwner, spyFilter, loadSpies, randomPlanetName, spiedPlanets,
+    applyRenameDraft, readArmy, readPlanets, readSpies, recentSpies, applyArmyDraft, applyPlanetDraft, mount };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.SGOWar = api;
 })(globalThis);

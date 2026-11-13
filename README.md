@@ -93,8 +93,18 @@ zobrazuju aj najcastejsie tazene cisla zo zachytenych zrebovani.
 Sekcia **Vojna** nacita udaje iba po rucnom kliknuti na **Obnovit**. Zobrazi
 vlastne univerzaly oproti cielu 10 000, prehlad planet s deficitom cielovej
 obrany 500 SDI a 500 BS na planetu a prijate spionazne zaznamy za poslednych
-24 hodin. Pri spionazi zadaj presne meno svojho hraca; zaznamy sa uchovavaju
-lokalne a oznacia sa nove udalosti od poslednej kontroly.
+24 hodin. Meno hraca sa automaticky precita z Prehladu > Obecna statistika.
+Pouzije sa nativny vyhladavaci filter **Na hrace**, **Spionazni** a **Vsechny**
+(uspesne aj neuspesne). Cita aj dalsie stranky az po poslednu alebo starsie
+zaznamy nez 24 hodin. Vyhladavanie je POST do denníka, nie odoslanie utoku.
+Zachytene zaznamy sa uchovavaju lokalne 24 hodin; zmeskane zaznamy, ktore uz
+hra neposkytuje, nie je mozne doplnit. Nove udalosti sa oznacia a zaloguju.
+Pre kazdu dotknutu planetu sa zobrazi jeden riadok s poctom spionazi,
+poslednym zaznamom a navrhom unikatneho nazvu vo formate `XXXX-0000-00`.
+Tlacidlo **Premenovat...** otvori **Planety > Sprava**, vyberie konkretnu
+planetu a predvyplni novy nazov. Zmenu potvrdis sam nativnym tlacidlom
+**Prejmenovat**. Navrh sa prenasa iba v aktualnej karte a plati 10 minut.
+Ak uz planetu nevlastnis alebo ma iny nazov, predvyplnenie sa odmietne.
 
 Tlacidla **Predvyplnit** otvoria nativny formular hry a nastavia iba pocet
 univerzalov na presun z RA alebo deficit obrany na vybranej planete. Deficit
@@ -102,7 +112,7 @@ miest sa predvyplni iba vtedy, ak ho hra v zozname planét zobrazi. Nic sa
 neodosiela automaticky; pred odoslanim skontroluj planetu, pocty aj cenu.
 Prehlad planet neposkytuje maximum miest na kazdej planete, preto sa tato
 hodnota zobrazi ako nezname a addon nevypocitava ani nepredvyplna ich deficit.
-Sekcia nevybera ani nespusta utoky na inych hracov a nevykonava premenovanie
+Sekcia nevybera ani nespusta utoky na inych hracov a sama neodosiela premenovanie
 planet.
 
 #### TOP 3 celkovo

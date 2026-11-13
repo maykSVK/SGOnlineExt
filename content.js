@@ -219,8 +219,8 @@
     url.search = new URLSearchParams(params);
     return url.href;
   }
-  async function getDocument(url) {
-    const response = await fetch(url, { credentials: "same-origin", cache: "no-store" });
+  async function getDocument(url, options = {}) {
+    const response = await fetch(url, { ...options, credentials: "same-origin", cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}: ${url}`);
     const doc = new DOMParser().parseFromString(await response.text(), "text/html");
     if (!["/www/game.php", "/game.php"].includes(new URL(response.url).pathname) || doc.querySelector('input[type="password"]:not(#sgo-addon *)')) {
@@ -603,7 +603,8 @@
     navigate: async url => { await writes; location.assign(url); }
   });
   war = globalThis.SGOWar.mount($("#sgo-war-feature"), {
-    getDocument, storage, log, canEdit: () => !run?.active && !busy,
+    getDocument, postDocument: (url, body) => getDocument(url, { method: "POST", body }),
+    storage, log, revealGame, canEdit: () => !run?.active && !busy,
     navigate: async url => { await writes; location.assign(url); }
   });
   $("#sgo-export").addEventListener("click", () => {

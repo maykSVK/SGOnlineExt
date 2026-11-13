@@ -150,8 +150,8 @@
 #sgo-addon .sgo-war-table { width: 100%; border-collapse: collapse; font-size: 10px; }
 #sgo-addon .sgo-war-table th, #sgo-addon .sgo-war-table td { padding: 4px 3px; border-bottom: 1px solid #28374e; text-align: left; vertical-align: middle; }
 #sgo-addon .sgo-war-table th { position: sticky; top: 0; background: #152136; color: var(--sgo-muted); }
-#sgo-addon .sgo-war-owner { display: block; margin: 6px 0; color: var(--sgo-muted); font-size: 10px; }
-#sgo-addon .sgo-war-owner input { display: block; width: 100%; margin-top: 4px; padding: 6px; font-size: 11px; }
+#sgo-addon .sgo-war-rename { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 5px; color: var(--sgo-muted); }
+#sgo-addon .sgo-war-rename button { padding: 4px 7px; font-size: 10px; }
 #sgo-addon .sgo-war-spy-row { display: grid; grid-template-columns: 90px minmax(0, 1fr) auto; gap: 6px; padding: 5px 0; border-top: 1px solid #28374e; font-size: 10px; overflow-wrap: anywhere; }
 #sgo-addon .sgo-war-spy-row time { color: var(--sgo-muted); }
 #sgo-addon .sgo-war-spy-row b { color: #ffcb82; font-size: 9px; }
