@@ -32,34 +32,39 @@
     return owner;
   }
 
-  function spyFilter(owner) {
-    if (!clean(owner)) throw new Error("Chýba meno hráča pre filter špionáží.");
+  function attackFilter(owner, type = "0") {
+    if (!clean(owner)) throw new Error("Chýba meno hráča pre filter útokov.");
     return new URLSearchParams({
-      rasa1: "0", rasa2: "0", stav: "0", utoky: "7", texty: "2", text: owner, najit: "Najít"
+      rasa1: "0", rasa2: "0", stav: "0", utoky: type, texty: "2", text: owner, najit: "Najít"
     });
   }
 
-  async function loadSpies(url, owner, postDocument, now = Date.now()) {
+  function spyFilter(owner) {
+    return attackFilter(owner, "7");
+  }
+
+  async function loadReports(url, owner, postDocument, { spyOnly, now }) {
     const collected = [];
     const visited = new Set();
+    const filter = spyOnly ? spyFilter(owner) : attackFilter(owner);
     let next = url;
     while (next) {
-      if (visited.has(next)) throw new Error("Stránkovanie špionáží sa opakuje.");
+      if (visited.has(next)) throw new Error("Stránkovanie denníka útokov sa opakuje.");
       visited.add(next);
-      const doc = await postDocument(next, spyFilter(owner));
+      const doc = await postDocument(next, new URLSearchParams(filter));
       const form = [...doc.forms].find(f => f.elements.namedItem("texty"));
       if (!form || form.elements.namedItem("texty")?.value !== "2" ||
-        form.elements.namedItem("utoky")?.value !== "7" ||
+        form.elements.namedItem("utoky")?.value !== filter.get("utoky") ||
         form.elements.namedItem("stav")?.value !== "0" ||
         form.elements.namedItem("text")?.value !== owner) {
-        throw new Error("Hra nepotvrdila filter špionáží na tvojho hráča.");
+        throw new Error("Hra nepotvrdila filter útokov na tvojho hráča.");
       }
       const table = [...doc.querySelectorAll("table")].find(t =>
         [...t.querySelectorAll("th")].some(cell => clean(cell.textContent) === "Obránce"));
       if (!table) throw new Error("Nenašiel sa filtrovaný denník útokov.");
-      const entries = readSpies(doc, owner);
+      const entries = spyOnly ? readSpies(doc, owner) : readAttacks(doc, owner);
       collected.push(...entries);
-      const older = entries.some(entry => entry.time < now - 86400000);
+      const older = spyOnly && entries.some(entry => entry.time < now - 86400000);
       const link = [...doc.querySelectorAll("a[href]")].find(a => /^Další\s*»/.test(clean(a.textContent)));
       if (!link || older) break;
       const candidate = new URL(link.getAttribute("href"), next);
@@ -71,7 +76,16 @@
       }
       next = candidate.href;
     }
-    return recentSpies(collected, now);
+    return spyOnly ? recentSpies(collected, now)
+      : [...new Map(collected.map(entry => [entry.id, entry])).values()].sort((a, b) => b.time - a.time);
+  }
+
+  function loadSpies(url, owner, postDocument, now = Date.now()) {
+    return loadReports(url, owner, postDocument, { spyOnly: true, now });
+  }
+
+  function loadAttacks(url, owner, postDocument) {
+    return loadReports(url, owner, postDocument, { spyOnly: false });
   }
 
   function randomPlanetName(existing, random = () => {
@@ -208,7 +222,7 @@
     return planets;
   }
 
-  function readSpies(doc, ownerName) {
+  function readAttacks(doc, ownerName) {
     const owner = C.normalize(clean(ownerName));
     if (!owner) return [];
     let reportDate = null;
@@ -222,11 +236,10 @@
       }
       if (cells.length !== 4) continue;
       const [time, attacker, defender, result] = cells.map(cell => clean(cell.textContent));
-      if (!/\binformace\b/i.test(result)) continue;
       const defenderName = defender.replace(/\s*\([^)]*\)\s*$/, "");
       if (C.normalize(defenderName) !== owner) continue;
       const timeMatch = time.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
-      if (!timeMatch || !reportDate) throw new Error("Nepodarilo sa prečítať dátum alebo čas prijatej špionáže.");
+      if (!timeMatch || !reportDate) throw new Error("Nepodarilo sa prečítať dátum alebo čas prijatého útoku.");
       const [day, month, year] = reportDate;
       const timestamp = gameTimestamp(year, month, day, Number(timeMatch[1]), Number(timeMatch[2]), Number(timeMatch[3]));
       const planetMatch = result.match(/„([^“]+)“|“([^”]+)”|"([^"]+)"/);
@@ -235,6 +248,10 @@
       entries.push({ id, time: timestamp, attacker, defender, planet, result });
     }
     return entries;
+  }
+
+  function readSpies(doc, ownerName) {
+    return readAttacks(doc, ownerName).filter(entry => /\binformace\b/i.test(entry.result));
   }
 
   function recentSpies(history, now = Date.now()) {
@@ -313,11 +330,18 @@
       <section class="sgo-war-card"><strong>Prijaté špionáže · 24 h</strong>
         <div id="sgo-war-spy-summary"></div><div id="sgo-war-spies"></div>
       </section>
+      <section class="sgo-war-card"><strong>Všetky útoky na mňa</strong>
+        <p id="sgo-war-attack-summary" class="sgo-note">Zatiaľ neobnovené.</p>
+        <div class="sgo-war-attacks-scroll" tabindex="0" role="region" aria-label="Všetky útoky na mňa">
+          <table class="sgo-war-table"><thead><tr><th>Čas</th><th>Útočník</th><th>Výsledok</th></tr></thead><tbody id="sgo-war-attacks"></tbody></table>
+        </div>
+      </section>
     </section>`;
     const $ = selector => container.querySelector(selector);
     let army = null;
     let planets = [];
     let spies = [];
+    let attacks = [];
     let newSpyIds = new Set();
     let checking = false;
     let lastUpdated = null;
@@ -449,6 +473,28 @@
         row.append(action);
         spyList.append(row);
       }
+      const attackBody = $("#sgo-war-attacks");
+      attackBody.replaceChildren();
+      $("#sgo-war-attack-summary").textContent = lastUpdated
+        ? `${ownerName} · ${attacks.length} útokov · celý dostupný denník, všetky typy aj výsledky.`
+        : "Zatiaľ neobnovené; klikni na Obnoviť.";
+      for (const attack of attacks) {
+        const row = container.ownerDocument.createElement("tr");
+        for (const value of [new Date(attack.time).toLocaleString("sk-SK"), attack.attacker, attack.result]) {
+          const cell = container.ownerDocument.createElement("td");
+          cell.textContent = value;
+          row.append(cell);
+        }
+        attackBody.append(row);
+      }
+      if (lastUpdated && !attacks.length) {
+        const row = container.ownerDocument.createElement("tr");
+        const cell = container.ownerDocument.createElement("td");
+        cell.colSpan = 3;
+        cell.textContent = "V dostupnom denníku nie sú žiadne útoky na teba.";
+        row.append(cell);
+        attackBody.append(row);
+      }
       if (lastUpdated) $("#sgo-war-status").dataset.updated = new Date(lastUpdated).toLocaleString("sk-SK");
     }
 
@@ -472,7 +518,8 @@
         const nextArmy = readArmy(armyDoc);
         const planetDoc = await getDocument(gameUrl({ page: "planety" }));
         const nextPlanets = readPlanets(planetDoc, undefined, targets);
-        const current = await loadSpies(gameUrl({ page: "jednotky" }), ownerName, postDocument);
+        const nextAttacks = await loadAttacks(gameUrl({ page: "jednotky" }), ownerName, postDocument);
+        const current = recentSpies(nextAttacks.filter(entry => /\binformace\b/i.test(entry.result)));
         const previous = await storage.get(SPY_KEY) || [];
         const cutoff = Date.now() - 24 * 60 * 60 * 1000;
         const validPrevious = recentSpies(previous, Date.now()).filter(entry =>
@@ -489,11 +536,12 @@
         await storage.set(SPY_KEY, spies);
         army = nextArmy;
         planets = nextPlanets;
+        attacks = nextAttacks;
         lastUpdated = Date.now();
         render();
         const fresh = newSpyIds.size;
         status(`Obnovené ${new Date(lastUpdated).toLocaleTimeString("sk-SK")}${fresh ? ` · ${fresh} nová špionáž` : ""}.`);
-        log(`Vojna: prehľad obnovený; ${planets.length} planét, ${fresh} nových špionáží.`);
+        log(`Vojna: prehľad obnovený; ${planets.length} planét, ${attacks.length} útokov na teba, ${fresh} nových špionáží.`);
       } catch (error) {
         status(`Obnovenie zlyhalo: ${error.message}`, true);
         log(`Vojna: obnovenie zlyhalo: ${error.message}`, "error");
@@ -674,8 +722,8 @@
     return { refresh, render, ready };
   }
 
-  const api = { ARMY_TARGET, DEFAULT_DEFENSE_TARGETS, defenseTargets, readOwner, spyFilter, loadSpies, randomPlanetName, spiedPlanets,
-    applyRenameDraft, readArmy, readPlanets, readSpies, recentSpies, applyArmyDraft, applyPlanetDraft, mount };
+  const api = { ARMY_TARGET, DEFAULT_DEFENSE_TARGETS, defenseTargets, readOwner, attackFilter, spyFilter, loadAttacks, loadSpies, randomPlanetName, spiedPlanets,
+    applyRenameDraft, readArmy, readPlanets, readAttacks, readSpies, recentSpies, applyArmyDraft, applyPlanetDraft, mount };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.SGOWar = api;
 })(globalThis);

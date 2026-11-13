@@ -97,9 +97,13 @@ obrany a prijate spionazne zaznamy za poslednych 24 hodin. V rozbalovacej casti
 Ulozenie ihned prepocita zobrazeny deficit aj predvyplnenie stavby; nastavenia
 zostavaju zachovane po obnoveni stranky.
 Meno hraca sa automaticky precita z Prehladu > Obecna statistika.
-Pouzije sa nativny vyhladavaci filter **Na hrace**, **Spionazni** a **Vsechny**
-(uspesne aj neuspesne). Cita aj dalsie stranky az po poslednu alebo starsie
-zaznamy nez 24 hodin. Vyhladavanie je POST do denníka, nie odoslanie utoku.
+Kompaktny zoznam **Vsetky utoky na mna** so scrollbarom zobrazi cas, utocnika
+a vysledok vsetkych typov utokov na hraca (uspesne aj neuspesne), od najnovsieho.
+Pouzije sa nativny vyhladavaci filter **Na hrace**, vsetky typy aj vysledky.
+Cita vsetky stranky dostupneho dennika bez 24-hodinoveho obmedzenia; starsie
+zaznamy, ktore uz hra neponuka, nemoze zobrazit. Zoznam sa obnovuje spolocnym
+tlacidlom **Obnovit**. Spionaze za poslednych 24 hodin sa vyberu z toho isteho
+dennika bez dalsieho nacitavania. Vyhladavanie je POST do denníka, nie odoslanie utoku.
 Zachytene zaznamy sa uchovavaju lokalne 24 hodin; zmeskane zaznamy, ktore uz
 hra neposkytuje, nie je mozne doplnit. Nove udalosti sa oznacia a zaloguju.
 Pre kazdu dotknutu planetu sa zobrazi jeden riadok s poctom spionazi,

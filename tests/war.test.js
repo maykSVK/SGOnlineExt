@@ -84,6 +84,9 @@ test("spy reader includes successful and failed spy results only for the configu
   assert.equal(result.length, 2);
   assert.deepEqual(result.map(entry => entry.planet), ["AAFM-1234-56", "AABB-1234-56"]);
   assert.notEqual(result[0].id, result[1].id);
+  const attacks = W.readAttacks({ querySelectorAll: () => rows }, "mayk");
+  assert.equal(attacks.length, 3, "all incoming attack types are included, but not attacks on other players");
+  assert.match(attacks[2].result, /ukradl lidi/);
 });
 
 test("spy history deduplicates entries and retains only the last 24 hours", () => {
@@ -164,8 +167,8 @@ function spyDoc({ next = null, entries = [], owner = "mayk", filter = {}, date =
   const form = makeForm({ ...Object.fromEntries(W.spyFilter(owner)), ...filter });
   const rows = [
     { cells: [cell(`» ${date}:`)] },
-    ...entries.map(({ time = "09:10:00", name = "AAFM-1234-56", result = "zjistil", defender = "mayk" }) => ({
-      cells: [time, "Enemy", `${defender} (Terrané)`, `${result} informace na planetě „${name}“`].map(value => cell(value))
+    ...entries.map(({ time = "09:10:00", name = "AAFM-1234-56", result = "zjistil", defender = "mayk", text }) => ({
+      cells: [time, "Enemy", `${defender} (Terrané)`, text || `${result} informace na planetě „${name}“`].map(value => cell(value))
     }))
   ];
   return {
@@ -175,6 +178,47 @@ function spyDoc({ next = null, entries = [], owner = "mayk", filter = {}, date =
         : selector === "a[href]" && next ? [{ textContent: "Další »", getAttribute: () => next }] : []
   };
 }
+
+test("all-attack search uses every type and result on every page, retains older reports and deduplicates newest first", async () => {
+  const calls = [];
+  const docs = [
+    spyDoc({ filter: { utoky: "0" }, next: "game.php?page=jednotky&strana=2",
+      entries: [{ time: "09:10:00", text: "neprobil obranu" }, { time: "09:11:00" }, { defender: "Other" }] }),
+    spyDoc({ filter: { utoky: "0" }, next: "game.php?page=jednotky&strana=3",
+      entries: [{ time: "09:11:00" }] }),
+    spyDoc({ filter: { utoky: "0" }, date: "1. 11. 2026",
+      entries: [{ text: "zničil infrastrukturu planety „BBBB-1234-56“" }] })
+  ];
+  const entries = await W.loadAttacks("https://game.test/game.php?page=jednotky", "mayk", async (url, body) => {
+    calls.push({ url, body: Object.fromEntries(body) });
+    return docs[calls.length - 1];
+  });
+  assert.equal(calls.length, 3);
+  for (const { body } of calls) {
+    assert.equal(body.utoky, "0");
+    assert.equal(body.stav, "0");
+    assert.equal(body.texty, "2");
+    assert.equal(body.text, "mayk");
+  }
+  assert.equal(entries.length, 3);
+  assert.match(entries[0].result, /informace/);
+  assert.equal(entries[1].result, "neprobil obranu");
+  assert.match(entries[2].result, /zničil/);
+  assert.ok(entries[2].time < Date.parse("2026-11-02T00:00:00Z"));
+});
+
+test("all-attack search rejects wrong filters, bad timestamps, pagination loops and request failures", async () => {
+  const url = "https://game.test/game.php?page=jednotky";
+  assert.deepEqual(await W.loadAttacks(url, "mayk", async () => spyDoc({ filter: { utoky: "0" } })), []);
+  await assert.rejects(W.loadAttacks(url, "mayk", async () => spyDoc()), /nepotvrdila filter/);
+  await assert.rejects(W.loadAttacks(url, "mayk", async () => spyDoc({
+    filter: { utoky: "0" }, entries: [{ time: "invalid", text: "neprobil obranu" }]
+  })), /dátum alebo čas/);
+  await assert.rejects(W.loadAttacks(url, "mayk", async () => spyDoc({
+    filter: { utoky: "0" }, next: "game.php?page=jednotky&strana=2"
+  })), /opakuje/);
+  await assert.rejects(W.loadAttacks(url, "mayk", async () => { throw new Error("Offline"); }), /Offline/);
+});
 
 test("spy search POSTs the native player/spy/all-results filter on every page", async () => {
   const calls = [];
@@ -316,7 +360,7 @@ test("defense settings persist, recalculate existing planets and prefill only co
       };
       return { querySelector: () => ({ rows: [headers, planet] }) };
     },
-    postDocument: async () => spyDoc()
+    postDocument: async () => spyDoc({ filter: { utoky: "0" } })
   };
   const container = warContainer();
   const war = W.mount(container, options);
@@ -327,6 +371,8 @@ test("defense settings persist, recalculate existing planets and prefill only co
   assert.equal(input("sdi").value, "200");
   assert.equal(input("bs").value, "500");
   assert.equal(summary.textContent, "1 planét · 0 pod cieľom");
+  assert.match(container.querySelector("#sgo-war-attack-summary").textContent, /0 útokov/);
+  assert.match(container.querySelector("#sgo-war-attacks").children[0].children[0].textContent, /žiadne útoky/);
   const initialRequests = requests;
   input("sdi").value = "250";
   input("bs").value = "600";
@@ -419,13 +465,19 @@ test("war refresh auto-detects owner, renders grouped rename actions and hands o
     postDocument: async (url, body) => {
       requests.push(url);
       assert.equal(body.get("text"), "mayk");
-      assert.equal(body.get("utoky"), "7");
-      return spyDoc({ date, entries: [{ time }, { time, result: "nezjistil" }] });
+      assert.equal(body.get("utoky"), "0");
+      return spyDoc({ date, filter: { utoky: "0" },
+        entries: [{ time }, { time, result: "nezjistil" }, { time, text: "neprobil obranu" }] });
     }
   });
   assert.equal(requests.length, 0, "mount does not search automatically");
   await war.refresh();
   assert.equal(requests.length, 4);
+  const attacks = container.querySelector("#sgo-war-attacks").children;
+  assert.equal(attacks.length, 3);
+  assert.equal(attacks[2].children[1].textContent, "Enemy");
+  assert.equal(attacks[2].children[2].textContent, "neprobil obranu");
+  assert.match(container.querySelector("#sgo-war-attack-summary").textContent, /3 útokov/);
   const spyRows = container.querySelector("#sgo-war-spies").children;
   assert.equal(spyRows.length, 1, "two spy results on one planet produce one rename row");
   assert.match(container.querySelector("#sgo-war-spy-summary").textContent, /mayk · 2 špionáží/);
