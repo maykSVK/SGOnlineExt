@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         StarGame pomocnik
 // @namespace    https://github.com/maykSVK/SGOnlineExt
-// @version      0.3.21
-// @description  Vala attacks, ideal population and sector forum drafts.
+// @version      0.4.0
+// @description  StarGame helper for army, planet readiness and other game features.
 // @homepageURL  https://github.com/maykSVK/SGOnlineExt
 // @match        https://stargame-online.cz/www/game.php*
 // @match        https://stargame-online.cz/game.php*
@@ -21,7 +21,7 @@
 (function () {
 "use strict";
 if (document.getElementById("sgo-addon")) return;
-GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-text: #e6edf7;\n  --sgo-muted: #8d9fb9;\n  --sgo-line: #28374e;\n  --sgo-accent: #65dec3;\n  position: fixed;\n  right: 16px;\n  top: 16px;\n  width: min(440px, calc(100vw - 32px));\n  max-height: calc(100dvh - 32px);\n  z-index: 2147483647;\n  display: flex;\n  flex-direction: column;\n  overflow: hidden;\n  background: #101a2b;\n  color: var(--sgo-text);\n  border: 1px solid #35445c;\n  border-radius: 16px;\n  box-shadow: 0 16px 64px #0009, 0 1px 0 #ffffff0a inset;\n  font: 13px/1.5 \"Segoe UI\", system-ui, sans-serif;\n  color-scheme: dark;\n}\n#sgo-addon *, #sgo-addon *::before, #sgo-addon *::after { box-sizing: border-box; }\n#sgo-addon [hidden] { display: none !important; }\n#sgo-addon #sgo-launcher { display: none; }\n#sgo-addon header {\n  display: flex; justify-content: space-between; align-items: center;\n  padding: 0; border-bottom: 1px solid var(--sgo-line); flex-shrink: 0;\n  background: linear-gradient(120deg, #1a2c42, #131e31);\n}\n#sgo-addon .sgo-brand { display: flex; align-items: center; gap: 8px; line-height: 1.25; }\n#sgo-addon .sgo-brand-icon {\n  display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px;\n  color: var(--sgo-accent); background: #65dec311; border: 1px solid #65dec344;\n  font-size: 22px; font-weight: 700;\n}\n#sgo-addon .sgo-eyebrow { display: block; color: var(--sgo-muted); font-size: 9px; font-weight: 700; letter-spacing: 1.6px; }\n#sgo-addon .sgo-brand-title { display: block; color: var(--sgo-text); font-size: 14px; font-weight: 650; letter-spacing: -.3px; }\n#sgo-addon .sgo-body { display: flex; flex-direction: column; min-height: 0; overflow: auto; }\n#sgo-addon button, #sgo-addon input, #sgo-addon select {\n  font: inherit; color: var(--sgo-text); background: #1c2a40;\n  border: 1px solid #364860; border-radius: 8px; padding: 8px 10px; margin: 0;\n}\n#sgo-addon button { cursor: pointer; transition: background .15s, border-color .15s; font-weight: 600; }\n#sgo-addon button:hover:not(:disabled) { background: #293d57; border-color: #6984a6; }\n#sgo-addon :is(button,input,select):focus-visible { outline: 2px solid var(--sgo-accent); outline-offset: 3px; }\n#sgo-addon :is(button,input,select):disabled { opacity: .4; cursor: not-allowed; }\n#sgo-addon #sgo-collapse { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 46px; padding: 9px 12px; border: 0; border-radius: 0; background: transparent; color: var(--sgo-muted); text-align: left; }\n#sgo-addon #sgo-collapse-icon { font-size: 18px; }\n#sgo-addon #sgo-collapse:focus-visible { outline-offset: -3px; }\n#sgo-addon .sgo-target { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 18px 20px 12px; }\n#sgo-addon .sgo-target strong { display: block; font-size: 19px; font-weight: 650; letter-spacing: -.4px; margin-top: 5px; }\n#sgo-addon .sgo-target select { display: block; margin-top: 5px; font-size: 13px; font-weight: 600; max-width: 250px; }\n#sgo-addon .sgo-target-tag { color: var(--sgo-accent); letter-spacing: .3px; margin-left: 7px; font-weight: 500; text-transform: none; }\n#sgo-addon #sgo-load { background: transparent; font-size: 12px; color: #b6c8df; padding: 7px 12px; }\n#sgo-addon .sgo-status-box { margin: 0 20px 12px; border: 1px solid var(--sgo-line); background: #152136; border-radius: 10px; padding: 10px 12px; }\n#sgo-addon #sgo-state { color: var(--sgo-accent); font-size: 9px; font-weight: 750; letter-spacing: 1.2px; }\n#sgo-addon #sgo-state::before { content: \"\"; display: inline-block; width: 6px; height: 6px; background: currentColor; border-radius: 50%; margin: 0 6px 1px 0; }\n#sgo-addon .sgo-status { color: #b6c8df; font-size: 12px; margin-top: 3px; overflow-wrap: anywhere; }\n#sgo-addon[data-state=error] #sgo-state { color: #ffa695; }\n#sgo-addon[data-state=error] .sgo-status-box { border-color: #a5534a66; background: #30202a; }\n#sgo-addon[data-state=waiting] #sgo-state, #sgo-addon[data-state=loading] #sgo-state { color: #eac57c; }\n#sgo-addon .sgo-actions { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin: 0 20px 18px; }\n#sgo-addon #sgo-start { background: var(--sgo-accent); border-color: var(--sgo-accent); color: #102a29; padding: 10px 14px; }\n#sgo-addon #sgo-start span { float: right; font-size: 16px; }\n#sgo-addon #sgo-start:hover:not(:disabled) { background: #8aeed8; }\n#sgo-addon #sgo-stop { background: #ff9a8910; border-color: #ff9a8933; color: #ffb1a3; padding-inline: 16px; }\n#sgo-addon .sgo-tabs { display: flex; gap: 20px; padding: 0 20px; border-bottom: 1px solid var(--sgo-line); flex-shrink: 0; }\n#sgo-addon .sgo-tabs button { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; color: var(--sgo-muted); padding: 0 2px 11px; }\n#sgo-addon .sgo-tabs button[aria-selected=true] { border-bottom-color: var(--sgo-accent); color: var(--sgo-text); }\n#sgo-addon .sgo-tabs button:hover { background: none; }\n#sgo-addon .sgo-tabs span { display: inline-block; min-width: 20px; padding: 0 5px; margin-left: 4px; background: #26364d; border-radius: 5px; font-size: 10px; font-variant-numeric: tabular-nums; }\n#sgo-addon .sgo-view { height: min(420px, 44dvh); min-height: 140px; overflow: auto; padding: 0 20px 12px; scrollbar-width: thin; scrollbar-color: #3a4d67 transparent; }\n#sgo-addon .sgo-hint { color: var(--sgo-muted); font-size: 11px; line-height: 1.7; margin: 13px 0; }\n#sgo-addon .sgo-hint strong { color: #b6c8df; font-weight: 500; }\n#sgo-addon .sgo-attack { min-width: 0; margin: 0 0 9px; padding: 12px; border: 1px solid var(--sgo-line); background: #152136; border-radius: 10px; }\n#sgo-addon .sgo-attack[data-selected=true] { border-color: #65dec365; background: #172e3b; box-shadow: 2px 0 0 var(--sgo-accent) inset; }\n#sgo-addon .sgo-attack legend { float: left; width: 100%; padding: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; }\n#sgo-addon .sgo-attack legend + * { clear: both; }\n#sgo-addon .sgo-attack-title { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 600; cursor: pointer; }\n#sgo-addon input[type=checkbox] { width: 15px; height: 15px; margin: 0; accent-color: var(--sgo-accent); flex-shrink: 0; cursor: pointer; }\n#sgo-addon .sgo-limit { color: #a6b9d1; font-size: 11px; font-variant-numeric: tabular-nums; background: #0c1728; padding: 2px 7px; border-radius: 5px; white-space: nowrap; }\n#sgo-addon .sgo-attack-preview { color: var(--sgo-muted); font-size: 11px; padding-left: 24px; }\n#sgo-addon .sgo-attack[data-unavailable] { background: #111d2e; border-style: dashed; }\n#sgo-addon .sgo-attack[data-unavailable] .sgo-attack-title { color: var(--sgo-muted); }\n#sgo-addon .sgo-note { color: var(--sgo-muted); font-size: 11px; overflow-wrap: anywhere; line-height: 1.6; }\n#sgo-addon .sgo-attack-body { border-top: 1px solid #65dec322; margin-top: 11px; padding-top: 2px; }\n#sgo-addon .sgo-quantity { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 8px; margin-top: 10px; }\n#sgo-addon .sgo-unit-name { grid-column: 1 / -1; color: #b6c8df; font-size: 11px; }\n#sgo-addon input[type=number] { width: 100%; min-width: 0; font-variant-numeric: tabular-nums; background: #0e1c2c; }\n#sgo-addon .sgo-quantity button { font-size: 11px; font-weight: 500; white-space: nowrap; color: #b7cde3; }\n#sgo-addon .sgo-quantity button[aria-pressed=true] { color: var(--sgo-accent); border-color: #65dec366; background: #65dec30a; }\n#sgo-addon .sgo-planet { display: block; color: #b6c8df; font-size: 11px; margin-top: 11px; }\n#sgo-addon select { display: block; width: 100%; min-width: 0; margin-top: 5px; font-size: 12px; background: #0e1c2c; }\n#sgo-addon #sgo-activity-view { padding: 0; overflow: hidden; display: flex; flex-direction: column; }\n#sgo-addon .sgo-log-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 11px 20px; color: var(--sgo-muted); font-size: 10px; border-bottom: 1px solid #28374e66; }\n#sgo-addon #sgo-export { padding: 4px 8px; font-size: 10px; background: transparent; }\n#sgo-addon .sgo-log { overflow: auto; flex: 1; min-height: 0; padding: 0 20px 8px; scrollbar-width: thin; scrollbar-color: #3a4d67 transparent; }\n#sgo-addon .sgo-log p { display: grid; grid-template-columns: auto 1fr; gap: 6px 8px; margin: 0; padding: 11px 0; border-bottom: 1px solid #28374e80; color: #a7bad1; font: 11px/1.65 \"Segoe UI\", sans-serif; }\n#sgo-addon .sgo-log time { color: #8196b0; font: 10px/1.6 ui-monospace, monospace; }\n#sgo-addon .sgo-log-badge { justify-self: start; font-size: 8px; letter-spacing: .7px; font-weight: 700; padding: 1px 5px; background: #83b9ff12; color: #93b9e8; border-radius: 4px; }\n#sgo-addon .sgo-log-message { grid-column: 1 / -1; overflow-wrap: anywhere; white-space: pre-wrap; }\n#sgo-addon p[data-level=error] .sgo-log-badge { color: #ffb1a3; background: #ff9a8918; }\n#sgo-addon p[data-level=warn] .sgo-log-badge { color: #eac57c; background: #eac57c18; }\n#sgo-addon p[data-level=success] .sgo-log-badge { color: var(--sgo-accent); background: #65dec318; }\n#sgo-addon p[data-level=error] .sgo-log-message { color: #ffb1a3; }\n#sgo-addon .sgo-footer { display: flex; align-items: center; gap: 7px; padding: 11px 20px; border-top: 1px solid var(--sgo-line); background: #0e1828; min-width: 0; flex-shrink: 0; }\n#sgo-addon .sgo-footer-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--sgo-accent); flex-shrink: 0; }\n#sgo-addon #sgo-latest { color: var(--sgo-muted); font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n#sgo-addon .sgo-navigation { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 5px 12px; border-bottom: 1px solid var(--sgo-line); }\n#sgo-addon .sgo-navigation button { border: 0; background: none; padding: 0; color: var(--sgo-accent); font-size: 11px; }\n#sgo-addon #sgo-feature-name { color: var(--sgo-muted); font-size: 11px; }\n#sgo-addon #sgo-home { padding: 6px 12px; }\n#sgo-addon .sgo-feature-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }\n#sgo-addon .sgo-feature-card { display: flex; align-items: center; gap: 5px; width: 100%; min-width: 0; min-height: 48px; text-align: left; padding: 7px; margin: 0; }\n#sgo-addon .sgo-feature-card > span:nth-child(2) { flex: 1; min-width: 0; }\n#sgo-addon .sgo-feature-card strong { display: block; font-size: 11px; line-height: 1.3; overflow-wrap: anywhere; }\n#sgo-addon .sgo-feature-icon { color: var(--sgo-accent); font-size: 11px; font-weight: 400; }\n#sgo-addon #sgo-population-feature { padding: 16px 20px; }\n#sgo-addon .sgo-feature-heading h3 { margin: 5px 0 0; font-size: 19px; color: var(--sgo-text); text-align: left; }\n#sgo-addon .sgo-pop-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }\n#sgo-addon #sgo-pop-fill-mode { width: auto; margin-top: 0; }\n#sgo-addon .sgo-pop-tools a { color: var(--sgo-accent); font-size: 11px; }\n#sgo-addon .sgo-pop-scroll { max-height: 48dvh; overflow: auto; scrollbar-width: thin; }\n#sgo-addon .sgo-pop-label { color: var(--sgo-muted); font-size: 11px; }\n#sgo-addon .sgo-pop-metrics { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; margin: 14px 0; padding: 14px 10px; background: #152136; border-radius: 10px; font-size: 11px; }\n#sgo-addon .sgo-pop-metrics dt { color: var(--sgo-muted); }\n#sgo-addon .sgo-pop-metrics dd { margin: 0; color: var(--sgo-text); text-align: right; font-variant-numeric: tabular-nums; }\n#sgo-addon .sgo-pop-fill { width: 100%; color: var(--sgo-accent); }\n#sgo-addon #sgo-pop-list { margin-top: 18px; }\n#sgo-addon .sgo-pop-row { width: 100%; display: flex; justify-content: space-between; gap: 8px; margin-top: 6px; font-size: 11px; text-align: left; }\n#sgo-addon .sgo-pop-row strong { color: var(--sgo-accent); white-space: nowrap; }\n#sgo-addon .sgo-error { color: #ffb1a3; }\n#sgo-addon #sgo-sectors-feature { padding: 16px 20px; }\n#sgo-addon #sgo-guardian-feature { padding: 0 0 6px; margin-bottom: 8px; border-bottom: 1px solid var(--sgo-line); }\n#sgo-addon .sgo-watch-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; }\n#sgo-addon #sgo-guardian-refresh { padding: 5px 9px; font-size: 11px; }\n#sgo-addon .sgo-watch-row { display: flex; align-items: center; gap: 6px; padding: 4px 0; color: var(--sgo-text); text-decoration: none; font-size: 11px; line-height: 1.35; border-bottom: 1px solid #28374e66; min-width: 0; }\n#sgo-addon .sgo-watch-row::before { content: \"\"; width: 7px; height: 7px; border-radius: 50%; background: #f1b363; flex-shrink: 0; }\n#sgo-addon .sgo-watch-row strong { width: 84px; flex-shrink: 0; white-space: nowrap; }\n#sgo-addon .sgo-watch-row .sgo-watch-detail,\n#sgo-addon .sgo-watch-row > span { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #f1b363; }\n#sgo-addon .sgo-watch-row[data-status=ok] :is(.sgo-watch-detail, > span) { color: #80dc9c; }\n#sgo-addon .sgo-watch-row[data-status=action] :is(.sgo-watch-detail, > span) { color: #ff8e83; }\n#sgo-addon .sgo-watch-row[data-status=ok]::before { background: #80dc9c; }\n#sgo-addon .sgo-watch-row[data-status=action]::before { background: #ff8e83; }\n\n\n\n#sgo-addon .sgo-casino-actions,\n#sgo-addon .sgo-nn-actions { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; flex-shrink: 0; font-size: 11px; white-space: nowrap; }\n#sgo-addon :is(.sgo-casino-actions, .sgo-nn-actions)[hidden] { display: none !important; }\n#sgo-addon #sgo-casino-bet { padding: 2px 7px; font-size: 11px; border-color: #65dec366; color: var(--sgo-accent); white-space: nowrap; }\n#sgo-addon .sgo-casino-random { display: inline-flex; align-items: center; gap: 4px; color: var(--sgo-muted); font-size: 10px; cursor: pointer; white-space: nowrap; }\n#sgo-addon #sgo-guardian-feature .sgo-casino-random input { display: inline-block; width: auto; margin: 0; }\n\n\n#sgo-addon #sgo-nn-start { padding: 2px 7px; font-size: 11px; border-color: #ff8e8388; color: #ffb1a3; white-space: nowrap; }\n#sgo-addon #sgo-nn-stop { padding: 2px 7px; font-size: 11px; white-space: nowrap; }\n#sgo-addon #sgo-nn-stop:not(:disabled) { border-color: #ff8e8388; color: #ffb1a3; background: #ff9a8918; }\n#sgo-addon .sgo-watch-settings { font-size: 11px; color: var(--sgo-muted); }\n#sgo-addon :is(.sgo-watch-row, .sgo-watch-settings summary):focus-visible { outline: 2px solid var(--sgo-accent); outline-offset: 3px; }\n#sgo-addon #sgo-guardian-status { margin: 3px 0; font-size: 10px; }\n#sgo-addon #sgo-guardian-feature input { display: block; width: 100%; min-width: 0; margin: 5px 0 10px; }\n#sgo-addon #sgo-ranking { border-top: 1px solid var(--sgo-line); margin-top: 8px; padding-top: 6px; }\n#sgo-addon .sgo-ranking-heading { color: var(--sgo-muted); font-size: 11px; font-weight: 600; text-decoration: none; }\n#sgo-addon .sgo-ranking-row, #sgo-addon .sgo-ranking-columns { display: grid; grid-template-columns: minmax(0, 1.9fr) .5fr 1fr 1fr 1.15fr .4fr; gap: 4px; align-items: center; font-size: 10px; }\n#sgo-addon .sgo-ranking-columns { color: var(--sgo-muted); font-size: 9px; margin-top: 3px; }\n#sgo-addon .sgo-ranking-row { padding: 3px 0; border-bottom: 1px solid #28374e66; color: var(--sgo-text); text-decoration: none; min-height: 29px; }\n#sgo-addon .sgo-ranking-row > span, #sgo-addon .sgo-ranking-columns > span:not(:first-child) { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }\n#sgo-addon .sgo-ranking-player { min-width: 0; line-height: 1.25; }\n#sgo-addon .sgo-ranking-player strong, #sgo-addon .sgo-ranking-player span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#sgo-addon .sgo-ranking-player span { color: var(--sgo-muted); font-size: 9px; }\n#sgo-addon #sgo-ranking > .sgo-note { margin: 3px 0 0; font-size: 9px; }\n#sgo-addon .sgo-footer { padding: 5px 12px; font-size: 10px; line-height: 1.3; }\n#sgo-addon :is(.sgo-ranking-heading,.sgo-ranking-row):focus-visible { outline: 2px solid var(--sgo-accent); outline-offset: 3px; }\n#sgo-addon .sgo-sector-scroll { max-height: 48dvh; overflow: auto; scrollbar-width: thin; }\n#sgo-addon .sgo-sector-actions { display: flex; gap: 8px; margin: 10px 0; }\n#sgo-addon #sgo-sectors-prefill { border-color: #65dec366; color: var(--sgo-accent); }\n#sgo-addon .sgo-sector-summary { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--sgo-line); color: var(--sgo-muted); font-size: 12px; }\n#sgo-addon .sgo-sector-summary strong { background: #65dec314; border-radius: 20px; padding: 3px 10px; color: var(--sgo-accent); font-size: 11px; }\n#sgo-addon .sgo-sector-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(90px, 1fr) 44px; align-items: center; gap: 8px; padding: 7px 10px; margin: 0; min-height: 43px; border-bottom: 1px solid var(--sgo-line); background: #152136; }\n#sgo-addon .sgo-sector-card:nth-child(even) { background: #121e30; }\n#sgo-addon .sgo-sector-card:first-child { box-shadow: 2px 0 0 #eac57c inset; }\n#sgo-addon .sgo-sector-heading { min-width: 0; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px; }\n#sgo-addon .sgo-sector-heading strong { font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }\n#sgo-addon .sgo-sector-card small { color: var(--sgo-muted); font-size: 9px; }\n#sgo-addon .sgo-sector-margin { text-align: right; }\n#sgo-addon .sgo-sector-margin b { display: inline-block; color: var(--sgo-accent); background: #65dec310; border-radius: 5px; padding: 2px 5px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }\n#sgo-addon .sgo-sector-card:first-child .sgo-sector-margin b { color: #eac57c; }\n#sgo-addon .sgo-sector-nearby { border-top: 1px solid #53647d; margin-top: 14px; padding-top: 10px; }\n#sgo-addon .sgo-sector-nearby h4 { margin: 0 0 8px; color: var(--sgo-muted); font: inherit; font-size: 11px; font-weight: 600; }\n#sgo-addon .sgo-sector-nearby .sgo-sector-card:first-child { box-shadow: none; }\n#sgo-addon .sgo-sector-nearby .sgo-sector-margin b { color: #eac57c; background: #eac57c10; }\n#sgo-addon .sgo-sector-comparison { min-width: 0; display: flex; flex-direction: column; font-size: 10px; line-height: 1.3; color: var(--sgo-muted); }\n#sgo-addon .sgo-sector-comparison strong { color: #b7e9dd; font-size: 11px; font-weight: 500; font-variant-numeric: tabular-nums; }\n#sgo-addon .sgo-sector-comparison span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#sgo-addon .sgo-sector-links { display: flex; justify-content: space-between; gap: 10px; padding-top: 12px; border-top: 1px solid var(--sgo-line); }\n#sgo-addon .sgo-sector-links a { color: var(--sgo-muted); font-size: 10px; text-decoration: none; }\n#sgo-addon .sgo-sector-links a:hover { color: var(--sgo-accent); text-decoration: underline; }\n#sgo-addon[data-mobile=true] {\n  left: var(--sgo-mobile-left); top: var(--sgo-mobile-top); right: auto;\n  width: var(--sgo-mobile-width); height: var(--sgo-mobile-height); max-height: none;\n  transform: scale(var(--sgo-mobile-scale)); transform-origin: top left;\n  border-radius: 0; font-size: 14px;\n}\n#sgo-addon[data-mobile=true]:not(.sgo-mobile-open) {\n  pointer-events: none; background: none; border: 0; box-shadow: none;\n}\n#sgo-addon[data-mobile=true]:not(.sgo-mobile-open) > :not(#sgo-launcher) { display: none !important; }\n#sgo-addon[data-mobile=true]:not(.sgo-mobile-open) #sgo-launcher {\n  display: block; position: absolute; right: max(12px, env(safe-area-inset-right));\n  bottom: max(12px, env(safe-area-inset-bottom)); width: 52px; height: 52px;\n  padding: 0; border-radius: 50%; pointer-events: auto; color: var(--sgo-accent);\n  background: #142a38; border: 1px solid #65dec388; box-shadow: 0 3px 14px #0008;\n}\n#sgo-addon[data-mobile=true][data-state=running] #sgo-launcher::after,\n#sgo-addon[data-mobile=true][data-state=waiting] #sgo-launcher::after,\n#sgo-addon[data-mobile=true][data-state=error] #sgo-launcher::after {\n  content: \"\"; position: absolute; top: 1px; right: 1px; width: 10px; height: 10px;\n  border-radius: 50%; background: var(--sgo-accent); border: 2px solid #142a38;\n}\n#sgo-addon[data-mobile=true][data-state=error] #sgo-launcher::after { background: #ffa695; }\n#sgo-addon[data-mobile=true] header {\n  padding: 0;\n}\n#sgo-addon[data-mobile=true] #sgo-collapse { min-height: 44px; padding: max(10px, env(safe-area-inset-top)) 12px 10px; flex-shrink: 0; }\n#sgo-addon[data-mobile=true] #sgo-collapse-icon { font-size: 26px; }\n#sgo-addon[data-mobile=true] .sgo-body { flex: 1; overscroll-behavior: contain; padding-bottom: env(safe-area-inset-bottom); }\n#sgo-addon[data-mobile=true] :is(button,input,select) { min-height: 44px; touch-action: manipulation; }\n#sgo-addon[data-mobile=true] :is(input,select) { font-size: 16px; }\n#sgo-addon[data-mobile=true] input[type=checkbox] { width: 22px; height: 22px; min-height: 22px; }\n#sgo-addon[data-mobile=true] .sgo-quantity { grid-template-columns: minmax(0, 1fr); }\n#sgo-addon[data-mobile=true] :is(.sgo-pop-scroll,.sgo-sector-scroll) { max-height: none; overflow: visible; }\n#sgo-addon[data-mobile=true] .sgo-view { height: auto; min-height: 140px; overflow: visible; }\n#sgo-addon[data-mobile=true] #sgo-activity-view { height: 55dvh; min-height: 180px; }\n#sgo-addon[data-mobile=true] :is(#sgo-population-feature,#sgo-sectors-feature) { padding: 12px; }\n#sgo-addon[data-mobile=true] .sgo-sector-card { min-height: 44px; }\n#sgo-addon[data-mobile=true] .sgo-watch-row { min-height: 44px; }\n#sgo-addon[data-mobile=true] .sgo-ranking-row { min-height: 44px; }\n@media (prefers-reduced-motion: reduce) {\n  #sgo-addon button { transition: none; }\n}\ntr.sgo-prefilled-planet > td {\n  background: #193e43 !important;\n  border-top: 2px solid #65dec3 !important;\n  border-bottom: 2px solid #65dec3 !important;\n}\ntr.sgo-prefilled-planet > td:first-child { border-left: 3px solid #65dec3 !important; }\ntr.sgo-prefilled-planet > td:last-child { border-right: 3px solid #65dec3 !important; }\ntr.sgo-prefilled-planet > td a { color: #b7ffea !important; font-weight: bold; }\n#sgo-nn-alert.sgo-nn-alert-overlay {\n  position: fixed; inset: 0; z-index: 2147483647;\n  display: flex; align-items: center; justify-content: center;\n  background: rgba(15, 5, 5, 0.72); cursor: pointer;\n  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;\n}\n#sgo-nn-alert .sgo-nn-alert-box {\n  width: min(440px, 88vw); min-height: 260px; padding: 28px 24px;\n  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;\n  background: linear-gradient(145deg, #c91c1c, #7d0c0c);\n  border: 4px solid #ff9d92; border-radius: 18px;\n  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85), 0 0 40px rgba(255, 70, 55, 0.6);\n  color: #fff; text-align: center; user-select: none;\n}\n#sgo-nn-alert .sgo-nn-alert-box strong { font-size: clamp(32px, 6vw, 48px); font-weight: 800; letter-spacing: 0.04em; }\n#sgo-nn-alert .sgo-nn-alert-box span { font-size: 16px; color: #ffe2de; }\n#sgo-nn-alert .sgo-nn-alert-box small { font-size: 12px; color: #ffbbb3; opacity: 0.9; }");
+GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-text: #e6edf7;\n  --sgo-muted: #8d9fb9;\n  --sgo-line: #28374e;\n  --sgo-accent: #65dec3;\n  position: fixed;\n  right: 16px;\n  top: 16px;\n  width: min(440px, calc(100vw - 32px));\n  max-height: calc(100dvh - 32px);\n  z-index: 2147483647;\n  display: flex;\n  flex-direction: column;\n  overflow: hidden;\n  background: #101a2b;\n  color: var(--sgo-text);\n  border: 1px solid #35445c;\n  border-radius: 16px;\n  box-shadow: 0 16px 64px #0009, 0 1px 0 #ffffff0a inset;\n  font: 13px/1.5 \"Segoe UI\", system-ui, sans-serif;\n  color-scheme: dark;\n}\n#sgo-addon *, #sgo-addon *::before, #sgo-addon *::after { box-sizing: border-box; }\n#sgo-addon [hidden] { display: none !important; }\n#sgo-addon #sgo-launcher { display: none; }\n#sgo-addon header {\n  display: flex; justify-content: space-between; align-items: center;\n  padding: 0; border-bottom: 1px solid var(--sgo-line); flex-shrink: 0;\n  background: linear-gradient(120deg, #1a2c42, #131e31);\n}\n#sgo-addon .sgo-brand { display: flex; align-items: center; gap: 8px; line-height: 1.25; }\n#sgo-addon .sgo-brand-icon {\n  display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px;\n  color: var(--sgo-accent); background: #65dec311; border: 1px solid #65dec344;\n  font-size: 22px; font-weight: 700;\n}\n#sgo-addon .sgo-eyebrow { display: block; color: var(--sgo-muted); font-size: 9px; font-weight: 700; letter-spacing: 1.6px; }\n#sgo-addon .sgo-brand-title { display: block; color: var(--sgo-text); font-size: 14px; font-weight: 650; letter-spacing: -.3px; }\n#sgo-addon .sgo-body { display: flex; flex-direction: column; min-height: 0; overflow: auto; }\n#sgo-addon button, #sgo-addon input, #sgo-addon select {\n  font: inherit; color: var(--sgo-text); background: #1c2a40;\n  border: 1px solid #364860; border-radius: 8px; padding: 8px 10px; margin: 0;\n}\n#sgo-addon button { cursor: pointer; transition: background .15s, border-color .15s; font-weight: 600; }\n#sgo-addon button:hover:not(:disabled) { background: #293d57; border-color: #6984a6; }\n#sgo-addon :is(button,input,select):focus-visible { outline: 2px solid var(--sgo-accent); outline-offset: 3px; }\n#sgo-addon :is(button,input,select):disabled { opacity: .4; cursor: not-allowed; }\n#sgo-addon #sgo-collapse { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 46px; padding: 9px 12px; border: 0; border-radius: 0; background: transparent; color: var(--sgo-muted); text-align: left; }\n#sgo-addon #sgo-collapse-icon { font-size: 18px; }\n#sgo-addon #sgo-collapse:focus-visible { outline-offset: -3px; }\n#sgo-addon .sgo-target { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 18px 20px 12px; }\n#sgo-addon .sgo-target strong { display: block; font-size: 19px; font-weight: 650; letter-spacing: -.4px; margin-top: 5px; }\n#sgo-addon .sgo-target select { display: block; margin-top: 5px; font-size: 13px; font-weight: 600; max-width: 250px; }\n#sgo-addon .sgo-target-tag { color: var(--sgo-accent); letter-spacing: .3px; margin-left: 7px; font-weight: 500; text-transform: none; }\n#sgo-addon #sgo-load { background: transparent; font-size: 12px; color: #b6c8df; padding: 7px 12px; }\n#sgo-addon .sgo-status-box { margin: 0 20px 12px; border: 1px solid var(--sgo-line); background: #152136; border-radius: 10px; padding: 10px 12px; }\n#sgo-addon #sgo-state { color: var(--sgo-accent); font-size: 9px; font-weight: 750; letter-spacing: 1.2px; }\n#sgo-addon #sgo-state::before { content: \"\"; display: inline-block; width: 6px; height: 6px; background: currentColor; border-radius: 50%; margin: 0 6px 1px 0; }\n#sgo-addon .sgo-status { color: #b6c8df; font-size: 12px; margin-top: 3px; overflow-wrap: anywhere; }\n#sgo-addon[data-state=error] #sgo-state { color: #ffa695; }\n#sgo-addon[data-state=error] .sgo-status-box { border-color: #a5534a66; background: #30202a; }\n#sgo-addon[data-state=waiting] #sgo-state, #sgo-addon[data-state=loading] #sgo-state { color: #eac57c; }\n#sgo-addon .sgo-actions { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin: 0 20px 18px; }\n#sgo-addon #sgo-start { background: var(--sgo-accent); border-color: var(--sgo-accent); color: #102a29; padding: 10px 14px; }\n#sgo-addon #sgo-start span { float: right; font-size: 16px; }\n#sgo-addon #sgo-start:hover:not(:disabled) { background: #8aeed8; }\n#sgo-addon #sgo-stop { background: #ff9a8910; border-color: #ff9a8933; color: #ffb1a3; padding-inline: 16px; }\n#sgo-addon .sgo-tabs { display: flex; gap: 20px; padding: 0 20px; border-bottom: 1px solid var(--sgo-line); flex-shrink: 0; }\n#sgo-addon .sgo-tabs button { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; color: var(--sgo-muted); padding: 0 2px 11px; }\n#sgo-addon .sgo-tabs button[aria-selected=true] { border-bottom-color: var(--sgo-accent); color: var(--sgo-text); }\n#sgo-addon .sgo-tabs button:hover { background: none; }\n#sgo-addon .sgo-tabs span { display: inline-block; min-width: 20px; padding: 0 5px; margin-left: 4px; background: #26364d; border-radius: 5px; font-size: 10px; font-variant-numeric: tabular-nums; }\n#sgo-addon .sgo-view { height: min(420px, 44dvh); min-height: 140px; overflow: auto; padding: 0 20px 12px; scrollbar-width: thin; scrollbar-color: #3a4d67 transparent; }\n#sgo-addon .sgo-hint { color: var(--sgo-muted); font-size: 11px; line-height: 1.7; margin: 13px 0; }\n#sgo-addon .sgo-hint strong { color: #b6c8df; font-weight: 500; }\n#sgo-addon .sgo-attack { min-width: 0; margin: 0 0 9px; padding: 12px; border: 1px solid var(--sgo-line); background: #152136; border-radius: 10px; }\n#sgo-addon .sgo-attack[data-selected=true] { border-color: #65dec365; background: #172e3b; box-shadow: 2px 0 0 var(--sgo-accent) inset; }\n#sgo-addon .sgo-attack legend { float: left; width: 100%; padding: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; }\n#sgo-addon .sgo-attack legend + * { clear: both; }\n#sgo-addon .sgo-attack-title { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 600; cursor: pointer; }\n#sgo-addon input[type=checkbox] { width: 15px; height: 15px; margin: 0; accent-color: var(--sgo-accent); flex-shrink: 0; cursor: pointer; }\n#sgo-addon .sgo-limit { color: #a6b9d1; font-size: 11px; font-variant-numeric: tabular-nums; background: #0c1728; padding: 2px 7px; border-radius: 5px; white-space: nowrap; }\n#sgo-addon .sgo-attack-preview { color: var(--sgo-muted); font-size: 11px; padding-left: 24px; }\n#sgo-addon .sgo-attack[data-unavailable] { background: #111d2e; border-style: dashed; }\n#sgo-addon .sgo-attack[data-unavailable] .sgo-attack-title { color: var(--sgo-muted); }\n#sgo-addon .sgo-note { color: var(--sgo-muted); font-size: 11px; overflow-wrap: anywhere; line-height: 1.6; }\n#sgo-addon .sgo-attack-body { border-top: 1px solid #65dec322; margin-top: 11px; padding-top: 2px; }\n#sgo-addon .sgo-quantity { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 8px; margin-top: 10px; }\n#sgo-addon .sgo-unit-name { grid-column: 1 / -1; color: #b6c8df; font-size: 11px; }\n#sgo-addon input[type=number] { width: 100%; min-width: 0; font-variant-numeric: tabular-nums; background: #0e1c2c; }\n#sgo-addon .sgo-quantity button { font-size: 11px; font-weight: 500; white-space: nowrap; color: #b7cde3; }\n#sgo-addon .sgo-quantity button[aria-pressed=true] { color: var(--sgo-accent); border-color: #65dec366; background: #65dec30a; }\n#sgo-addon .sgo-planet { display: block; color: #b6c8df; font-size: 11px; margin-top: 11px; }\n#sgo-addon select { display: block; width: 100%; min-width: 0; margin-top: 5px; font-size: 12px; background: #0e1c2c; }\n#sgo-addon #sgo-activity-view { padding: 0; overflow: hidden; display: flex; flex-direction: column; }\n#sgo-addon .sgo-log-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 11px 20px; color: var(--sgo-muted); font-size: 10px; border-bottom: 1px solid #28374e66; }\n#sgo-addon #sgo-export { padding: 4px 8px; font-size: 10px; background: transparent; }\n#sgo-addon .sgo-log { overflow: auto; flex: 1; min-height: 0; padding: 0 20px 8px; scrollbar-width: thin; scrollbar-color: #3a4d67 transparent; }\n#sgo-addon .sgo-log p { display: grid; grid-template-columns: auto 1fr; gap: 6px 8px; margin: 0; padding: 11px 0; border-bottom: 1px solid #28374e80; color: #a7bad1; font: 11px/1.65 \"Segoe UI\", sans-serif; }\n#sgo-addon .sgo-log time { color: #8196b0; font: 10px/1.6 ui-monospace, monospace; }\n#sgo-addon .sgo-log-badge { justify-self: start; font-size: 8px; letter-spacing: .7px; font-weight: 700; padding: 1px 5px; background: #83b9ff12; color: #93b9e8; border-radius: 4px; }\n#sgo-addon .sgo-log-message { grid-column: 1 / -1; overflow-wrap: anywhere; white-space: pre-wrap; }\n#sgo-addon p[data-level=error] .sgo-log-badge { color: #ffb1a3; background: #ff9a8918; }\n#sgo-addon p[data-level=warn] .sgo-log-badge { color: #eac57c; background: #eac57c18; }\n#sgo-addon p[data-level=success] .sgo-log-badge { color: var(--sgo-accent); background: #65dec318; }\n#sgo-addon p[data-level=error] .sgo-log-message { color: #ffb1a3; }\n#sgo-addon .sgo-footer { display: flex; align-items: center; gap: 7px; padding: 11px 20px; border-top: 1px solid var(--sgo-line); background: #0e1828; min-width: 0; flex-shrink: 0; }\n#sgo-addon .sgo-footer-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--sgo-accent); flex-shrink: 0; }\n#sgo-addon #sgo-latest { color: var(--sgo-muted); font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n#sgo-addon .sgo-navigation { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 5px 12px; border-bottom: 1px solid var(--sgo-line); }\n#sgo-addon .sgo-navigation button { border: 0; background: none; padding: 0; color: var(--sgo-accent); font-size: 11px; }\n#sgo-addon #sgo-feature-name { color: var(--sgo-muted); font-size: 11px; }\n#sgo-addon #sgo-home { padding: 6px 12px; }\n#sgo-addon .sgo-feature-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }\n#sgo-addon .sgo-feature-card { display: flex; align-items: center; gap: 5px; width: 100%; min-width: 0; min-height: 48px; text-align: left; padding: 7px; margin: 0; }\n#sgo-addon .sgo-feature-card > span:nth-child(2) { flex: 1; min-width: 0; }\n#sgo-addon .sgo-feature-card strong { display: block; font-size: 11px; line-height: 1.3; overflow-wrap: anywhere; }\n#sgo-addon .sgo-feature-icon { color: var(--sgo-accent); font-size: 11px; font-weight: 400; }\n#sgo-addon #sgo-population-feature { padding: 16px 20px; }\n#sgo-addon .sgo-feature-heading h3 { margin: 5px 0 0; font-size: 19px; color: var(--sgo-text); text-align: left; }\n#sgo-addon .sgo-pop-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }\n#sgo-addon #sgo-pop-fill-mode { width: auto; margin-top: 0; }\n#sgo-addon .sgo-pop-tools a { color: var(--sgo-accent); font-size: 11px; }\n#sgo-addon .sgo-pop-scroll { max-height: 48dvh; overflow: auto; scrollbar-width: thin; }\n#sgo-addon .sgo-pop-label { color: var(--sgo-muted); font-size: 11px; }\n#sgo-addon .sgo-pop-metrics { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; margin: 14px 0; padding: 14px 10px; background: #152136; border-radius: 10px; font-size: 11px; }\n#sgo-addon .sgo-pop-metrics dt { color: var(--sgo-muted); }\n#sgo-addon .sgo-pop-metrics dd { margin: 0; color: var(--sgo-text); text-align: right; font-variant-numeric: tabular-nums; }\n#sgo-addon .sgo-pop-fill { width: 100%; color: var(--sgo-accent); }\n#sgo-addon #sgo-pop-list { margin-top: 18px; }\n#sgo-addon .sgo-pop-row { width: 100%; display: flex; justify-content: space-between; gap: 8px; margin-top: 6px; font-size: 11px; text-align: left; }\n#sgo-addon .sgo-pop-row strong { color: var(--sgo-accent); white-space: nowrap; }\n#sgo-addon .sgo-error { color: #ffb1a3; }\n#sgo-addon #sgo-sectors-feature { padding: 16px 20px; }\n#sgo-addon #sgo-guardian-feature { padding: 0 0 6px; margin-bottom: 8px; border-bottom: 1px solid var(--sgo-line); }\n#sgo-addon .sgo-watch-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; }\n#sgo-addon .sgo-war { padding: 14px 18px 18px; }\n#sgo-addon .sgo-war > .sgo-note { margin: 0 0 8px; }\n#sgo-addon .sgo-war-status { margin: 0 0 9px; color: #b6c8df; font-size: 11px; }\n#sgo-addon .sgo-war-status[data-state=error] { color: #ffa695; }\n#sgo-addon .sgo-war-card { min-width: 0; margin: 0 0 9px; padding: 10px; border: 1px solid var(--sgo-line); border-radius: 9px; background: #152136; }\n#sgo-addon .sgo-war-card > strong { display: block; margin-bottom: 5px; font-size: 12px; }\n#sgo-addon .sgo-war-card p { margin: 4px 0; font-size: 11px; }\n#sgo-addon .sgo-war-action { color: #ffcb82; font-size: 11px; }\n#sgo-addon .sgo-war-action button, #sgo-addon .sgo-war-table button { margin: 3px 0; padding: 5px 7px; font-size: 10px; }\n#sgo-addon .sgo-war-ok { color: #83e0b3; font-size: 11px; }\n#sgo-addon .sgo-war-table-scroll { max-height: 220px; overflow: auto; margin-top: 6px; scrollbar-width: thin; }\n#sgo-addon .sgo-war-table { width: 100%; border-collapse: collapse; font-size: 10px; }\n#sgo-addon .sgo-war-table th, #sgo-addon .sgo-war-table td { padding: 4px 3px; border-bottom: 1px solid #28374e; text-align: left; vertical-align: middle; }\n#sgo-addon .sgo-war-table th { position: sticky; top: 0; background: #152136; color: var(--sgo-muted); }\n#sgo-addon .sgo-war-owner { display: block; margin: 6px 0; color: var(--sgo-muted); font-size: 10px; }\n#sgo-addon .sgo-war-owner input { display: block; width: 100%; margin-top: 4px; padding: 6px; font-size: 11px; }\n#sgo-addon .sgo-war-spy-row { display: grid; grid-template-columns: 90px minmax(0, 1fr) auto; gap: 6px; padding: 5px 0; border-top: 1px solid #28374e; font-size: 10px; overflow-wrap: anywhere; }\n#sgo-addon .sgo-war-spy-row time { color: var(--sgo-muted); }\n#sgo-addon .sgo-war-spy-row b { color: #ffcb82; font-size: 9px; }\n#sgo-addon #sgo-guardian-refresh { padding: 5px 9px; font-size: 11px; }\n#sgo-addon .sgo-watch-row { display: flex; align-items: center; gap: 6px; padding: 4px 0; color: var(--sgo-text); text-decoration: none; font-size: 11px; line-height: 1.35; border-bottom: 1px solid #28374e66; min-width: 0; }\n#sgo-addon .sgo-watch-row::before { content: \"\"; width: 7px; height: 7px; border-radius: 50%; background: #f1b363; flex-shrink: 0; }\n#sgo-addon .sgo-watch-row strong { width: 84px; flex-shrink: 0; white-space: nowrap; }\n#sgo-addon .sgo-watch-row .sgo-watch-detail,\n#sgo-addon .sgo-watch-row > span { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #f1b363; }\n#sgo-addon .sgo-watch-row[data-status=ok] :is(.sgo-watch-detail, > span) { color: #80dc9c; }\n#sgo-addon .sgo-watch-row[data-status=action] :is(.sgo-watch-detail, > span) { color: #ff8e83; }\n#sgo-addon .sgo-watch-row[data-status=ok]::before { background: #80dc9c; }\n#sgo-addon .sgo-watch-row[data-status=action]::before { background: #ff8e83; }\n\n\n\n#sgo-addon .sgo-casino-actions,\n#sgo-addon .sgo-nn-actions { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; flex-shrink: 0; font-size: 11px; white-space: nowrap; }\n#sgo-addon :is(.sgo-casino-actions, .sgo-nn-actions)[hidden] { display: none !important; }\n#sgo-addon #sgo-casino-bet { padding: 2px 7px; font-size: 11px; border-color: #65dec366; color: var(--sgo-accent); white-space: nowrap; }\n#sgo-addon .sgo-casino-random { display: inline-flex; align-items: center; gap: 4px; color: var(--sgo-muted); font-size: 10px; cursor: pointer; white-space: nowrap; }\n#sgo-addon #sgo-guardian-feature .sgo-casino-random input { display: inline-block; width: auto; margin: 0; }\n\n\n#sgo-addon #sgo-nn-start { padding: 2px 7px; font-size: 11px; border-color: #ff8e8388; color: #ffb1a3; white-space: nowrap; }\n#sgo-addon #sgo-nn-stop { padding: 2px 7px; font-size: 11px; white-space: nowrap; }\n#sgo-addon #sgo-nn-stop:not(:disabled) { border-color: #ff8e8388; color: #ffb1a3; background: #ff9a8918; }\n#sgo-addon .sgo-watch-settings { font-size: 11px; color: var(--sgo-muted); }\n#sgo-addon :is(.sgo-watch-row, .sgo-watch-settings summary):focus-visible { outline: 2px solid var(--sgo-accent); outline-offset: 3px; }\n#sgo-addon #sgo-guardian-status { margin: 3px 0; font-size: 10px; }\n#sgo-addon #sgo-guardian-feature input { display: block; width: 100%; min-width: 0; margin: 5px 0 10px; }\n#sgo-addon #sgo-ranking { border-top: 1px solid var(--sgo-line); margin-top: 8px; padding-top: 6px; }\n#sgo-addon .sgo-ranking-heading { color: var(--sgo-muted); font-size: 11px; font-weight: 600; text-decoration: none; }\n#sgo-addon .sgo-ranking-row, #sgo-addon .sgo-ranking-columns { display: grid; grid-template-columns: minmax(0, 1.9fr) .5fr 1fr 1fr 1.15fr .4fr; gap: 4px; align-items: center; font-size: 10px; }\n#sgo-addon .sgo-ranking-columns { color: var(--sgo-muted); font-size: 9px; margin-top: 3px; }\n#sgo-addon .sgo-ranking-row { padding: 3px 0; border-bottom: 1px solid #28374e66; color: var(--sgo-text); text-decoration: none; min-height: 29px; }\n#sgo-addon .sgo-ranking-row > span, #sgo-addon .sgo-ranking-columns > span:not(:first-child) { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }\n#sgo-addon .sgo-ranking-player { min-width: 0; line-height: 1.25; }\n#sgo-addon .sgo-ranking-player strong, #sgo-addon .sgo-ranking-player span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#sgo-addon .sgo-ranking-player span { color: var(--sgo-muted); font-size: 9px; }\n#sgo-addon #sgo-ranking > .sgo-note { margin: 3px 0 0; font-size: 9px; }\n#sgo-addon .sgo-footer { padding: 5px 12px; font-size: 10px; line-height: 1.3; }\n#sgo-addon :is(.sgo-ranking-heading,.sgo-ranking-row):focus-visible { outline: 2px solid var(--sgo-accent); outline-offset: 3px; }\n#sgo-addon .sgo-sector-scroll { max-height: 48dvh; overflow: auto; scrollbar-width: thin; }\n#sgo-addon .sgo-sector-actions { display: flex; gap: 8px; margin: 10px 0; }\n#sgo-addon #sgo-sectors-prefill { border-color: #65dec366; color: var(--sgo-accent); }\n#sgo-addon .sgo-sector-summary { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--sgo-line); color: var(--sgo-muted); font-size: 12px; }\n#sgo-addon .sgo-sector-summary strong { background: #65dec314; border-radius: 20px; padding: 3px 10px; color: var(--sgo-accent); font-size: 11px; }\n#sgo-addon .sgo-sector-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(90px, 1fr) 44px; align-items: center; gap: 8px; padding: 7px 10px; margin: 0; min-height: 43px; border-bottom: 1px solid var(--sgo-line); background: #152136; }\n#sgo-addon .sgo-sector-card:nth-child(even) { background: #121e30; }\n#sgo-addon .sgo-sector-card:first-child { box-shadow: 2px 0 0 #eac57c inset; }\n#sgo-addon .sgo-sector-heading { min-width: 0; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px; }\n#sgo-addon .sgo-sector-heading strong { font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }\n#sgo-addon .sgo-sector-card small { color: var(--sgo-muted); font-size: 9px; }\n#sgo-addon .sgo-sector-margin { text-align: right; }\n#sgo-addon .sgo-sector-margin b { display: inline-block; color: var(--sgo-accent); background: #65dec310; border-radius: 5px; padding: 2px 5px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }\n#sgo-addon .sgo-sector-card:first-child .sgo-sector-margin b { color: #eac57c; }\n#sgo-addon .sgo-sector-nearby { border-top: 1px solid #53647d; margin-top: 14px; padding-top: 10px; }\n#sgo-addon .sgo-sector-nearby h4 { margin: 0 0 8px; color: var(--sgo-muted); font: inherit; font-size: 11px; font-weight: 600; }\n#sgo-addon .sgo-sector-nearby .sgo-sector-card:first-child { box-shadow: none; }\n#sgo-addon .sgo-sector-nearby .sgo-sector-margin b { color: #eac57c; background: #eac57c10; }\n#sgo-addon .sgo-sector-comparison { min-width: 0; display: flex; flex-direction: column; font-size: 10px; line-height: 1.3; color: var(--sgo-muted); }\n#sgo-addon .sgo-sector-comparison strong { color: #b7e9dd; font-size: 11px; font-weight: 500; font-variant-numeric: tabular-nums; }\n#sgo-addon .sgo-sector-comparison span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#sgo-addon .sgo-sector-links { display: flex; justify-content: space-between; gap: 10px; padding-top: 12px; border-top: 1px solid var(--sgo-line); }\n#sgo-addon .sgo-sector-links a { color: var(--sgo-muted); font-size: 10px; text-decoration: none; }\n#sgo-addon .sgo-sector-links a:hover { color: var(--sgo-accent); text-decoration: underline; }\n#sgo-addon[data-mobile=true] {\n  left: var(--sgo-mobile-left); top: var(--sgo-mobile-top); right: auto;\n  width: var(--sgo-mobile-width); height: var(--sgo-mobile-height); max-height: none;\n  transform: scale(var(--sgo-mobile-scale)); transform-origin: top left;\n  border-radius: 0; font-size: 14px;\n}\n#sgo-addon[data-mobile=true]:not(.sgo-mobile-open) {\n  pointer-events: none; background: none; border: 0; box-shadow: none;\n}\n#sgo-addon[data-mobile=true]:not(.sgo-mobile-open) > :not(#sgo-launcher) { display: none !important; }\n#sgo-addon[data-mobile=true]:not(.sgo-mobile-open) #sgo-launcher {\n  display: block; position: absolute; right: max(12px, env(safe-area-inset-right));\n  bottom: max(12px, env(safe-area-inset-bottom)); width: 52px; height: 52px;\n  padding: 0; border-radius: 50%; pointer-events: auto; color: var(--sgo-accent);\n  background: #142a38; border: 1px solid #65dec388; box-shadow: 0 3px 14px #0008;\n}\n#sgo-addon[data-mobile=true][data-state=running] #sgo-launcher::after,\n#sgo-addon[data-mobile=true][data-state=waiting] #sgo-launcher::after,\n#sgo-addon[data-mobile=true][data-state=error] #sgo-launcher::after {\n  content: \"\"; position: absolute; top: 1px; right: 1px; width: 10px; height: 10px;\n  border-radius: 50%; background: var(--sgo-accent); border: 2px solid #142a38;\n}\n#sgo-addon[data-mobile=true][data-state=error] #sgo-launcher::after { background: #ffa695; }\n#sgo-addon[data-mobile=true] header {\n  padding: 0;\n}\n#sgo-addon[data-mobile=true] #sgo-collapse { min-height: 44px; padding: max(10px, env(safe-area-inset-top)) 12px 10px; flex-shrink: 0; }\n#sgo-addon[data-mobile=true] #sgo-collapse-icon { font-size: 26px; }\n#sgo-addon[data-mobile=true] .sgo-body { flex: 1; overscroll-behavior: contain; padding-bottom: env(safe-area-inset-bottom); }\n#sgo-addon[data-mobile=true] :is(button,input,select) { min-height: 44px; touch-action: manipulation; }\n#sgo-addon[data-mobile=true] :is(input,select) { font-size: 16px; }\n#sgo-addon[data-mobile=true] input[type=checkbox] { width: 22px; height: 22px; min-height: 22px; }\n#sgo-addon[data-mobile=true] .sgo-quantity { grid-template-columns: minmax(0, 1fr); }\n#sgo-addon[data-mobile=true] :is(.sgo-pop-scroll,.sgo-sector-scroll) { max-height: none; overflow: visible; }\n#sgo-addon[data-mobile=true] .sgo-view { height: auto; min-height: 140px; overflow: visible; }\n#sgo-addon[data-mobile=true] #sgo-activity-view { height: 55dvh; min-height: 180px; }\n#sgo-addon[data-mobile=true] :is(#sgo-population-feature,#sgo-sectors-feature) { padding: 12px; }\n#sgo-addon[data-mobile=true] .sgo-sector-card { min-height: 44px; }\n#sgo-addon[data-mobile=true] .sgo-watch-row { min-height: 44px; }\n#sgo-addon[data-mobile=true] .sgo-ranking-row { min-height: 44px; }\n@media (prefers-reduced-motion: reduce) {\n  #sgo-addon button { transition: none; }\n}\ntr.sgo-prefilled-planet > td {\n  background: #193e43 !important;\n  border-top: 2px solid #65dec3 !important;\n  border-bottom: 2px solid #65dec3 !important;\n}\ntr.sgo-prefilled-planet > td:first-child { border-left: 3px solid #65dec3 !important; }\ntr.sgo-prefilled-planet > td:last-child { border-right: 3px solid #65dec3 !important; }\ntr.sgo-prefilled-planet > td a { color: #b7ffea !important; font-weight: bold; }\n#sgo-nn-alert.sgo-nn-alert-overlay {\n  position: fixed; inset: 0; z-index: 2147483647;\n  display: flex; align-items: center; justify-content: center;\n  background: rgba(15, 5, 5, 0.72); cursor: pointer;\n  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;\n}\n#sgo-nn-alert .sgo-nn-alert-box {\n  width: min(440px, 88vw); min-height: 260px; padding: 28px 24px;\n  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;\n  background: linear-gradient(145deg, #c91c1c, #7d0c0c);\n  border: 4px solid #ff9d92; border-radius: 18px;\n  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85), 0 0 40px rgba(255, 70, 55, 0.6);\n  color: #fff; text-align: center; user-select: none;\n}\n#sgo-nn-alert .sgo-nn-alert-box strong { font-size: clamp(32px, 6vw, 48px); font-weight: 800; letter-spacing: 0.04em; }\n#sgo-nn-alert .sgo-nn-alert-box span { font-size: 16px; color: #ffe2de; }\n#sgo-nn-alert .sgo-nn-alert-box small { font-size: 12px; color: #ffbbb3; opacity: 0.9; }");
 (function (root) {
   "use strict";
   function createStorage(env) {
@@ -1626,6 +1626,464 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
   else root.SGOGuardian = api;
 })(globalThis);
 
+(function (root) {
+  "use strict";
+  const C = typeof module !== "undefined" && module.exports ? require("./core.js") : root.SGO;
+  const ARMY_TARGET = 10000;
+  const DEFENSE_TARGET = 500;
+  const SPY_KEY = "sgo-war-spies";
+  const ARMY_DRAFT_KEY = "sgo-war-army-draft";
+  const PLANET_DRAFT_KEY = "sgo-war-planet-draft";
+  const clean = value => String(value || "").replace(/\s+/g, " ").trim();
+
+  function number(text) {
+    const match = String(text || "").match(/\d[\d\s\u00a0]*/);
+    if (!match) return null;
+    const value = Number(match[0].replace(/[\s\u00a0]/g, ""));
+    return Number.isSafeInteger(value) ? value : null;
+  }
+
+  function readArmy(doc) {
+    const input = doc.querySelector('input[name="jed2z"]');
+    const table = input?.closest("table");
+    const text = clean(table?.textContent);
+    const raceMatch = text.match(/Je\s+v\s+RA\s*([\d\s\u00a0]+)/i);
+    const ownMatch = text.match(/Máme\s*([\d\s\u00a0]+)/i);
+    const race = raceMatch && number(raceMatch[1]);
+    const own = ownMatch && number(ownMatch[1]);
+    if (!input || race === null || own === null) {
+      throw new Error("Nepodarilo sa prečítať počty univerzálov z R.armády.");
+    }
+    return { own, race, target: ARMY_TARGET, deficit: Math.max(0, ARMY_TARGET - own) };
+  }
+
+  function headerLabel(cell) {
+    const image = cell.querySelector("img");
+    return clean(image?.getAttribute("title") || image?.getAttribute("alt") || cell.textContent);
+  }
+
+  function readPlanets(doc, baseUrl = root.location?.href || "https://stargame-online.cz/game.php") {
+    const table = doc.querySelector("table.planet-build-table");
+    if (!table?.rows?.length) throw new Error("Nenašiel sa prehľad stavieb planét.");
+    const headers = [...table.rows[0].cells].map(headerLabel);
+    const indexOf = pattern => headers.findIndex(label => pattern.test(C.normalize(label)));
+    const cityIndex = indexOf(/mesta/);
+    const sdiIndex = indexOf(/\bsdi\b/);
+    const bsIndex = indexOf(/\bbs\b/);
+    if (cityIndex < 0 || sdiIndex < 0 || bsIndex < 0) {
+      throw new Error("Stĺpce miest, SDI a BS sa nepodarilo rozpoznať.");
+    }
+    const planets = [];
+    for (const row of [...table.rows].slice(1)) {
+      const link = row.querySelector('a[href*="planeta="]');
+      if (!link) continue;
+      const url = new URL(link.getAttribute("href"), baseUrl);
+      const id = url.searchParams.get("planeta");
+      const name = clean(link.textContent);
+      const cell = index => row.cells[index + 1];
+      const cityText = clean(cell(cityIndex)?.textContent);
+      const cityPair = cityText.match(/([\d\s\u00a0]+)\s*\/\s*([\d\s\u00a0]+)/);
+      const cities = number(cityPair?.[1] || cityText);
+      const maxCities = cityPair ? number(cityPair[2]) : null;
+      const sdi = number(cell(sdiIndex)?.textContent);
+      const bs = number(cell(bsIndex)?.textContent);
+      if (!id || !name || cities === null || sdi === null || bs === null) {
+        throw new Error(`Nečitateľné údaje o planéte ${name || "(bez názvu)"}.`);
+      }
+      planets.push({
+        id, name, cities, maxCities, sdi, bs,
+        sdiDeficit: Math.max(0, DEFENSE_TARGET - sdi),
+        bsDeficit: Math.max(0, DEFENSE_TARGET - bs),
+        cityDeficit: maxCities === null ? null : Math.max(0, maxCities - cities)
+      });
+    }
+    if (!planets.length) throw new Error("Prehľad planét neobsahuje žiadne planéty.");
+    return planets;
+  }
+
+  function readSpies(doc, ownerName) {
+    const owner = C.normalize(clean(ownerName));
+    if (!owner) return [];
+    let reportDate = null;
+    const entries = [];
+    for (const row of doc.querySelectorAll("table tr")) {
+      const cells = [...row.cells];
+      if (cells.length === 1) {
+        const dateMatch = clean(cells[0].textContent).match(/(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})/);
+        if (dateMatch) reportDate = dateMatch.slice(1).map(Number);
+        continue;
+      }
+      if (cells.length !== 4 || !reportDate) continue;
+      const [time, attacker, defender, result] = cells.map(cell => clean(cell.textContent));
+      if (!/\binformace\b/i.test(result)) continue;
+      const defenderName = defender.replace(/\s*\([^)]*\)\s*$/, "");
+      if (C.normalize(defenderName) !== owner) continue;
+      const timeMatch = time.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
+      if (!timeMatch) continue;
+      const [day, month, year] = reportDate;
+      const timestamp = new Date(year, month - 1, day, Number(timeMatch[1]), Number(timeMatch[2]), Number(timeMatch[3])).getTime();
+      const planetMatch = result.match(/„([^“]+)“|“([^”]+)”|"([^"]+)"/);
+      const planet = planetMatch?.slice(1).find(Boolean) || "Planéta sa nedala prečítať";
+      const id = `${timestamp}|${attacker}|${defender}|${result}`;
+      entries.push({ id, time: timestamp, attacker, defender, planet, result });
+    }
+    return entries;
+  }
+
+  function recentSpies(history, now = Date.now()) {
+    const cutoff = now - 24 * 60 * 60 * 1000;
+    const unique = new Map();
+    for (const item of history) {
+      if (item && Number.isFinite(item.time) && item.time >= cutoff && item.time <= now + 5 * 60 * 1000 && item.id) {
+        unique.set(item.id, item);
+      }
+    }
+    return [...unique.values()].sort((a, b) => b.time - a.time);
+  }
+
+  function draftForm(form, draft) {
+    if (!form) throw new Error("Nenašiel sa natívny formulár hry.");
+    for (const [name, value] of Object.entries(draft.fields)) {
+      const field = form.elements.namedItem(name);
+      if (!field) throw new Error(`Vo formulári chýba pole ${name}.`);
+      const current = clean(field.value);
+      const next = String(value);
+      if (current && current !== next) {
+        throw new Error(`Pole ${name} už obsahuje inú hodnotu; nič som neprepísal.`);
+      }
+      field.value = next;
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+      field.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  }
+
+  function applyArmyDraft(doc, draft) {
+    const form = [...doc.forms].find(candidate => candidate.elements.namedItem("jed2z"));
+    draftForm(form, { fields: { jed2z: draft.amount } });
+  }
+
+  function applyPlanetDraft(doc, draft) {
+    const form = [...doc.forms].find(candidate => candidate.elements.namedItem("planeta") &&
+      candidate.elements.namedItem("mest") && candidate.elements.namedItem("sdi") && candidate.elements.namedItem("bs"));
+    if (!form) throw new Error("Nenašiel sa formulár na stavbu planéty.");
+    const selector = form.elements.namedItem("planeta");
+    if (![...selector.options].some(option => option.value === draft.planetId)) {
+      throw new Error("Cieľová planéta sa vo formulári nenašla.");
+    }
+    const fields = {};
+    if (draft.cities > 0) fields.mest = draft.cities;
+    if (draft.sdi > 0) fields.sdi = draft.sdi;
+    if (draft.bs > 0) fields.bs = draft.bs;
+    for (const [name, value] of Object.entries(fields)) {
+      const current = clean(form.elements.namedItem(name).value);
+      if (current && current !== String(value)) {
+        throw new Error(`Pole ${name} už obsahuje inú hodnotu; nič som neprepísal.`);
+      }
+    }
+    selector.value = draft.planetId;
+    selector.dispatchEvent(new Event("change", { bubbles: true }));
+    draftForm(form, { fields });
+  }
+
+  function mount(container, { getDocument, storage, navigate = url => location.assign(url), log = () => {}, canEdit = () => true }) {
+    container.innerHTML = `<section class="sgo-war">
+      <div class="sgo-watch-heading"><strong>Vojna · vlastná pripravenosť</strong><button type="button" id="sgo-war-refresh">Obnoviť</button></div>
+      <p class="sgo-note">Obnovenie je ručné. Akcie iba predvyplnia formulár hry; nič sa neodošle automaticky.</p>
+      <div id="sgo-war-status" class="sgo-war-status" role="status">Zatiaľ neobnovené.</div>
+      <section class="sgo-war-card"><strong>Univerzály</strong><div id="sgo-war-army"></div></section>
+      <section class="sgo-war-card"><strong>Obrana planét</strong><div id="sgo-war-defense-summary"></div>
+        <div class="sgo-war-table-scroll"><table class="sgo-war-table"><thead><tr><th>Planéta</th><th>Mestá</th><th>SDI</th><th>BS</th><th>Chýba</th><th></th></tr></thead><tbody id="sgo-war-planets"></tbody></table></div>
+      </section>
+      <section class="sgo-war-card"><strong>Prijaté špionáže · 24 h</strong>
+        <label class="sgo-war-owner">Meno môjho hráča<input id="sgo-war-owner" type="text" autocomplete="off" placeholder="Zadaj presné meno z hry"></label>
+        <div id="sgo-war-spy-summary"></div><div id="sgo-war-spies"></div>
+      </section>
+    </section>`;
+    const $ = selector => container.querySelector(selector);
+    let army = null;
+    let planets = [];
+    let spies = [];
+    let newSpyIds = new Set();
+    let checking = false;
+    let lastUpdated = null;
+    let ownerName = "";
+
+    function status(text, error = false) {
+      const element = $("#sgo-war-status");
+      element.textContent = text;
+      element.dataset.state = error ? "error" : "ok";
+    }
+
+    function button(text, title, action) {
+      const element = container.ownerDocument.createElement("button");
+      element.type = "button";
+      element.textContent = text;
+      element.title = title;
+      element.addEventListener("click", action);
+      return element;
+    }
+
+    function render() {
+      const armyTarget = $("#sgo-war-army");
+      armyTarget.replaceChildren();
+      if (army) {
+        const line = container.ownerDocument.createElement("p");
+        line.textContent = `Máme ${army.own.toLocaleString("sk-SK")} · v RA ${army.race.toLocaleString("sk-SK")} · cieľ ${ARMY_TARGET.toLocaleString("sk-SK")}`;
+        armyTarget.append(line);
+        if (army.deficit > 0) {
+          const action = container.ownerDocument.createElement("div");
+          action.className = "sgo-war-action";
+          action.append(
+            container.ownerDocument.createTextNode(`Chýba ${army.deficit.toLocaleString("sk-SK")}. `),
+            army.race >= army.deficit
+              ? button("Predvyplniť presun z RA", "Otvorí R.armádu a vyplní iba počet; odoslanie ostáva na vás.", prepareArmy)
+              : container.ownerDocument.createTextNode(`V RA je dostupných iba ${army.race.toLocaleString("sk-SK")}.`)
+          );
+          armyTarget.append(action);
+        } else {
+          const ok = container.ownerDocument.createElement("span");
+          ok.className = "sgo-war-ok";
+          ok.textContent = "Cieľ splnený";
+          armyTarget.append(ok);
+        }
+      }
+
+      const summary = $("#sgo-war-defense-summary");
+      const body = $("#sgo-war-planets");
+      body.replaceChildren();
+      if (planets.length) {
+        const deficient = planets.filter(planet => planet.cityDeficit > 0 || planet.sdiDeficit || planet.bsDeficit);
+        summary.textContent = `${planets.length} planét · cieľ ${DEFENSE_TARGET} SDI + ${DEFENSE_TARGET} BS na každej · ${deficient.length} pod cieľom`;
+        for (const planet of deficient) {
+          const row = container.ownerDocument.createElement("tr");
+          const values = [
+            planet.name,
+            planet.maxCities === null ? `${planet.cities.toLocaleString("sk-SK")} · max ?` : `${planet.cities.toLocaleString("sk-SK")} / ${planet.maxCities.toLocaleString("sk-SK")}`,
+            planet.sdi.toLocaleString("sk-SK"),
+            planet.bs.toLocaleString("sk-SK"),
+            `${planet.cityDeficit > 0 ? `Mestá ${planet.cityDeficit.toLocaleString("sk-SK")} · ` : ""}SDI ${planet.sdiDeficit.toLocaleString("sk-SK")} · BS ${planet.bsDeficit.toLocaleString("sk-SK")}`
+          ];
+          for (const value of values) {
+            const cell = container.ownerDocument.createElement("td");
+            cell.textContent = value;
+            row.append(cell);
+          }
+          const actionCell = container.ownerDocument.createElement("td");
+          const needs = [
+            planet.cityDeficit > 0 ? `${planet.cityDeficit} miest` : "",
+            planet.sdiDeficit > 0 ? `${planet.sdiDeficit} SDI` : "",
+            planet.bsDeficit > 0 ? `${planet.bsDeficit} BS` : ""
+          ].filter(Boolean).join(", ");
+          actionCell.append(button("Predvyplniť", `Predvyplní ${needs} pre ${planet.name}; nič neodošle.`, () => preparePlanet(planet)));
+          row.append(actionCell);
+          body.append(row);
+        }
+        if (!deficient.length) {
+          const row = container.ownerDocument.createElement("tr");
+          const cell = container.ownerDocument.createElement("td");
+          cell.colSpan = 6;
+          cell.className = "sgo-war-ok";
+          cell.textContent = "Všetky planéty spĺňajú cieľ obrany.";
+          row.append(cell);
+          body.append(row);
+        }
+      }
+
+      const spySummary = $("#sgo-war-spy-summary");
+      const spyList = $("#sgo-war-spies");
+      spyList.replaceChildren();
+      spySummary.textContent = !ownerName
+        ? "Zadaj presné meno hráča, aby sa oddelili útoky na tvoj účet."
+        : !lastUpdated
+          ? "Zatiaľ neobnovené; klikni na Obnoviť."
+          : `${spies.length} záznamov za posledných 24 hodín.`;
+      for (const spy of spies) {
+        const row = container.ownerDocument.createElement("div");
+        row.className = "sgo-war-spy-row";
+        const time = container.ownerDocument.createElement("time");
+        time.dateTime = new Date(spy.time).toISOString();
+        time.textContent = new Date(spy.time).toLocaleString("sk-SK");
+        const details = container.ownerDocument.createElement("span");
+        details.textContent = `${spy.attacker} · ${spy.planet} · ${spy.result}`;
+        row.append(time, details);
+        if (newSpyIds.has(spy.id)) {
+          const badge = container.ownerDocument.createElement("b");
+          badge.textContent = "NOVÉ";
+          row.append(badge);
+        }
+        spyList.append(row);
+      }
+      if (lastUpdated) $("#sgo-war-status").dataset.updated = new Date(lastUpdated).toLocaleString("sk-SK");
+    }
+
+    async function refresh() {
+      if (checking) return;
+      checking = true;
+      $("#sgo-war-refresh").disabled = true;
+      status("Načítavam armádu, planéty a denník útokov…");
+      try {
+        const armyDoc = await getDocument(gameUrl({ page: "jednotky", akce: "armada" }));
+        const nextArmy = readArmy(armyDoc);
+        const planetDoc = await getDocument(gameUrl({ page: "planety" }));
+        const nextPlanets = readPlanets(planetDoc);
+        const attackDoc = await getDocument(gameUrl({ page: "jednotky" }));
+        ownerName = $("#sgo-war-owner").value.trim();
+        await storage.set("sgo-war-owner", ownerName);
+        const current = ownerName ? readSpies(attackDoc, ownerName) : [];
+        if (ownerName) {
+          const previous = await storage.get(SPY_KEY) || [];
+          const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+          const validPrevious = recentSpies(previous, Date.now()).filter(entry =>
+            C.normalize(entry.defender.replace(/\s*\([^)]*\)\s*$/, "")) === C.normalize(ownerName)
+          );
+          const known = new Set(validPrevious.map(entry => entry.id));
+          newSpyIds = new Set(current.filter(entry => entry.time >= cutoff && !known.has(entry.id)).map(entry => entry.id));
+          spies = recentSpies([...validPrevious, ...current], Date.now());
+          for (const entry of current) {
+            if (newSpyIds.has(entry.id)) {
+              log(`Vojna: nová špionáž od ${entry.attacker} na planétu ${entry.planet}: ${entry.result}`);
+            }
+          }
+          await storage.set(SPY_KEY, spies);
+        } else {
+          spies = [];
+          newSpyIds = new Set();
+        }
+        army = nextArmy;
+        planets = nextPlanets;
+        lastUpdated = Date.now();
+        render();
+        const fresh = newSpyIds.size;
+        status(`Obnovené ${new Date(lastUpdated).toLocaleTimeString("sk-SK")}${fresh ? ` · ${fresh} nová špionáž` : ""}.`);
+        log(`Vojna: prehľad obnovený; ${planets.length} planét, ${fresh} nových špionáží.`);
+      } catch (error) {
+        status(`Obnovenie zlyhalo: ${error.message}`, true);
+        log(`Vojna: obnovenie zlyhalo: ${error.message}`, "error");
+      } finally {
+        checking = false;
+        $("#sgo-war-refresh").disabled = false;
+      }
+    }
+
+    function gameUrl(params) {
+      const url = new URL("game.php", location.href);
+      url.search = new URLSearchParams(params);
+      return url.href;
+    }
+
+    async function prepareArmy() {
+      if (!canEdit() || !army || !army.deficit) return;
+      try {
+        const url = gameUrl({ page: "jednotky", akce: "armada" });
+        await storage.set(ARMY_DRAFT_KEY, { amount: army.deficit, createdAt: Date.now() });
+        if (new URL(location.href).searchParams.get("akce") === "armada") {
+          applyArmyDraft(document, { amount: army.deficit });
+          await storage.set(ARMY_DRAFT_KEY, null);
+          status(`Pole „Z RA“ je predvyplnené na ${army.deficit.toLocaleString("sk-SK")}; skontroluj formulár a odošli ho ručne.`);
+          log(`Vojna: predvyplnený presun ${army.deficit} univerzálov z RA; odoslanie čaká na používateľa.`);
+        } else {
+          log(`Vojna: otvorenie R.armády na predvyplnenie ${army.deficit} univerzálov z RA.`);
+          await navigate(url);
+        }
+      } catch (error) {
+        let message = error.message;
+        try { await storage.set(ARMY_DRAFT_KEY, null); }
+        catch (cleanupError) { message += `; nepodarilo sa zrušiť čakajúci návrh: ${cleanupError.message}`; }
+        status(`Predvyplnenie armády zlyhalo: ${message}`, true);
+      }
+    }
+
+    async function preparePlanet(planet) {
+      if (!canEdit()) return;
+      const draft = {
+        planetId: planet.id,
+        cities: planet.cityDeficit,
+        sdi: planet.sdiDeficit,
+        bs: planet.bsDeficit,
+        createdAt: Date.now()
+      };
+      try {
+        const url = gameUrl({ page: "planety" });
+        await storage.set(PLANET_DRAFT_KEY, draft);
+        if (new URL(location.href).searchParams.get("page") === "planety") {
+          applyPlanetDraft(document, draft);
+          await storage.set(PLANET_DRAFT_KEY, null);
+          status(`Formulár pre ${planet.name} je predvyplnený; skontroluj ho a odošli ručne.`);
+          log(`Vojna: predvyplnený formulár obrany planéty ${planet.name}; odoslanie čaká na používateľa.`);
+        } else {
+          log(`Vojna: otvorenie stavby planéty ${planet.name} na predvyplnenie obrany.`);
+          await navigate(url);
+        }
+      } catch (error) {
+        let message = error.message;
+        try { await storage.set(PLANET_DRAFT_KEY, null); }
+        catch (cleanupError) { message += `; nepodarilo sa zrušiť čakajúci návrh: ${cleanupError.message}`; }
+        status(`Predvyplnenie obrany zlyhalo: ${message}`, true);
+      }
+    }
+
+    async function applyPendingDrafts() {
+      const params = new URL(location.href).searchParams;
+      const key = params.get("page") === "planety"
+        ? PLANET_DRAFT_KEY
+        : params.get("page") === "jednotky" && params.get("akce") === "armada"
+          ? ARMY_DRAFT_KEY
+          : null;
+      if (!key) return;
+      try {
+        const draft = await storage.get(key);
+        if (!draft) return;
+        if (!Number.isFinite(draft.createdAt) || Date.now() - draft.createdAt >= 10 * 60 * 1000) {
+          await storage.set(key, null);
+          status("Čakajúce predvyplnenie vypršalo; znovu ho spusti z prehľadu Vojna.", true);
+          return;
+        }
+        if (key === ARMY_DRAFT_KEY) {
+          applyArmyDraft(document, draft);
+          status(`Pole „Z RA“ je predvyplnené na ${draft.amount.toLocaleString("sk-SK")}; skontroluj formulár a odošli ho ručne.`);
+          log(`Vojna: predvyplnený presun ${draft.amount} univerzálov z RA; odoslanie čaká na používateľa.`);
+        } else {
+          applyPlanetDraft(document, draft);
+          status("Formulár stavby je predvyplnený; skontroluj ho a odošli ručne.");
+          log(`Vojna: predvyplnený formulár obrany planéty ${draft.planetId}; odoslanie čaká na používateľa.`);
+        }
+        await storage.set(key, null);
+      } catch (error) {
+        let message = error.message;
+        try { await storage.set(key, null); }
+        catch (cleanupError) {
+          message += `; návrh ${key} sa nepodarilo zrušiť: ${cleanupError.message}`;
+        }
+        status(`Predvyplnenie sa nepodarilo: ${message}`, true);
+        log(`Vojna: predvyplnenie zlyhalo: ${message}`, "error");
+      }
+    }
+
+    $("#sgo-war-refresh").addEventListener("click", refresh);
+    $("#sgo-war-owner").addEventListener("change", async () => {
+      ownerName = $("#sgo-war-owner").value.trim();
+      spies = [];
+      newSpyIds = new Set();
+      lastUpdated = null;
+      render();
+      status("Meno zmenené; obnov prehľad špionáží.");
+      try { await storage.set("sgo-war-owner", ownerName); }
+      catch (error) { status(`Meno sa nepodarilo uložiť: ${error.message}`, true); }
+    });
+    Promise.resolve(storage.get("sgo-war-owner")).then(value => {
+      ownerName = typeof value === "string" ? value : "";
+      $("#sgo-war-owner").value = ownerName;
+      render();
+    }).catch(error => status(`Nastavenie mena sa nepodarilo načítať: ${error.message}`, true));
+    applyPendingDrafts();
+    return { refresh, render };
+  }
+
+  const api = { ARMY_TARGET, DEFENSE_TARGET, readArmy, readPlanets, readSpies, recentSpies, applyArmyDraft, applyPlanetDraft, mount };
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+  else root.SGOWar = api;
+})(globalThis);
+
 (async function () {
   "use strict";
   if (document.readyState === "loading") await new Promise(resolve => document.addEventListener("DOMContentLoaded", resolve, { once: true }));
@@ -1668,6 +2126,7 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
         <button type="button" class="sgo-feature-card" id="sgo-open-attacks" title="Typy útokov, jednotky, cooldown a denník"><span class="sgo-feature-icon">01</span><span><strong>Útok na RR</strong></span></button>
         <button type="button" class="sgo-feature-card" id="sgo-open-population" title="Výpočet a predvyplnenie výroben na planétach"><span class="sgo-feature-icon">02</span><span><strong>Ideálne zaľudnenie</strong></span></button>
         <button type="button" class="sgo-feature-card" id="sgo-open-sectors" title="Náskok pred súpermi a BBCode hlásenie"><span class="sgo-feature-icon">03</span><span><strong>Naše sektory</strong></span></button>
+        <button type="button" class="sgo-feature-card" id="sgo-open-war" title="Ručný prehľad vlastnej armády, obrany a prijatých špionáží"><span class="sgo-feature-icon">04</span><span><strong>Vojna</strong></span></button>
         </div>
         <section id="sgo-ranking" aria-label="TOP 3 hráčov celkovo"></section>
       </section>
@@ -1693,6 +2152,7 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
       </section>
       <section id="sgo-population-feature" hidden></section>
       <section id="sgo-sectors-feature" hidden></section>
+      <section id="sgo-war-feature" hidden></section>
       <footer class="sgo-footer"><span class="sgo-footer-dot" aria-hidden="true"></span><span id="sgo-latest">Všetko pod kontrolou. Čakám na nastavenie.</span></footer>
     </div>`;
   document.body.append(root);
@@ -1750,15 +2210,17 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
   }
   let population;
   let sectors;
+  let war;
   let guardian;
   function showFeature(feature, save = true) {
-    const selected = ["attacks", "population", "sectors"].includes(feature) ? feature : "home";
+    const selected = ["attacks", "population", "sectors", "war"].includes(feature) ? feature : "home";
     $("#sgo-home").hidden = selected !== "home";
     $("#sgo-attacks-feature").hidden = selected !== "attacks";
     $("#sgo-population-feature").hidden = selected !== "population";
     $("#sgo-sectors-feature").hidden = selected !== "sectors";
+    $("#sgo-war-feature").hidden = selected !== "war";
     $("#sgo-back").hidden = selected === "home";
-    $("#sgo-feature-name").textContent = { home: "Prehľad funkcií", attacks: "Útok na RR", population: "Ideálne zaľudnenie", sectors: "Naše sektory" }[selected];
+    $("#sgo-feature-name").textContent = { home: "Prehľad funkcií", attacks: "Útok na RR", population: "Ideálne zaľudnenie", sectors: "Naše sektory", war: "Vojna" }[selected];
     if (selected === "home") guardian?.render();
     if (selected === "attacks") loadTargets();
     if (selected === "population") population?.refresh();
@@ -2217,12 +2679,17 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
   $("#sgo-open-population").addEventListener("click", () => showFeature("population"));
   population = globalThis.SGOPopulation.mount($("#sgo-population-feature"), { getDocument, log, canEdit: () => !run?.active && !busy, revealGame });
   $("#sgo-open-sectors").addEventListener("click", () => showFeature("sectors"));
+  $("#sgo-open-war").addEventListener("click", () => showFeature("war"));
   guardian = globalThis.SGOGuardian.mount($("#sgo-guardian-feature"), {
     getDocument, log, storage, rankingContainer: $("#sgo-ranking"), canEdit: () => !run?.active && !busy,
     revealGame, navigate: async url => { await writes; location.assign(url); }
   });
   sectors = globalThis.SGOSectors.mount($("#sgo-sectors-feature"), {
     getDocument, log, canEdit: () => !run?.active && !busy, revealGame,
+    navigate: async url => { await writes; location.assign(url); }
+  });
+  war = globalThis.SGOWar.mount($("#sgo-war-feature"), {
+    getDocument, storage, log, canEdit: () => !run?.active && !busy,
     navigate: async url => { await writes; location.assign(url); }
   });
   $("#sgo-export").addEventListener("click", () => {

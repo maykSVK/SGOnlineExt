@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         StarGame pomocnik
 // @namespace    https://github.com/maykSVK/SGOnlineExt
-// @version      0.3.21
-// @description  Vala attacks, ideal population and sector forum drafts.
+// @version      0.4.0
+// @description  StarGame helper for army, planet readiness and other game features.
 // @homepageURL  https://github.com/maykSVK/SGOnlineExt
 // @match        https://stargame-online.cz/www/game.php*
 // @match        https://stargame-online.cz/game.php*

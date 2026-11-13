@@ -1,14 +1,14 @@
 {
   "manifest_version": 3,
   "name": "StarGame pomocnik",
-  "version": "0.3.21",
-  "description": "Utoky na Valu, vypocet idealneho zaludnenia a lokalny log.",
+  "version": "0.4.0",
+  "description": "StarGame prehlady armady, planet a herne pomocne funkcie.",
   "permissions": ["storage"],
   "host_permissions": ["https://api.github.com/*"],
   "content_scripts": [
     {
       "matches": ["https://stargame-online.cz/www/game.php*", "https://stargame-online.cz/game.php*"],
-      "js": ["storage.js", "core.js", "population.js", "sectors.js", "lottery.js", "guardian.js", "content.js"],
+      "js": ["storage.js", "core.js", "population.js", "sectors.js", "lottery.js", "guardian.js", "war.js", "content.js"],
       "css": ["panel.css"],
       "run_at": "document_idle"
     }

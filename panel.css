@@ -136,6 +136,25 @@
 #sgo-addon #sgo-sectors-feature { padding: 16px 20px; }
 #sgo-addon #sgo-guardian-feature { padding: 0 0 6px; margin-bottom: 8px; border-bottom: 1px solid var(--sgo-line); }
 #sgo-addon .sgo-watch-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; }
+#sgo-addon .sgo-war { padding: 14px 18px 18px; }
+#sgo-addon .sgo-war > .sgo-note { margin: 0 0 8px; }
+#sgo-addon .sgo-war-status { margin: 0 0 9px; color: #b6c8df; font-size: 11px; }
+#sgo-addon .sgo-war-status[data-state=error] { color: #ffa695; }
+#sgo-addon .sgo-war-card { min-width: 0; margin: 0 0 9px; padding: 10px; border: 1px solid var(--sgo-line); border-radius: 9px; background: #152136; }
+#sgo-addon .sgo-war-card > strong { display: block; margin-bottom: 5px; font-size: 12px; }
+#sgo-addon .sgo-war-card p { margin: 4px 0; font-size: 11px; }
+#sgo-addon .sgo-war-action { color: #ffcb82; font-size: 11px; }
+#sgo-addon .sgo-war-action button, #sgo-addon .sgo-war-table button { margin: 3px 0; padding: 5px 7px; font-size: 10px; }
+#sgo-addon .sgo-war-ok { color: #83e0b3; font-size: 11px; }
+#sgo-addon .sgo-war-table-scroll { max-height: 220px; overflow: auto; margin-top: 6px; scrollbar-width: thin; }
+#sgo-addon .sgo-war-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+#sgo-addon .sgo-war-table th, #sgo-addon .sgo-war-table td { padding: 4px 3px; border-bottom: 1px solid #28374e; text-align: left; vertical-align: middle; }
+#sgo-addon .sgo-war-table th { position: sticky; top: 0; background: #152136; color: var(--sgo-muted); }
+#sgo-addon .sgo-war-owner { display: block; margin: 6px 0; color: var(--sgo-muted); font-size: 10px; }
+#sgo-addon .sgo-war-owner input { display: block; width: 100%; margin-top: 4px; padding: 6px; font-size: 11px; }
+#sgo-addon .sgo-war-spy-row { display: grid; grid-template-columns: 90px minmax(0, 1fr) auto; gap: 6px; padding: 5px 0; border-top: 1px solid #28374e; font-size: 10px; overflow-wrap: anywhere; }
+#sgo-addon .sgo-war-spy-row time { color: var(--sgo-muted); }
+#sgo-addon .sgo-war-spy-row b { color: #ffcb82; font-size: 9px; }
 #sgo-addon #sgo-guardian-refresh { padding: 5px 9px; font-size: 11px; }
 #sgo-addon .sgo-watch-row { display: flex; align-items: center; gap: 6px; padding: 4px 0; color: var(--sgo-text); text-decoration: none; font-size: 11px; line-height: 1.35; border-bottom: 1px solid #28374e66; min-width: 0; }
 #sgo-addon .sgo-watch-row::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #f1b363; flex-shrink: 0; }

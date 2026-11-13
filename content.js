@@ -40,6 +40,7 @@
         <button type="button" class="sgo-feature-card" id="sgo-open-attacks" title="Typy útokov, jednotky, cooldown a denník"><span class="sgo-feature-icon">01</span><span><strong>Útok na RR</strong></span></button>
         <button type="button" class="sgo-feature-card" id="sgo-open-population" title="Výpočet a predvyplnenie výroben na planétach"><span class="sgo-feature-icon">02</span><span><strong>Ideálne zaľudnenie</strong></span></button>
         <button type="button" class="sgo-feature-card" id="sgo-open-sectors" title="Náskok pred súpermi a BBCode hlásenie"><span class="sgo-feature-icon">03</span><span><strong>Naše sektory</strong></span></button>
+        <button type="button" class="sgo-feature-card" id="sgo-open-war" title="Ručný prehľad vlastnej armády, obrany a prijatých špionáží"><span class="sgo-feature-icon">04</span><span><strong>Vojna</strong></span></button>
         </div>
         <section id="sgo-ranking" aria-label="TOP 3 hráčov celkovo"></section>
       </section>
@@ -65,6 +66,7 @@
       </section>
       <section id="sgo-population-feature" hidden></section>
       <section id="sgo-sectors-feature" hidden></section>
+      <section id="sgo-war-feature" hidden></section>
       <footer class="sgo-footer"><span class="sgo-footer-dot" aria-hidden="true"></span><span id="sgo-latest">Všetko pod kontrolou. Čakám na nastavenie.</span></footer>
     </div>`;
   document.body.append(root);
@@ -122,15 +124,17 @@
   }
   let population;
   let sectors;
+  let war;
   let guardian;
   function showFeature(feature, save = true) {
-    const selected = ["attacks", "population", "sectors"].includes(feature) ? feature : "home";
+    const selected = ["attacks", "population", "sectors", "war"].includes(feature) ? feature : "home";
     $("#sgo-home").hidden = selected !== "home";
     $("#sgo-attacks-feature").hidden = selected !== "attacks";
     $("#sgo-population-feature").hidden = selected !== "population";
     $("#sgo-sectors-feature").hidden = selected !== "sectors";
+    $("#sgo-war-feature").hidden = selected !== "war";
     $("#sgo-back").hidden = selected === "home";
-    $("#sgo-feature-name").textContent = { home: "Prehľad funkcií", attacks: "Útok na RR", population: "Ideálne zaľudnenie", sectors: "Naše sektory" }[selected];
+    $("#sgo-feature-name").textContent = { home: "Prehľad funkcií", attacks: "Útok na RR", population: "Ideálne zaľudnenie", sectors: "Naše sektory", war: "Vojna" }[selected];
     if (selected === "home") guardian?.render();
     if (selected === "attacks") loadTargets();
     if (selected === "population") population?.refresh();
@@ -589,12 +593,17 @@
   $("#sgo-open-population").addEventListener("click", () => showFeature("population"));
   population = globalThis.SGOPopulation.mount($("#sgo-population-feature"), { getDocument, log, canEdit: () => !run?.active && !busy, revealGame });
   $("#sgo-open-sectors").addEventListener("click", () => showFeature("sectors"));
+  $("#sgo-open-war").addEventListener("click", () => showFeature("war"));
   guardian = globalThis.SGOGuardian.mount($("#sgo-guardian-feature"), {
     getDocument, log, storage, rankingContainer: $("#sgo-ranking"), canEdit: () => !run?.active && !busy,
     revealGame, navigate: async url => { await writes; location.assign(url); }
   });
   sectors = globalThis.SGOSectors.mount($("#sgo-sectors-feature"), {
     getDocument, log, canEdit: () => !run?.active && !busy, revealGame,
+    navigate: async url => { await writes; location.assign(url); }
+  });
+  war = globalThis.SGOWar.mount($("#sgo-war-feature"), {
+    getDocument, storage, log, canEdit: () => !run?.active && !busy,
     navigate: async url => { await writes; location.assign(url); }
   });
   $("#sgo-export").addEventListener("click", () => {

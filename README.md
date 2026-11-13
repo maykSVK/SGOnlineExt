@@ -1,8 +1,8 @@
 # StarGame pomocnik
 
 Tampermonkey userscript aj lokalne rozsirenie Manifest V3 pre kompatibilne prehliadace.
-Funkcie su dostupne z hlavneho menu: **Utok na RR**, **Idealne zaludnenie**
-a **Nase sektory**.
+Funkcie su dostupne z hlavneho menu: **Utok na RR**, **Idealne zaludnenie**,
+**Nase sektory** a **Vojna**.
 Volitelna synchronizacia posiela iba historiu zrebovani do nastaveneho Gistu.
 Doplnok nepozaduje pristup k hernemu heslu.
 Tampermonkey stahuje instalaciu a aktualizacie z GitHubu.
@@ -87,6 +87,23 @@ vo formulari Super 6 podla vazenej pseudonahody z historickych tahov (alebo
 rovnomerne nahodne, ak je zaskrtnuty checkbox). Samotne odoslanie stavky
 tlacidlom **Vsadit** ostava na pouzivatelovi. V casti **Historia a Gist** sa
 zobrazuju aj najcastejsie tazene cisla zo zachytenych zrebovani.
+
+#### Vojna
+
+Sekcia **Vojna** nacita udaje iba po rucnom kliknuti na **Obnovit**. Zobrazi
+vlastne univerzaly oproti cielu 10 000, prehlad planet s deficitom cielovej
+obrany 500 SDI a 500 BS na planetu a prijate spionazne zaznamy za poslednych
+24 hodin. Pri spionazi zadaj presne meno svojho hraca; zaznamy sa uchovavaju
+lokalne a oznacia sa nove udalosti od poslednej kontroly.
+
+Tlacidla **Predvyplnit** otvoria nativny formular hry a nastavia iba pocet
+univerzalov na presun z RA alebo deficit obrany na vybranej planete. Deficit
+miest sa predvyplni iba vtedy, ak ho hra v zozname planét zobrazi. Nic sa
+neodosiela automaticky; pred odoslanim skontroluj planetu, pocty aj cenu.
+Prehlad planet neposkytuje maximum miest na kazdej planete, preto sa tato
+hodnota zobrazi ako nezname a addon nevypocitava ani nepredvyplna ich deficit.
+Sekcia nevybera ani nespusta utoky na inych hracov a nevykonava premenovanie
+planet.
 
 #### TOP 3 celkovo
 

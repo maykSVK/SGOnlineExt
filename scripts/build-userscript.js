@@ -12,7 +12,7 @@ const header = `// ==UserScript==
 // @name         StarGame pomocnik
 // @namespace    https://github.com/maykSVK/SGOnlineExt
 // @version      ${manifest.version}
-// @description  Vala attacks, ideal population and sector forum drafts.
+// @description  StarGame helper for army, planet readiness and other game features.
 // @homepageURL  https://github.com/maykSVK/SGOnlineExt
 // @match        https://stargame-online.cz/www/game.php*
 // @match        https://stargame-online.cz/game.php*

@@ -1,10 +1,10 @@
 {
   "name": "stargame-pomocnik",
-  "version": "0.3.21",
+  "version": "0.4.0",
   "private": true,
   "scripts": {
     "build": "node scripts/build-userscript.js",
     "test": "node --test tests/*.test.js",
-    "check": "node --check storage.js && node --check core.js && node --check population.js && node --check sectors.js && node --check lottery.js && node --check guardian.js && node --check content.js && node --check scripts/build-userscript.js && node scripts/build-userscript.js --check && node --check stargame-pomocnik.user.js"
+    "check": "node --check storage.js && node --check core.js && node --check population.js && node --check sectors.js && node --check lottery.js && node --check guardian.js && node --check war.js && node --check content.js && node --check scripts/build-userscript.js && node scripts/build-userscript.js --check && node --check stargame-pomocnik.user.js"
   }
 }
