@@ -4,6 +4,40 @@ const P = require("../population.js");
 const costs = { vyroben: 36000, sdi: 26000, bs: 30000, laboratori: 35000 };
 const planet = { id: "1", name: "Solna", type: "21", cities: 198, factories: 15000, sdi: 0, bs: 0, labs: 0, built: 15000, slots: 39600 };
 
+function tradePage(ids, next = null) {
+  return {
+    querySelectorAll: selector => selector === "a[href]"
+      ? next ? [{ textContent: ">>", getAttribute: () => next }] : []
+      : ids.map(id => ({ id: `p${id}`, cells: ["", "", "0", "100", "", ""].map(textContent => ({ textContent })) }))
+  };
+}
+
+test("unemployed reader traverses all trade pages beyond the first 200 planets", async () => {
+  const url = "https://game.test/game.php?page=obchod";
+  const calls = [];
+  const first = tradePage(Array.from({ length: 200 }, (_, index) => String(index + 1)), "game.php?page=obchod&strana=1");
+  const second = tradePage(["201", "202"]);
+  const pages = await P.loadTradePages(url, async target => {
+    calls.push(target);
+    return calls.length === 1 ? first : second;
+  });
+  assert.deepEqual(calls, [url, `${url}&strana=1`]);
+  assert.equal(pages.length, 2);
+  const workers = Object.assign({}, ...pages.map(P.readTrade));
+  assert.equal(Object.keys(workers).length, 202);
+  assert.deepEqual(workers["202"], { sellable: 0, room: 100 });
+});
+
+test("unemployed pagination rejects loops, external links and failed pages", async () => {
+  const url = "https://game.test/game.php?page=obchod";
+  await assert.rejects(P.loadTradePages(url, async () => tradePage(["1"], `${url}&strana=1`)), /opakuje/);
+  await assert.rejects(P.loadTradePages(url, async () => tradePage(["1"], "https://other.test/game.php?page=obchod&strana=1")), /Nerozpoznaný/);
+  await assert.rejects(P.loadTradePages(url, async target => {
+    if (target !== url) throw new Error("Offline");
+    return tradePage(["1"], `${url}&strana=1`);
+  }), /Offline/);
+});
+
 test("full occupancy has no denominator in game DOM", () => {
   assert.deepEqual(P.occupancy("39 600", 39600), [39600, 39600]);
   assert.deepEqual(P.occupancy("39\u00a0600", 39600), [39600, 39600]);

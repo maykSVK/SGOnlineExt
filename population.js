@@ -92,6 +92,29 @@
     if (!Object.keys(result).length) throw new Error("Nenašiel som zoznam planét v Obchod > Nezaměstnaní.");
     return result;
   }
+  async function loadTradePages(url, getDocument) {
+    const pages = [];
+    const visited = new Set();
+    let next = url;
+    while (next) {
+      if (visited.has(next)) throw new Error("Stránkovanie nezamestnaných sa opakuje.");
+      visited.add(next);
+      const doc = await getDocument(next);
+      readTrade(doc);
+      pages.push(doc);
+      const link = [...doc.querySelectorAll("a[href]")].find(anchor => C.clean(anchor.textContent) === ">>");
+      if (!link) break;
+      const candidate = new URL(link.getAttribute("href"), next);
+      const start = new URL(url);
+      if (candidate.origin !== start.origin || candidate.pathname !== start.pathname ||
+        candidate.searchParams.get("page") !== "obchod" || candidate.searchParams.has("s") ||
+        !/^\d+$/.test(candidate.searchParams.get("strana") || "")) {
+        throw new Error("Nerozpoznaný odkaz na ďalšiu stránku nezamestnaných.");
+      }
+      next = candidate.href;
+    }
+    return pages;
+  }
   function readOffers(doc) {
     const offers = [];
     for (const form of doc.querySelectorAll("form")) {
@@ -167,7 +190,15 @@
   function snapshot(buildings, types, trade) {
     const { planets, costs } = readBuildings(buildings);
     const growth = readGrowth(types);
-    const workers = readTrade(trade);
+    const workers = {};
+    for (const page of Array.isArray(trade) ? trade : [trade]) {
+      for (const [id, values] of Object.entries(readTrade(page))) {
+        if (workers[id] && (workers[id].room !== values.room || workers[id].sellable !== values.sellable)) {
+          throw new Error(`Údaje nezamestnaných pre planétu ${id} sa medzi stránkami zmenili. Obnov výpočet.`);
+        }
+        workers[id] = values;
+      }
+    }
     return planets.map(planet => {
       if (growth[planet.type] === undefined || !workers[planet.id]) throw new Error(`Chýbajú údaje pre ${planet.name}.`);
       return calculate(planet, growth[planet.type], costs, workers[planet.id]);
@@ -338,9 +369,9 @@
         message("Načítavam Stavění, Druhy planét a Nezaměstnané. Nič neodosielam.");
         const buildingDoc = await getDocument(new URL("game.php?page=planety", location.href).href);
         const typesDoc = await getDocument(new URL("game.php?page=planety&s=typy", location.href).href);
-        const tradeDoc = await getDocument(new URL("game.php?page=obchod", location.href).href);
-        const allReports = snapshot(buildingDoc, typesDoc, tradeDoc);
-        latestOffers = readOffers(tradeDoc);
+        const tradePages = await loadTradePages(new URL("game.php?page=obchod", location.href).href, getDocument);
+        const allReports = snapshot(buildingDoc, typesDoc, tradePages);
+        latestOffers = readOffers(tradePages[0]);
         rankedReports = [...allReports].sort((a, b) =>
           b.idealBirths - a.idealBirths || a.name.localeCompare(b.name, "sk") || a.id.localeCompare(b.id));
         reports = rankedReports.filter(report => report.missing > 0);
@@ -443,7 +474,7 @@
     $("#sgo-pop-fill-mode").addEventListener("change", updateFillButton);
     return { refresh, fillUnemployedFromOP };
   }
-  const api = { occupancy, readBuildings, readGrowth, readTrade, readOffers, nextOfferTransfer, calculate, snapshot, fill, mount };
+  const api = { occupancy, readBuildings, readGrowth, readTrade, loadTradePages, readOffers, nextOfferTransfer, calculate, snapshot, fill, mount };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.SGOPopulation = api;
 })(globalThis);

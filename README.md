@@ -202,6 +202,7 @@ na jej zastavenie pouzi **Zastavit** v podmenu utokov.
 ### Idealne zaludnenie
 
 - **Prepocitat planety** cita Planety > Staveni, Druhy a Obchod > Nezamestnani.
+  V obchode prejde aj dalsie stranky, takze vypocet funguje aj nad 200 planetami.
   Prepocet prebehne aj automaticky pri otvoreni sekcie, vybere planety a pred
   predvyplnenim. Su bezne naraz iba jedny nacitavane udaje, nie viac paralelnych
   prepoctov. Planety s nulovym poctom chybajucich vyroben sa v zoznamoch nezobrazuju.
