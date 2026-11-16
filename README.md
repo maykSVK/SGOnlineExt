@@ -99,6 +99,9 @@ obrany a prijate spionazne zaznamy za poslednych 24 hodin. V rozbalovacej casti
 **Nastavenia obrany** sa ukladaju minima na planetu (predvolene 200 SDI a 500 BS).
 Ulozenie ihned prepocita zobrazeny deficit aj predvyplnenie stavby; nastavenia
 zostavaju zachovane po obnoveni stranky.
+Ak R.armada nie je dostupna alebo sa jej pocty nedaju precitat, kontrola armady
+sa preskoci s upozornenim a zaznamom v logu. Planety, utoky a premenovanie
+zostavaju dostupne; neznamy stav armady sa zachova aj po navigacii.
 Meno hraca sa automaticky precita z Prehladu > Obecna statistika.
 Kompaktny zoznam **Vsetky utoky na mna** so scrollbarom zobrazi cas, utocnika
 a vysledok vsetkych typov utokov na hraca (uspesne aj neuspesne), od najnovsieho.

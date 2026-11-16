@@ -354,6 +354,7 @@
     </section>`;
     const $ = selector => container.querySelector(selector);
     let army = null;
+    let armyError = "";
     let planets = [];
     let spies = [];
     let attacks = [];
@@ -439,6 +440,11 @@
           ok.textContent = "Cieľ splnený";
           armyTarget.append(ok);
         }
+      } else if (armyError) {
+        const note = container.ownerDocument.createElement("p");
+        note.className = "sgo-war-warning";
+        note.textContent = `Stav armády je neznámy: ${armyError} Ostatné časti prehľadu sú dostupné.`;
+        armyTarget.append(note);
       }
 
       const summary = $("#sgo-war-defense-summary");
@@ -600,8 +606,15 @@
       try {
         if (!await ready) throw new Error("Nastavenia obrany sa nepodarilo načítať; obnov stránku.");
         const nextOwner = readOwner(await getDocument(gameUrl({ page: "prehled" })));
-        const armyDoc = await getDocument(gameUrl({ page: "jednotky", akce: "armada" }));
-        const nextArmy = readArmy(armyDoc);
+        let nextArmy = null;
+        let nextArmyError = "";
+        try {
+          const armyDoc = await getDocument(gameUrl({ page: "jednotky", akce: "armada" }));
+          nextArmy = readArmy(armyDoc);
+        } catch (error) {
+          nextArmyError = error.message;
+          log(`Vojna: kontrola armády preskočená: ${nextArmyError}`, "error");
+        }
         const planetDoc = await getDocument(gameUrl({ page: "planety" }));
         const nextPlanets = readPlanets(planetDoc, undefined, targets);
         renameHistory = await withRenameLock(async () => {
@@ -633,20 +646,21 @@
         await storage.set(SPY_KEY, nextSpies);
         const updated = Date.now();
         await storage.set(SNAPSHOT_KEY, {
-          ownerName: nextOwner, army: nextArmy, planets: nextPlanets, spies: nextSpies,
+          ownerName: nextOwner, army: nextArmy, armyError: nextArmyError, planets: nextPlanets, spies: nextSpies,
           attacks: nextAttacks, lastUpdated: updated, newSpyIds: [...nextSpyIds]
         });
         ownerName = nextOwner;
         spies = nextSpies;
         newSpyIds = nextSpyIds;
         army = nextArmy;
+        armyError = nextArmyError;
         planets = nextPlanets;
         attacks = nextAttacks;
         lastUpdated = updated;
         renameSuggestions.clear();
         render();
         const fresh = newSpyIds.size;
-        status(`Obnovené ${new Date(lastUpdated).toLocaleTimeString("sk-SK")}${fresh ? ` · ${fresh} nová špionáž` : ""}.`);
+        status(`Obnovené ${new Date(lastUpdated).toLocaleTimeString("sk-SK")}${fresh ? ` · ${fresh} nová špionáž` : ""}${armyError ? " · kontrola armády preskočená" : ""}.`);
         log(`Vojna: prehľad obnovený; ${planets.length} planét, ${attacks.length} útokov na teba, ${fresh} nových špionáží.`);
       } catch (error) {
         status(`Obnovenie zlyhalo: ${error.message}`, true);
@@ -713,7 +727,7 @@
           await storage.set(RENAMES_KEY, renameHistory);
           planets = planets.map(item => item.id === planet.id ? { ...item, name: newName } : item);
           renameSuggestions.delete(planet.id);
-          await storage.set(SNAPSHOT_KEY, { ownerName, army, planets, spies, attacks, lastUpdated, newSpyIds: [...newSpyIds] });
+          await storage.set(SNAPSHOT_KEY, { ownerName, army, armyError, planets, spies, attacks, lastUpdated, newSpyIds: [...newSpyIds] });
           status(`Premenované ${planet.name} → ${newName}.`);
           log(`Vojna: premenované ${planet.name} → ${newName}; vybavených ${attackIds.size} útokov.`);
         };
@@ -848,8 +862,11 @@
           typeof item.id === "string" && Number.isFinite(item.time) &&
           ["attacker", "defender", "planet", "result"].every(key => typeof item[key] === "string"));
         if (typeof snapshot.ownerName !== "string" || !snapshot.ownerName ||
-          !Number.isFinite(snapshot.lastUpdated) || !snapshot.army ||
-          !["own", "race", "deficit", "target"].every(key => integer(snapshot.army[key])) ||
+          !Number.isFinite(snapshot.lastUpdated) ||
+          !(snapshot.army === null
+            ? typeof snapshot.armyError === "string" && snapshot.armyError.length > 0
+            : snapshot.army && ["own", "race", "deficit", "target"].every(key => integer(snapshot.army[key]))) ||
+          (snapshot.armyError !== undefined && typeof snapshot.armyError !== "string") ||
           !Array.isArray(snapshot.planets) || !snapshot.planets.length ||
           !snapshot.planets.every(planet => planet && typeof planet.id === "string" && typeof planet.name === "string" &&
             ["cities", "sdi", "bs"].every(key => integer(planet[key])) &&
@@ -866,6 +883,7 @@
         }
         ownerName = snapshot.ownerName;
         army = snapshot.army;
+        armyError = snapshot.armyError || "";
         planets = snapshot.planets.map(planet => defenseDeficits(planet, targets));
         for (const record of renameHistory.filter(item => item.owner === ownerName && item.state === "done")) {
           planets = planets.map(planet => planet.id === record.planetId && planet.name === record.oldName

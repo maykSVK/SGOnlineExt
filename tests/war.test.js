@@ -340,6 +340,8 @@ test("defense settings persist, recalculate existing planets and prefill only co
   let destination;
   let requests = 0;
   let networkFails = false;
+  let armyFailure = "";
+  const logs = [];
   const storage = {
     get: async key => saved.get(key),
     set: async (key, value) => {
@@ -351,6 +353,7 @@ test("defense settings persist, recalculate existing planets and prefill only co
   const planet = row([cell(""), cell("AAFM-1234-56"), cell("20"), cell("200"), cell("500")],
     { textContent: "AAFM-1234-56", getAttribute: () => "game.php?page=planety&planeta=2" });
   const options = {
+    log: message => logs.push(message),
     storage, navigate: async url => { destination = url; },
     getDocument: async url => {
       if (networkFails) throw new Error("Offline");
@@ -359,9 +362,11 @@ test("defense settings persist, recalculate existing planets and prefill only co
       if (params.get("page") === "prehled") return {
         querySelector: () => ({ getAttribute: () => "game.php?page=vesmir&hledat=mayk" })
       };
-      if (params.get("akce") === "armada") return {
-        querySelector: () => ({ closest: () => ({ textContent: "Je v RA20 000Máme10 000Z RADo RA" }) })
-      };
+      if (params.get("akce") === "armada") {
+        if (armyFailure === "network") throw new Error("Army HTTP 403");
+        return { querySelector: () => armyFailure ? null
+          : ({ closest: () => ({ textContent: "Je v RA20 000Máme10 000Z RADo RA" }) }) };
+      }
       return { querySelector: () => ({ rows: [headers, planet] }) };
     },
     postDocument: async () => spyDoc({ filter: { utoky: "0" } })
@@ -407,6 +412,27 @@ test("defense settings persist, recalculate existing planets and prefill only co
   assert.equal(reloaded.querySelector("#sgo-war-defense-summary").textContent, "1 planét · 1 pod cieľom");
   assert.equal(saved.get("sgo-war-snapshot").planets.length, 1, "failed refresh preserves persisted snapshot");
   networkFails = false;
+  for (const failure of ["parser", "network"]) {
+    armyFailure = failure;
+    await next.refresh();
+    assert.equal(saved.get("sgo-war-snapshot").army, null, "unavailable army never keeps stale counts");
+    assert.match(reloaded.querySelector("#sgo-war-army").children[0].textContent, /Stav armády je neznámy/);
+    assert.equal(reloaded.querySelector("#sgo-war-defense-summary").textContent, "1 planét · 1 pod cieľom");
+    assert.equal(reloaded.querySelector("#sgo-war-status").dataset.state, "ok");
+    assert.match(reloaded.querySelector("#sgo-war-status").textContent, /kontrola armády preskočená/);
+    const restoredContainer = warContainer();
+    const requestCount = requests;
+    await W.mount(restoredContainer, options).ready;
+    assert.equal(requests, requestCount);
+    assert.match(restoredContainer.querySelector("#sgo-war-army").children[0].textContent, /Stav armády je neznámy/);
+    assert.equal(restoredContainer.querySelector("#sgo-war-planets").children[0].children[5].children[1].textContent, "Premenovať");
+  }
+  assert.ok(logs.some(message => /kontrola armády preskočená: Army HTTP 403/.test(message)));
+  armyFailure = "";
+  await next.refresh();
+  assert.equal(saved.get("sgo-war-snapshot").army.own, 10000);
+  assert.equal(saved.get("sgo-war-snapshot").armyError, "");
+  assert.match(reloaded.querySelector("#sgo-war-army").children[0].textContent, /Máme/);
 
   for (const invalid of ["", "-1", "1.5", "NaN", "9007199254740992"]) {
     input("sdi").value = invalid;
@@ -486,7 +512,7 @@ test("direct rename is verified, persisted across navigation and re-enabled only
         querySelector: () => ({ getAttribute: () => "game.php?page=vesmir&hledat=mayk" })
       };
       if (params.get("akce") === "armada") return {
-        querySelector: () => ({ closest: () => ({ textContent: "Je v RA20 000Máme10 000Z RADo RA" }) })
+        querySelector: () => null
       };
       if (params.get("s") === "sp") {
         const form = makeForm({
@@ -543,6 +569,8 @@ test("direct rename is verified, persisted across navigation and re-enabled only
   await defenseRename.listeners.click();
   assert.equal(submits, 1);
   assert.equal(currentName, name);
+  assert.equal(saved.get("sgo-war-snapshot").army, null, "renaming remains available without army");
+  assert.match(saved.get("sgo-war-snapshot").armyError, /univerzálov/);
   const record = saved.get("sgo-war-renames")[0];
   assert.equal(record.state, "done");
   assert.equal(record.oldName, "AAFM-1234-56");
