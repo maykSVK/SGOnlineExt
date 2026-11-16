@@ -94,7 +94,7 @@ Sekcia **Vojna** nacita udaje iba po rucnom kliknuti na **Obnovit**. Zobrazi
 posledny ulozeny prehlad aj po navigacii alebo refreshi stranky, bez poziadaviek
 do hry. Pri obnove zo storage je oznaceny cas nacitania a upozornenie na
 neaktualnost. Neuspesne obnovenie ponecha predchadzajuce data.
-vlastne univerzaly oproti cielu 10 000, prehlad planet s deficitom cielovej
+Prehlad obsahuje vlastne univerzaly oproti cielu 10 000, planety s deficitom cielovej
 obrany a prijate spionazne zaznamy za poslednych 24 hodin. V rozbalovacej casti
 **Nastavenia obrany** sa ukladaju minima na planetu (predvolene 200 SDI a 500 BS).
 Ulozenie ihned prepocita zobrazeny deficit aj predvyplnenie stavby; nastavenia
@@ -111,13 +111,19 @@ Zachytene zaznamy sa uchovavaju lokalne 24 hodin; zmeskane zaznamy, ktore uz
 hra neposkytuje, nie je mozne doplnit. Nove udalosti sa oznacia a zaloguju.
 Pre kazdu dotknutu planetu sa zobrazi jeden riadok s poctom spionazi,
 poslednym zaznamom a navrhom unikatneho nazvu vo formate `XXXX-0000-00`.
-Tlacidlo **Premenovat...** otvori **Planety > Sprava**, vyberie konkretnu
-planetu a predvyplni novy nazov. Zmenu potvrdis sam nativnym tlacidlom
-**Prejmenovat**. Navrh sa prenasa iba v aktualnej karte a plati 10 minut.
-Ak uz planetu nevlastnis alebo ma iny nazov, predvyplnenie sa odmietne.
-Rovnake **Premenovat...** je dostupne aj pri planetach pod cielom obrany
+Zvyraznene tlacidlo **Premenovat** ihned odosle zmenu cez formular
+**Planety > Sprava**, bez dalsieho potvrdenia. Pred odoslanim overi hraca,
+vlastnictvo, povodny nazov a volnost navrhu; po odoslani overi novy nazov.
+Povodny a novy nazov aj vybavene utoky sa ulozia lokalne. Po premenovani sa
+pri rovnakych utokoch a obrannych dierach zobrazi **Premenovane**, nie dalsia
+akcia. Novy utok na novy nazov planety umozni dalsie premenovanie.
+Pri strate odpovede je vysledok oznaceny ako neisty a addon zmenu neposiela
+znova; tlacidlo **Obnovit** overi stav podla aktualneho nazvu.
+Rovnake **Premenovat** je dostupne aj pri planetach pod cielom obrany
 a pri vsetkych prijatych utokoch (vratane ZHN), ktore uvadzaju presny nazov
-planety zo zoznamu vlastnych planet. Bez jednoznacnej zhody sa akcia neponuka.
+planety zo zoznamu vlastnych planet. Ak utok neuvadza planetu, ponukne sa
+rucny vyber vlastnej planety; addon ciel nehada. Nevlastnena planeta bez
+zhody sa nepremenuje.
 Kazdy zoznam pouziva rovnaky unikatny navrh nazvu pre danu planetu.
 
 Tlacidla **Predvyplnit** otvoria nativny formular hry a nastavia iba pocet
@@ -126,8 +132,8 @@ miest sa predvyplni iba vtedy, ak ho hra v zozname planét zobrazi. Nic sa
 neodosiela automaticky; pred odoslanim skontroluj planetu, pocty aj cenu.
 Prehlad planet neposkytuje maximum miest na kazdej planete, preto sa tato
 hodnota zobrazi ako nezname a addon nevypocitava ani nepredvyplna ich deficit.
-Sekcia nevybera ani nespusta utoky na inych hracov a sama neodosiela premenovanie
-planet.
+Sekcia nevybera ani nespusta utoky na inych hracov. Premenovanie odosle iba
+po kliknuti na **Premenovat**; armada a stavby zostavaju rucne potvrdzovane.
 
 #### TOP 3 celkovo
 

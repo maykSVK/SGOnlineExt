@@ -8,7 +8,7 @@
   const SNAPSHOT_KEY = "sgo-war-snapshot";
   const ARMY_DRAFT_KEY = "sgo-war-army-draft";
   const PLANET_DRAFT_KEY = "sgo-war-planet-draft";
-  const RENAME_DRAFT_KEY = "sgo-war-rename-draft";
+  const RENAMES_KEY = "sgo-war-renames";
   const clean = value => String(value || "").replace(/\s+/g, " ").trim();
 
   function defenseTargets(value = DEFAULT_DEFENSE_TARGETS) {
@@ -131,31 +131,45 @@
     return result;
   }
 
-  function applyRenameDraft(doc, draft) {
-    const form = [...doc.forms].find(f => f.elements.namedItem("novy") && f.elements.namedItem("planeta"));
+  function renameForm(doc) {
+    const form = [...doc.forms].find(f => f.elements.namedItem("novy") && f.elements.namedItem("planeta") &&
+      f.elements.namedItem("prejmenovat"));
     if (!form) throw new Error("Nenašiel sa formulár premenovania v Správe planét.");
-    const selector = form.elements.namedItem("planeta");
-    const input = form.elements.namedItem("novy");
-    const options = [...selector.options];
-    const target = options.find(option => option.value === draft.planetId);
-    if (!target || clean(target.textContent) !== draft.oldName) {
+    return form;
+  }
+
+  function renamePayload(doc, planet, newName) {
+    const form = renameForm(doc);
+    const options = [...form.elements.namedItem("planeta").options];
+    if (!options.some(option => option.value === planet.id && clean(option.textContent) === planet.name)) {
       throw new Error("Planéta už nemá pôvodný názov alebo ju už nevlastníš. Obnov prehľad.");
     }
-    if (!/^[A-Z]{4}-\d{4}-\d{2}$/.test(draft.newName) ||
-      options.some(option => clean(option.textContent) === draft.newName)) {
+    if (!/^[A-Z]{4}-\d{4}-\d{2}$/.test(newName) || options.some(option => clean(option.textContent) === newName)) {
       throw new Error("Navrhnutý názov je neplatný alebo sa už používa.");
     }
-    const selected = options.find(option => option.value === selector.value);
-    if (clean(input.value) && clean(input.value) !== clean(selected?.textContent) && input.value !== draft.newName) {
-      throw new Error("Formulár už obsahuje rozpracovaný názov; nič som neprepísal.");
+    const body = new URLSearchParams();
+    for (const field of form.elements) {
+      if (field.name && !field.disabled && field.type === "hidden") body.append(field.name, field.value);
     }
-    selector.value = draft.planetId;
-    selector.dispatchEvent(new Event("change", { bubbles: true }));
-    input.value = draft.newName;
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    input.dispatchEvent(new Event("change", { bubbles: true }));
-    input.focus();
-    form.scrollIntoView({ block: "center" });
+    body.set("planeta", planet.id);
+    body.set("novy", newName);
+    body.set("prejmenovat", form.elements.namedItem("prejmenovat").value);
+    return body;
+  }
+
+  function readRenameHistory(value) {
+    if (value == null) return [];
+    if (!Array.isArray(value) || !value.every(record => record &&
+      ["owner", "planetId", "oldName", "newName"].every(key => typeof record[key] === "string" && record[key]) &&
+      ["pending", "done", "failed"].includes(record.state) && Number.isFinite(record.time) &&
+      Array.isArray(record.attackIds) && record.attackIds.every(id => typeof id === "string"))) {
+      throw new Error("Uložená história premenovaní je neplatná; premenovanie nie je bezpečné.");
+    }
+    return value.map(record => ({ ...record, attackIds: [...record.attackIds] }));
+  }
+
+  function withRenameLock(action) {
+    return root.navigator?.locks ? root.navigator.locks.request("sgo-war-rename", action) : action();
   }
 
   function number(text) {
@@ -310,11 +324,11 @@
     draftForm(form, { fields });
   }
 
-  function mount(container, { getDocument, postDocument, storage, session = root.sessionStorage,
+  function mount(container, { getDocument, postDocument, storage,
     navigate = url => location.assign(url), log = () => {}, canEdit = () => true, revealGame = () => {} }) {
     container.innerHTML = `<section class="sgo-war">
       <div class="sgo-watch-heading"><strong>Vojna · vlastná pripravenosť</strong><button type="button" id="sgo-war-refresh">Obnoviť</button></div>
-      <p class="sgo-note">Obnovenie je ručné. Akcie iba predvyplnia formulár hry; nič sa neodošle automaticky.</p>
+      <p class="sgo-note">Obnovenie je ručné. Obrana a armáda sa predvyplnia; Premenovať ihneď zmení názov v hre.</p>
       <div id="sgo-war-status" class="sgo-war-status" role="status">Zatiaľ neobnovené.</div>
       <section class="sgo-war-card"><strong>Univerzály</strong><div id="sgo-war-army"></div></section>
       <section class="sgo-war-card"><strong>Obrana planét</strong><div id="sgo-war-defense-summary"></div>
@@ -349,6 +363,9 @@
     let ownerName = "";
     let targets = defenseTargets();
     let savingSettings = false;
+    let renaming = false;
+    let renameHistory = [];
+    let historyReady = false;
     const renameSuggestions = new Map();
 
     function status(text, error = false) {
@@ -366,15 +383,37 @@
       return element;
     }
 
-    function renameButton(planet) {
+    function recordFor(planet) {
+      return [...renameHistory].reverse().find(record => record.owner === ownerName && record.planetId === planet.id &&
+        record.state !== "failed");
+    }
+
+    function handledAttack(attack) {
+      return renameHistory.find(record => record.owner === ownerName && record.state !== "failed" &&
+        record.attackIds.includes(attack.id));
+    }
+
+    function renameButton(planet, attack = null) {
+      const latest = recordFor(planet);
+      const record = attack ? handledAttack(attack) || (latest?.state === "pending" ? latest : null) : latest;
+      const newAttack = attacks.some(item => item.planet === planet.name && !handledAttack(item));
+      if (record && (attack || record.state === "pending" || !newAttack)) {
+        const label = container.ownerDocument.createElement("span");
+        label.className = "sgo-war-renamed";
+        label.textContent = record.state === "pending" ? "Výsledok neistý · Obnoviť" : `Premenované → ${record.newName}`;
+        return label;
+      }
       if (!renameSuggestions.has(planet.id)) {
         renameSuggestions.set(planet.id, randomPlanetName([
           ...planets.map(item => item.name), ...renameSuggestions.values()
         ]));
       }
       const suggestion = renameSuggestions.get(planet.id);
-      return button("Premenovať…", `${planet.name} → ${suggestion}. Predvyplní Správu planét; potvrdenie zostáva na tebe.`,
-        () => prepareRename(planet, suggestion));
+      const action = button("Premenovať", `${planet.name} → ${suggestion}. Ihneď odošle zmenu názvu do hry.`,
+        () => executeRename(planet, suggestion, attack));
+      action.className = "sgo-war-rename-button";
+      action.disabled = renaming || !historyReady;
+      return action;
     }
 
     function render() {
@@ -469,11 +508,14 @@
         }
         const action = container.ownerDocument.createElement("div");
         action.className = "sgo-war-rename";
-        if (group.planet) {
+        const handled = group.events.map(handledAttack).find(Boolean);
+        if (handled && group.events.every(handledAttack)) {
+          action.textContent = handled.state === "pending" ? "Výsledok neistý · Obnoviť" : `Premenované → ${handled.newName}`;
+        } else if (group.planet) {
           const rename = renameButton(group.planet);
           const suggestion = renameSuggestions.get(group.planet.id);
           const label = container.ownerDocument.createElement("span");
-          label.textContent = `Nový názov: ${suggestion}`;
+          label.textContent = suggestion ? `Nový názov: ${suggestion}` : "";
           action.append(label, rename);
         } else {
           action.textContent = "Planéta už nie je pod týmto názvom v tvojom zozname (premenovaná alebo nevlastnená).";
@@ -494,7 +536,37 @@
           row.append(cell);
         }
         const planet = planets.find(item => item.name === attack.planet);
-        if (planet) row.children[2].append(renameButton(planet));
+        const handled = handledAttack(attack);
+        if (handled) {
+          row.children[2].append(renameButton({ id: handled.planetId, name: handled.newName }, attack));
+        } else if (planet) row.children[2].append(renameButton(planet, attack));
+        else if (attack.planet === "Planéta sa nedala prečítať") {
+          const select = container.ownerDocument.createElement("select");
+          select.className = "sgo-war-attack-planet";
+          select.title = "Útok neuvádza planétu; vyber ju ručne, addon ju nehádá.";
+          const placeholder = container.ownerDocument.createElement("option");
+          placeholder.value = "";
+          placeholder.textContent = "Vyber planétu…";
+          select.append(placeholder);
+          for (const item of planets) {
+            const option = container.ownerDocument.createElement("option");
+            option.value = item.id;
+            option.textContent = item.name;
+            select.append(option);
+          }
+          const action = button("Premenovať", "Premenuje vybranú planétu ihneď v hre.", async () => {
+            const selected = planets.find(item => item.id === select.value);
+            if (!selected) {
+              status("Najprv vyber planétu pre tento útok.", true);
+              return;
+            }
+            if (!renameSuggestions.has(selected.id)) renameButton(selected, attack);
+            await executeRename(selected, renameSuggestions.get(selected.id), attack);
+          });
+          action.className = "sgo-war-rename-button";
+          action.disabled = renaming || !historyReady;
+          row.children[2].append(select, action);
+        }
         attackBody.append(row);
       }
       if (lastUpdated && !attacks.length) {
@@ -510,6 +582,10 @@
 
     async function refresh() {
       if (checking) return;
+      if (renaming) {
+        status("Počkaj na dokončenie premenovania.", true);
+        return;
+      }
       if (savingSettings) {
         status("Najprv počkaj na uloženie nastavení obrany.", true);
         return;
@@ -528,6 +604,17 @@
         const nextArmy = readArmy(armyDoc);
         const planetDoc = await getDocument(gameUrl({ page: "planety" }));
         const nextPlanets = readPlanets(planetDoc, undefined, targets);
+        renameHistory = await withRenameLock(async () => {
+          const storedHistory = readRenameHistory(await storage.get(RENAMES_KEY));
+          for (const record of storedHistory.filter(item => item.owner === nextOwner && item.state === "pending")) {
+            const currentPlanet = nextPlanets.find(item => item.id === record.planetId);
+            if (currentPlanet?.name === record.newName) record.state = "done";
+            else if (currentPlanet?.name === record.oldName) record.state = "failed";
+          }
+          await storage.set(RENAMES_KEY, storedHistory);
+          return storedHistory;
+        });
+        historyReady = true;
         const nextAttacks = await loadAttacks(gameUrl({ page: "jednotky" }), nextOwner, postDocument);
         const current = recentSpies(nextAttacks.filter(entry => /\binformace\b/i.test(entry.result)));
         const previous = await storage.get(SPY_KEY) || [];
@@ -556,6 +643,7 @@
         planets = nextPlanets;
         attacks = nextAttacks;
         lastUpdated = updated;
+        renameSuggestions.clear();
         render();
         const fresh = newSpyIds.size;
         status(`Obnovené ${new Date(lastUpdated).toLocaleTimeString("sk-SK")}${fresh ? ` · ${fresh} nová špionáž` : ""}.`);
@@ -575,30 +663,75 @@
       return url.href;
     }
 
-    async function prepareRename(planet, newName) {
-      if (!canEdit()) {
-        status("Najprv zastav prebiehajúcu operáciu.", true);
+    async function executeRename(planet, newName, attack) {
+      if (renaming || checking || savingSettings || !canEdit() || !historyReady) {
+        status("Najprv počkaj na dokončenie prebiehajúcej operácie.", true);
         return;
       }
+      renaming = true;
+      render();
+      let record = null;
+      let sent = false;
       try {
-        const draft = { planetId: planet.id, oldName: planet.name, newName, createdAt: Date.now() };
-        const params = new URL(location.href).searchParams;
-        if (params.get("page") === "planety" && params.get("s") === "sp") {
-          applyRenameDraft(container.ownerDocument, draft);
-          revealGame();
-          status(`Premenovanie ${planet.name} → ${newName} je predvyplnené. Potvrď ho v hre.`);
-        } else {
-          session.setItem(RENAME_DRAFT_KEY, JSON.stringify(draft));
-          await navigate(gameUrl({ page: "planety", s: "sp" }));
-        }
-        log(`Vojna: pripravené premenovanie ${planet.name} → ${newName}; potvrdenie zostáva na používateľovi.`);
+        const perform = async () => {
+          const owner = readOwner(await getDocument(gameUrl({ page: "prehled" })));
+          if (owner !== ownerName) throw new Error("Prihlásený hráč sa zmenil; obnov prehľad.");
+          renameHistory = readRenameHistory(await storage.get(RENAMES_KEY));
+          const existing = recordFor(planet);
+          if (handledAttack(attack || {}) || existing?.state === "pending" ||
+            (!attack && existing && !attacks.some(item => item.planet === planet.name && !handledAttack(item)))) {
+            throw new Error("Táto planéta alebo útok už boli vybavené; čakaj na nový útok.");
+          }
+          const url = gameUrl({ page: "planety", s: "sp" });
+          const doc = await getDocument(url);
+          const body = renamePayload(doc, planet, newName);
+          const actionUrl = new URL(renameForm(doc).getAttribute("action") || url, url);
+          if (actionUrl.origin !== new URL(url).origin || actionUrl.pathname !== new URL(url).pathname ||
+            actionUrl.searchParams.get("page") !== "planety" || actionUrl.searchParams.get("s") !== "sp") {
+            throw new Error("Nerozpoznaná adresa formulára premenovania.");
+          }
+          const attackIds = new Set([...attacks, ...spies].filter(item => item.planet === planet.name).map(item => item.id));
+          if (attack) attackIds.add(attack.id);
+          if (!canEdit()) throw new Error("Začala iná operácia; premenovanie nebolo odoslané.");
+          record = { owner: ownerName, planetId: planet.id, oldName: planet.name, newName,
+            attackIds: [...attackIds], state: "pending", time: Date.now() };
+          renameHistory.push(record);
+          await storage.set(RENAMES_KEY, renameHistory);
+          status(`Premenúvam ${planet.name} → ${newName}…`);
+          sent = true;
+          await postDocument(actionUrl.href, body);
+          const verified = await getDocument(url);
+          const option = [...renameForm(verified).elements.namedItem("planeta").options].find(item => item.value === planet.id);
+          if (clean(option?.textContent) !== newName) {
+            if (clean(option?.textContent) === planet.name) {
+              record.state = "failed";
+              await storage.set(RENAMES_KEY, renameHistory);
+            }
+            throw new Error("Hra nepotvrdila nový názov. Obnov prehľad pred ďalšou akciou.");
+          }
+          record.state = "done";
+          await storage.set(RENAMES_KEY, renameHistory);
+          planets = planets.map(item => item.id === planet.id ? { ...item, name: newName } : item);
+          renameSuggestions.delete(planet.id);
+          await storage.set(SNAPSHOT_KEY, { ownerName, army, planets, spies, attacks, lastUpdated, newSpyIds: [...newSpyIds] });
+          status(`Premenované ${planet.name} → ${newName}.`);
+          log(`Vojna: premenované ${planet.name} → ${newName}; vybavených ${attackIds.size} útokov.`);
+        };
+        await withRenameLock(perform);
       } catch (error) {
-        status(`Premenovanie sa nepodarilo pripraviť: ${error.message}`, true);
-        log(`Vojna: príprava premenovania zlyhala: ${error.message}`, "error");
+        status(`Premenovanie zlyhalo: ${error.message}${sent && record?.state === "pending" ? " Výsledok je neistý; neodosielam znova, klikni na Obnoviť." : ""}`, true);
+        log(`Vojna: premenovanie zlyhalo: ${error.message}`, "error");
+      } finally {
+        renaming = false;
+        render();
       }
     }
 
     async function prepareArmy() {
+      if (renaming) {
+        status("Počkaj na dokončenie premenovania.", true);
+        return;
+      }
       if (!canEdit() || !army || !army.deficit) return;
       try {
         const url = gameUrl({ page: "jednotky", akce: "armada" });
@@ -621,6 +754,10 @@
     }
 
     async function preparePlanet(planet) {
+      if (renaming) {
+        status("Počkaj na dokončenie premenovania.", true);
+        return;
+      }
       if (!canEdit()) return;
       const draft = {
         planetId: planet.id,
@@ -651,29 +788,21 @@
 
     async function applyPendingDrafts() {
       const params = new URL(location.href).searchParams;
-      const rename = params.get("page") === "planety" && params.get("s") === "sp";
-      const key = rename ? RENAME_DRAFT_KEY : params.get("page") === "planety"
+      const key = params.get("page") === "planety" && params.get("s") !== "sp"
         ? PLANET_DRAFT_KEY
         : params.get("page") === "jednotky" && params.get("akce") === "armada"
           ? ARMY_DRAFT_KEY
           : null;
       if (!key) return;
       try {
-        const draft = rename ? JSON.parse(session.getItem(key) || "null") : await storage.get(key);
+        const draft = await storage.get(key);
         if (!draft) return;
-        if (rename) session.removeItem(key);
         if (!Number.isFinite(draft.createdAt) || Date.now() - draft.createdAt >= 10 * 60 * 1000) {
-          if (!rename) await storage.set(key, null);
+          await storage.set(key, null);
           status("Čakajúce predvyplnenie vypršalo; znovu ho spusti z prehľadu Vojna.", true);
           return;
         }
-        if (rename) {
-          if (!canEdit()) throw new Error("Najprv zastav prebiehajúcu operáciu a znovu priprav premenovanie.");
-          applyRenameDraft(container.ownerDocument, draft);
-          revealGame();
-          status(`Premenovanie ${draft.oldName} → ${draft.newName} je predvyplnené. Potvrď ho v hre.`);
-          log(`Vojna: predvyplnené premenovanie ${draft.oldName} → ${draft.newName}; nič nebolo odoslané.`);
-        } else if (key === ARMY_DRAFT_KEY) {
+        if (key === ARMY_DRAFT_KEY) {
           applyArmyDraft(document, draft);
           status(`Pole „Z RA“ je predvyplnené na ${draft.amount.toLocaleString("sk-SK")}; skontroluj formulár a odošli ho ručne.`);
           log(`Vojna: predvyplnený presun ${draft.amount} univerzálov z RA; odoslanie čaká na používateľa.`);
@@ -682,10 +811,10 @@
           status("Formulár stavby je predvyplnený; skontroluj ho a odošli ručne.");
           log(`Vojna: predvyplnený formulár obrany planéty ${draft.planetId}; odoslanie čaká na používateľa.`);
         }
-        if (!rename) await storage.set(key, null);
+        await storage.set(key, null);
       } catch (error) {
         let message = error.message;
-        try { if (rename) session.removeItem(key); else await storage.set(key, null); }
+        try { await storage.set(key, null); }
         catch (cleanupError) {
           message += `; návrh ${key} sa nepodarilo zrušiť: ${cleanupError.message}`;
         }
@@ -710,6 +839,8 @@
 
     async function restoreSnapshot() {
       try {
+        renameHistory = readRenameHistory(await storage.get(RENAMES_KEY));
+        historyReady = true;
         const snapshot = await storage.get(SNAPSHOT_KEY);
         if (!snapshot) return;
         const integer = value => Number.isSafeInteger(value) && value >= 0;
@@ -736,6 +867,10 @@
         ownerName = snapshot.ownerName;
         army = snapshot.army;
         planets = snapshot.planets.map(planet => defenseDeficits(planet, targets));
+        for (const record of renameHistory.filter(item => item.owner === ownerName && item.state === "done")) {
+          planets = planets.map(planet => planet.id === record.planetId && planet.name === record.oldName
+            ? { ...planet, name: record.newName } : planet);
+        }
         spies = snapshot.spies;
         attacks = snapshot.attacks;
         newSpyIds = new Set(snapshot.newSpyIds);
@@ -759,7 +894,7 @@
       $("#sgo-war-defense-save").disabled = true;
       try {
         if (!await ready) throw new Error("Nastavenia obrany sa nepodarilo načítať; obnov stránku.");
-        if (checking || !canEdit()) throw new Error("Najprv počkaj na dokončenie prebiehajúcej operácie.");
+        if (checking || renaming || !canEdit()) throw new Error("Najprv počkaj na dokončenie prebiehajúcej operácie.");
         const sdi = $("#sgo-war-sdi-target").value.trim();
         const bs = $("#sgo-war-bs-target").value.trim();
         if (!sdi || !bs) throw new Error("Vyplň obe minimá obrany.");
@@ -785,7 +920,7 @@
   }
 
   const api = { ARMY_TARGET, DEFAULT_DEFENSE_TARGETS, defenseTargets, readOwner, attackFilter, spyFilter, loadAttacks, loadSpies, randomPlanetName, spiedPlanets,
-    applyRenameDraft, readArmy, readPlanets, readAttacks, readSpies, recentSpies, applyArmyDraft, applyPlanetDraft, mount };
+    renamePayload, readArmy, readPlanets, readAttacks, readSpies, recentSpies, applyArmyDraft, applyPlanetDraft, mount };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.SGOWar = api;
 })(globalThis);

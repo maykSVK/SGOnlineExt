@@ -160,6 +160,10 @@
 #sgo-addon .sgo-war-attacks-scroll:focus-visible { outline: 2px solid var(--sgo-accent); outline-offset: 2px; }
 #sgo-addon .sgo-war-rename { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 5px; color: var(--sgo-muted); }
 #sgo-addon .sgo-war-rename button { padding: 4px 7px; font-size: 10px; }
+#sgo-addon .sgo-war button.sgo-war-rename-button { display: inline-block; margin: 4px 3px; padding: 5px 8px; background: #653721; border-color: #ffb56b; color: #ffe3b4; font-weight: 700; }
+#sgo-addon .sgo-war button.sgo-war-rename-button:hover:not(:disabled) { background: #85492a; }
+#sgo-addon .sgo-war-renamed { display: block; color: #83e0b3; font-size: 10px; overflow-wrap: anywhere; }
+#sgo-addon .sgo-war-attack-planet { display: block; width: 100%; margin-top: 4px; font-size: 10px; }
 #sgo-addon .sgo-war-spy-row { display: grid; grid-template-columns: 90px minmax(0, 1fr) auto; gap: 6px; padding: 5px 0; border-top: 1px solid #28374e; font-size: 10px; overflow-wrap: anywhere; }
 #sgo-addon .sgo-war-spy-row time { color: var(--sgo-muted); }
 #sgo-addon .sgo-war-spy-row b { color: #ffcb82; font-size: 9px; }

@@ -104,7 +104,7 @@ function makeForm(fields) {
     options: initial && typeof initial === "object" ? initial.options : undefined
   }]));
   return {
-    elements: { namedItem: name => map.get(name) || null },
+    elements: { namedItem: name => map.get(name) || null, [Symbol.iterator]: () => map.values() },
     get: name => map.get(name)
   };
 }
@@ -281,32 +281,34 @@ test("spied planets are grouped and matched by current name, never guessed for r
 function renameDoc(current = "FIRST-OLD", target = "AAFM-1234-56", input = current) {
   const form = makeForm({
     planeta: { value: "1", options: [{ value: "1", textContent: current }, { value: "2", textContent: target }] },
-    novy: input
+    novy: input, prejmenovat: "Přejmenovat", csrf: "test-token"
   });
-  form.get("novy").focus = () => {};
-  form.scrollIntoView = () => {};
+  form.get("csrf").type = "hidden";
   return { forms: [form], form };
 }
 const renameDraft = { planetId: "2", oldName: "AAFM-1234-56", newName: "ZZZZ-9876-54" };
 
-test("rename selects the correct owned planet and prefills a unique proposal without submitting", () => {
+test("rename payload preserves hidden fields, supplies submit value and does not alter native inputs", () => {
   const doc = renameDoc();
-  W.applyRenameDraft(doc, renameDraft);
-  assert.equal(doc.form.get("planeta").value, "2");
-  assert.equal(doc.form.get("novy").value, "ZZZZ-9876-54");
+  const body = W.renamePayload(doc, { id: "2", name: renameDraft.oldName }, renameDraft.newName);
+  assert.deepEqual(Object.fromEntries(body), {
+    csrf: "test-token", planeta: "2", novy: "ZZZZ-9876-54", prejmenovat: "Přejmenovat"
+  });
+  assert.equal(doc.form.get("planeta").value, "1");
+  assert.equal(doc.form.get("novy").value, "FIRST-OLD");
 });
 
-test("rename refuses changed ownership/name, collisions, invalid names and user drafts before altering any inputs", () => {
+test("rename payload refuses changed ownership/name, collisions, invalid names and missing forms", () => {
   for (const [doc, draft, message] of [
     [renameDoc("FIRST-OLD", "CHANGED-NAME"), renameDraft, /pôvodný názov/],
     [renameDoc(), { ...renameDraft, planetId: "missing" }, /pôvodný názov/],
     [renameDoc(), { ...renameDraft, newName: "Not a pattern" }, /neplatný/],
-    [renameDoc("ZZZZ-9876-54"), renameDraft, /používa/],
-    [renameDoc("FIRST-OLD", "AAFM-1234-56", "USER DRAFT"), renameDraft, /rozpracovaný/]
+    [renameDoc("ZZZZ-9876-54"), renameDraft, /používa/]
   ]) {
-    assert.throws(() => W.applyRenameDraft(doc, draft), message);
+    assert.throws(() => W.renamePayload(doc, { id: draft.planetId, name: draft.oldName }, draft.newName), message);
     assert.equal(doc.form.get("planeta").value, "1");
   }
+  assert.throws(() => W.renamePayload({ forms: [] }, { id: "2", name: "OLD" }, "AAAA-1234-56"), /formulár/);
 });
 
 class Element {
@@ -334,7 +336,6 @@ test("defense settings persist, recalculate existing planets and prefill only co
   globalThis.location = { href: "https://game.test/game.php?page=vesmir" };
   t.after(() => { if (oldLocation === undefined) delete globalThis.location; else globalThis.location = oldLocation; });
   const saved = new Map();
-  const renameDrafts = new Map();
   let writeFails = false;
   let destination;
   let requests = 0;
@@ -350,11 +351,6 @@ test("defense settings persist, recalculate existing planets and prefill only co
   const planet = row([cell(""), cell("AAFM-1234-56"), cell("20"), cell("200"), cell("500")],
     { textContent: "AAFM-1234-56", getAttribute: () => "game.php?page=planety&planeta=2" });
   const options = {
-    session: {
-      getItem: key => renameDrafts.get(key) || null,
-      setItem: (key, value) => renameDrafts.set(key, value),
-      removeItem: key => renameDrafts.delete(key)
-    },
     storage, navigate: async url => { destination = url; },
     getDocument: async url => {
       if (networkFails) throw new Error("Offline");
@@ -390,19 +386,13 @@ test("defense settings persist, recalculate existing planets and prefill only co
   assert.deepEqual(saved.get("sgo-war-defense-settings"), { sdi: 250, bs: 600 });
   const defenseRow = container.querySelector("#sgo-war-planets").children[0];
   assert.equal(defenseRow.children[4].textContent, "SDI 50 · BS 100");
-  assert.equal(defenseRow.children[5].children[1].textContent, "Premenovať…");
+  assert.equal(defenseRow.children[5].children[1].textContent, "Premenovať");
   await defenseRow.children[5].children[0].listeners.click();
   assert.match(destination, /page=planety$/);
   assert.deepEqual(
     { sdi: saved.get("sgo-war-planet-draft").sdi, bs: saved.get("sgo-war-planet-draft").bs },
     { sdi: 50, bs: 100 }
   );
-  await defenseRow.children[5].children[1].listeners.click();
-  assert.match(destination, /page=planety&s=sp$/);
-  const defenseRename = JSON.parse(renameDrafts.get("sgo-war-rename-draft"));
-  assert.equal(defenseRename.planetId, "2");
-  assert.equal(defenseRename.oldName, "AAFM-1234-56");
-  assert.match(defenseRename.newName, /^[A-Z]{4}-\d{4}-\d{2}$/);
   const reloaded = warContainer();
   const next = W.mount(reloaded, options);
   await next.ready;
@@ -468,29 +458,27 @@ test("failed defense settings restore prevents refresh with misleading default t
   assert.equal(container.querySelector("#sgo-war-status").dataset.state, "error");
 });
 
-test("war refresh auto-detects owner, renders grouped rename actions and hands off a one-shot tab-local draft", async t => {
+test("direct rename is verified, persisted across navigation and re-enabled only for new attacks", async t => {
   const oldLocation = globalThis.location;
   globalThis.location = { href: "https://game.test/game.php?page=vesmir" };
   t.after(() => { if (oldLocation === undefined) delete globalThis.location; else globalThis.location = oldLocation; });
   const container = warContainer();
   const saved = new Map();
-  const drafts = new Map();
-  const session = {
-    getItem: key => drafts.get(key) || null,
-    setItem: (key, value) => drafts.set(key, value),
-    removeItem: key => drafts.delete(key)
-  };
   const storage = { get: async key => saved.get(key), set: async (key, value) => saved.set(key, value) };
   const requests = [];
-  let destination;
+  let currentName = "AAFM-1234-56";
+  let submits = 0;
+  let newAttack = false;
+  let newAttackName = "";
+  let failPost = false;
   const date = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Prague", day: "numeric", month: "numeric", year: "numeric" })
     .format(Date.now() - 60000).split("/").join(". ");
   const time = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Prague", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).format(Date.now() - 60000);
   const headers = row([cell("", "Název planety"), cell("", "Města"), cell("", "SDI"), cell("", "BS")]);
-  const planet = row([cell(""), cell("AAFM-1234-56"), cell("20"), cell("500"), cell("500")],
+  const planet = row([cell(""), cell("AAFM-1234-56"), cell("20"), cell("0"), cell("500")],
     { textContent: "AAFM-1234-56", getAttribute: () => "game.php?page=planety&planeta=2" });
-  const war = W.mount(container, {
-    session, storage, navigate: async url => { destination = url; },
+  const options = {
+    storage, navigate: async () => assert.fail("rename must not navigate"),
     getDocument: async url => {
       requests.push(url);
       const params = new URL(url).searchParams;
@@ -500,18 +488,38 @@ test("war refresh auto-detects owner, renders grouped rename actions and hands o
       if (params.get("akce") === "armada") return {
         querySelector: () => ({ closest: () => ({ textContent: "Je v RA20 000Máme10 000Z RADo RA" }) })
       };
+      if (params.get("s") === "sp") {
+        const form = makeForm({
+          planeta: { value: "2", options: [{ value: "2", textContent: currentName }] },
+          novy: currentName, prejmenovat: "Přejmenovat"
+        });
+        form.getAttribute = () => "game.php?page=planety&s=sp";
+        return { forms: [form] };
+      }
+      planet.querySelector = () => ({ textContent: currentName, getAttribute: () => "game.php?page=planety&planeta=2" });
       return { querySelector: () => ({ rows: [headers, planet] }) };
     },
     postDocument: async (url, body) => {
       requests.push(url);
+      if (body.has("prejmenovat")) {
+        submits++;
+        assert.equal(saved.get("sgo-war-renames").at(-1).state, "pending", "journal is persisted before POST");
+        assert.equal(body.get("planeta"), "2");
+        assert.equal(body.get("prejmenovat"), "Přejmenovat");
+        currentName = body.get("novy");
+        if (failPost) throw new Error("Network response lost");
+        return {};
+      }
       assert.equal(body.get("text"), "mayk");
       assert.equal(body.get("utoky"), "0");
       return spyDoc({ date, filter: { utoky: "0" },
-        entries: [{ time }, { time, result: "nezjistil" }, { time, text: "neprobil obranu" },
+        entries: [...(newAttack ? [{ time: "23:59:59", text: `ZHN dopadly na planetu „${newAttackName}“` }] : []),
+          { time }, { time, result: "nezjistil" }, { time, text: "neprobil obranu" },
           { time, text: "ZHN dopadly na planetu „AAFM-1234-56“" },
           { time, text: "ZHN dopadly na planetu „LOST-1234-56“" }] });
     }
-  });
+  };
+  const war = W.mount(container, options);
   assert.equal(requests.length, 0, "mount does not search automatically");
   await war.refresh();
   assert.equal(requests.length, 4);
@@ -520,8 +528,9 @@ test("war refresh auto-detects owner, renders grouped rename actions and hands o
   assert.equal(attacks[2].children[1].textContent, "Enemy");
   assert.equal(attacks[2].children[2].textContent, "neprobil obranu");
   assert.match(container.querySelector("#sgo-war-attack-summary").textContent, /5 útokov/);
-  assert.equal(attacks[2].children[2].children.length, 0, "unnamed planet is never guessed");
-  assert.equal(attacks[3].children[2].children[0].textContent, "Premenovať…");
+  assert.equal(attacks[2].children[2].children.length, 2, "unnamed attack offers explicit planet selection");
+  assert.equal(attacks[2].children[2].children[0].value, "");
+  assert.equal(attacks[3].children[2].children[0].textContent, "Premenovať");
   assert.equal(attacks[4].children[2].children.length, 0, "lost planet is never guessed");
   const spyRows = container.querySelector("#sgo-war-spies").children;
   assert.equal(spyRows.length, 1, "two spy results on one planet produce one rename row");
@@ -529,30 +538,107 @@ test("war refresh auto-detects owner, renders grouped rename actions and hands o
   const action = spyRows[0].children.at(-1);
   const name = action.children[0].textContent.replace("Nový názov: ", "");
   assert.match(name, /^[A-Z]{4}-\d{4}-\d{2}$/);
-  await action.children[1].listeners.click();
-  assert.match(destination, /page=planety&s=sp$/);
-  assert.equal(drafts.size, 1);
-  const originalDraft = JSON.parse(drafts.get("sgo-war-rename-draft"));
+  const defenseRename = container.querySelector("#sgo-war-planets").children[0].children[5].children[1];
+  assert.equal(defenseRename.className, "sgo-war-rename-button");
+  await defenseRename.listeners.click();
+  assert.equal(submits, 1);
+  assert.equal(currentName, name);
+  const record = saved.get("sgo-war-renames")[0];
+  assert.equal(record.state, "done");
+  assert.equal(record.oldName, "AAFM-1234-56");
+  assert.equal(record.newName, name);
+  assert.equal(record.attackIds.length, 3, "all old attacks with the same planet are handled together");
   await attacks[3].children[2].children[0].listeners.click();
-  assert.equal(JSON.parse(drafts.get("sgo-war-rename-draft")).newName, originalDraft.newName, "ZHN uses the same rename suggestion");
-  assert.equal(saved.has("sgo-war-rename-draft"), false, "rename draft is not shared with other tabs");
+  assert.equal(submits, 1, "stale buttons cannot resubmit handled attacks");
   const otherPlayerDoc = {
     forms: [],
     querySelector: () => ({ getAttribute: () => "game.php?page=vesmir&hledat=Other" })
   };
   const otherPlayer = warContainer(otherPlayerDoc);
-  const otherWar = W.mount(otherPlayer, { session, storage, getDocument: async () => assert.fail("must not fetch") });
+  const otherWar = W.mount(otherPlayer, { storage, getDocument: async () => assert.fail("must not fetch") });
   await otherWar.ready;
   assert.equal(otherPlayer.querySelector("#sgo-war-attacks").children.length, 0);
   assert.match(otherPlayer.querySelector("#sgo-war-status").textContent, /inému hráčovi/);
-  const nativeDoc = renameDoc();
-  const next = warContainer(nativeDoc);
-  globalThis.location.href = destination;
-  const restored = W.mount(next, { session, storage, getDocument: async () => { throw new Error("must not fetch"); } });
+  const next = warContainer();
+  const count = requests.length;
+  const restored = W.mount(next, options);
   await restored.draftsReady;
   assert.equal(next.querySelector("#sgo-war-attacks").children.length, 5);
   assert.equal(next.querySelector("#sgo-war-spies").children.length, 1);
-  assert.equal(nativeDoc.form.get("planeta").value, "2");
-  assert.equal(nativeDoc.form.get("novy").value, name);
-  assert.equal(drafts.size, 0, "draft is consumed on arrival, not replayed after refresh");
+  assert.equal(requests.length, count, "navigation restores without requests");
+  assert.match(next.querySelector("#sgo-war-attacks").children[3].children[2].children[0].textContent, /Premenované/);
+  newAttack = true;
+  newAttackName = currentName;
+  await restored.refresh();
+  const newAction = next.querySelector("#sgo-war-attacks").children[0].children[2].children[0];
+  assert.equal(newAction.textContent, "Premenovať");
+  failPost = true;
+  await newAction.listeners.click();
+  assert.equal(submits, 2);
+  assert.match(next.querySelector("#sgo-war-status").textContent, /Výsledok je neistý/);
+  assert.equal(saved.get("sgo-war-renames").at(-1).state, "pending");
+  await newAction.listeners.click();
+  assert.equal(submits, 2, "uncertain result is never resubmitted");
+  await restored.refresh();
+  assert.equal(saved.get("sgo-war-renames").at(-1).state, "done", "refresh reconciles lost response by current name");
+  assert.match(next.querySelector("#sgo-war-attacks").children[0].children[2].children[0].textContent, /Premenované/);
+  assert.match(next.querySelector("#sgo-war-planets").children[0].children[5].children[1].textContent, /Premenované/);
+  failPost = false;
+  const unnamed = next.querySelector("#sgo-war-attacks").children[3].children[2];
+  assert.equal(unnamed.children[0].value, "");
+  await unnamed.children[1].listeners.click();
+  assert.equal(submits, 2, "no implicit target for unnamed attack");
+  unnamed.children[0].value = "2";
+  await unnamed.children[1].listeners.click();
+  assert.equal(submits, 3);
+  assert.equal(saved.get("sgo-war-renames").at(-1).attackIds.includes(saved.get("sgo-war-snapshot").attacks[3].id), true);
+});
+
+test("direct rename refuses stale ownership, wrong player, corrupt history and failed journal writes before POST", async t => {
+  const oldLocation = globalThis.location;
+  globalThis.location = { href: "https://game.test/game.php?page=vesmir" };
+  t.after(() => { if (oldLocation === undefined) delete globalThis.location; else globalThis.location = oldLocation; });
+  for (const scenario of ["stale", "owner", "history", "write", "rejected", "verification"]) {
+    const snapshot = {
+      ownerName: "mayk", army: { own: 10000, race: 20000, deficit: 0, target: 10000 },
+      planets: [{ id: "2", name: "AAFM-1234-56", cities: 20, maxCities: null, cityDeficit: null, sdi: 0, bs: 500 }],
+      spies: [], attacks: [], lastUpdated: Date.now(), newSpyIds: []
+    };
+    const saved = new Map([["sgo-war-snapshot", snapshot]]);
+    let posts = 0;
+    let nativeReads = 0;
+    const container = warContainer();
+    const war = W.mount(container, {
+      storage: {
+        get: async key => saved.get(key),
+        set: async (key, value) => {
+          if (scenario === "write" && key === "sgo-war-renames") throw new Error("Write failed");
+          saved.set(key, structuredClone(value));
+        }
+      },
+      getDocument: async url => {
+        if (new URL(url).searchParams.get("page") === "prehled") return {
+          querySelector: () => ({ getAttribute: () => `game.php?hledat=${scenario === "owner" ? "Other" : "mayk"}` })
+        };
+        nativeReads++;
+        if (scenario === "verification" && nativeReads === 2) throw new Error("Verification offline");
+        const doc = renameDoc("FIRST-OLD", scenario === "stale" ? "CHANGED-NAME" : "AAFM-1234-56");
+        doc.form.getAttribute = () => "game.php?page=planety&s=sp";
+        return doc;
+      },
+      postDocument: async () => { posts++; return {}; }
+    });
+    await war.ready;
+    const action = container.querySelector("#sgo-war-planets").children[0].children[5].children[1];
+    if (scenario === "history") saved.set("sgo-war-renames", [{}]);
+    await Promise.all([action.listeners.click(), action.listeners.click()]);
+    assert.equal(container.querySelector("#sgo-war-status").dataset.state, "error", scenario);
+    assert.equal(posts, ["rejected", "verification"].includes(scenario) ? 1 : 0, scenario);
+    if (scenario === "rejected") assert.equal(saved.get("sgo-war-renames")[0].state, "failed");
+    if (scenario === "verification") {
+      assert.equal(saved.get("sgo-war-renames")[0].state, "pending");
+      await action.listeners.click();
+      assert.equal(posts, 1, "cannot retry unknown result");
+    }
+  }
 });
