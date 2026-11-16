@@ -91,6 +91,9 @@ zobrazuju aj najcastejsie tazene cisla zo zachytenych zrebovani.
 #### Vojna
 
 Sekcia **Vojna** nacita udaje iba po rucnom kliknuti na **Obnovit**. Zobrazi
+posledny ulozeny prehlad aj po navigacii alebo refreshi stranky, bez poziadaviek
+do hry. Pri obnove zo storage je oznaceny cas nacitania a upozornenie na
+neaktualnost. Neuspesne obnovenie ponecha predchadzajuce data.
 vlastne univerzaly oproti cielu 10 000, prehlad planet s deficitom cielovej
 obrany a prijate spionazne zaznamy za poslednych 24 hodin. V rozbalovacej casti
 **Nastavenia obrany** sa ukladaju minima na planetu (predvolene 200 SDI a 500 BS).
@@ -112,6 +115,10 @@ Tlacidlo **Premenovat...** otvori **Planety > Sprava**, vyberie konkretnu
 planetu a predvyplni novy nazov. Zmenu potvrdis sam nativnym tlacidlom
 **Prejmenovat**. Navrh sa prenasa iba v aktualnej karte a plati 10 minut.
 Ak uz planetu nevlastnis alebo ma iny nazov, predvyplnenie sa odmietne.
+Rovnake **Premenovat...** je dostupne aj pri planetach pod cielom obrany
+a pri vsetkych prijatych utokoch (vratane ZHN), ktore uvadzaju presny nazov
+planety zo zoznamu vlastnych planet. Bez jednoznacnej zhody sa akcia neponuka.
+Kazdy zoznam pouziva rovnaky unikatny navrh nazvu pre danu planetu.
 
 Tlacidla **Predvyplnit** otvoria nativny formular hry a nastavia iba pocet
 univerzalov na presun z RA alebo deficit obrany na vybranej planete. Deficit

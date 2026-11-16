@@ -334,9 +334,11 @@ test("defense settings persist, recalculate existing planets and prefill only co
   globalThis.location = { href: "https://game.test/game.php?page=vesmir" };
   t.after(() => { if (oldLocation === undefined) delete globalThis.location; else globalThis.location = oldLocation; });
   const saved = new Map();
+  const renameDrafts = new Map();
   let writeFails = false;
   let destination;
   let requests = 0;
+  let networkFails = false;
   const storage = {
     get: async key => saved.get(key),
     set: async (key, value) => {
@@ -348,8 +350,14 @@ test("defense settings persist, recalculate existing planets and prefill only co
   const planet = row([cell(""), cell("AAFM-1234-56"), cell("20"), cell("200"), cell("500")],
     { textContent: "AAFM-1234-56", getAttribute: () => "game.php?page=planety&planeta=2" });
   const options = {
+    session: {
+      getItem: key => renameDrafts.get(key) || null,
+      setItem: (key, value) => renameDrafts.set(key, value),
+      removeItem: key => renameDrafts.delete(key)
+    },
     storage, navigate: async url => { destination = url; },
     getDocument: async url => {
+      if (networkFails) throw new Error("Offline");
       requests++;
       const params = new URL(url).searchParams;
       if (params.get("page") === "prehled") return {
@@ -382,18 +390,33 @@ test("defense settings persist, recalculate existing planets and prefill only co
   assert.deepEqual(saved.get("sgo-war-defense-settings"), { sdi: 250, bs: 600 });
   const defenseRow = container.querySelector("#sgo-war-planets").children[0];
   assert.equal(defenseRow.children[4].textContent, "SDI 50 · BS 100");
+  assert.equal(defenseRow.children[5].children[1].textContent, "Premenovať…");
   await defenseRow.children[5].children[0].listeners.click();
   assert.match(destination, /page=planety$/);
   assert.deepEqual(
     { sdi: saved.get("sgo-war-planet-draft").sdi, bs: saved.get("sgo-war-planet-draft").bs },
     { sdi: 50, bs: 100 }
   );
+  await defenseRow.children[5].children[1].listeners.click();
+  assert.match(destination, /page=planety&s=sp$/);
+  const defenseRename = JSON.parse(renameDrafts.get("sgo-war-rename-draft"));
+  assert.equal(defenseRename.planetId, "2");
+  assert.equal(defenseRename.oldName, "AAFM-1234-56");
+  assert.match(defenseRename.newName, /^[A-Z]{4}-\d{4}-\d{2}$/);
   const reloaded = warContainer();
   const next = W.mount(reloaded, options);
-  await next.refresh();
+  await next.ready;
+  assert.equal(requests, initialRequests, "navigation restores the complete snapshot without game requests");
+  assert.match(reloaded.querySelector("#sgo-war-status").textContent, /Uložený prehľad/);
   assert.equal(reloaded.querySelector("#sgo-war-sdi-target").value, "250");
   assert.equal(reloaded.querySelector("#sgo-war-bs-target").value, "600");
   assert.equal(reloaded.querySelector("#sgo-war-defense-summary").textContent, "1 planét · 1 pod cieľom");
+  networkFails = true;
+  await next.refresh();
+  assert.match(reloaded.querySelector("#sgo-war-status").textContent, /Offline/);
+  assert.equal(reloaded.querySelector("#sgo-war-defense-summary").textContent, "1 planét · 1 pod cieľom");
+  assert.equal(saved.get("sgo-war-snapshot").planets.length, 1, "failed refresh preserves persisted snapshot");
+  networkFails = false;
 
   for (const invalid of ["", "-1", "1.5", "NaN", "9007199254740992"]) {
     input("sdi").value = invalid;
@@ -411,6 +434,23 @@ test("defense settings persist, recalculate existing planets and prefill only co
   await save();
   assert.equal(summary.textContent, "1 planét · 0 pod cieľom");
   assert.deepEqual(saved.get("sgo-war-defense-settings"), { sdi: 0, bs: 0 });
+});
+
+test("invalid cached overview is reported and never triggers an automatic refresh", async t => {
+  const oldLocation = globalThis.location;
+  globalThis.location = { href: "https://game.test/game.php?page=vesmir" };
+  t.after(() => { if (oldLocation === undefined) delete globalThis.location; else globalThis.location = oldLocation; });
+  const messages = [];
+  const container = warContainer();
+  const war = W.mount(container, {
+    storage: { get: async key => key === "sgo-war-snapshot" ? { ownerName: "mayk" } : null },
+    getDocument: async () => assert.fail("cache restore must not fetch"),
+    log: message => messages.push(message)
+  });
+  await war.ready;
+  assert.equal(container.querySelector("#sgo-war-status").dataset.state, "error");
+  assert.match(messages[0], /neplatný/);
+  assert.equal(container.querySelector("#sgo-war-attacks").children.length, 0);
 });
 
 test("failed defense settings restore prevents refresh with misleading default targets", async t => {
@@ -467,17 +507,22 @@ test("war refresh auto-detects owner, renders grouped rename actions and hands o
       assert.equal(body.get("text"), "mayk");
       assert.equal(body.get("utoky"), "0");
       return spyDoc({ date, filter: { utoky: "0" },
-        entries: [{ time }, { time, result: "nezjistil" }, { time, text: "neprobil obranu" }] });
+        entries: [{ time }, { time, result: "nezjistil" }, { time, text: "neprobil obranu" },
+          { time, text: "ZHN dopadly na planetu „AAFM-1234-56“" },
+          { time, text: "ZHN dopadly na planetu „LOST-1234-56“" }] });
     }
   });
   assert.equal(requests.length, 0, "mount does not search automatically");
   await war.refresh();
   assert.equal(requests.length, 4);
   const attacks = container.querySelector("#sgo-war-attacks").children;
-  assert.equal(attacks.length, 3);
+  assert.equal(attacks.length, 5);
   assert.equal(attacks[2].children[1].textContent, "Enemy");
   assert.equal(attacks[2].children[2].textContent, "neprobil obranu");
-  assert.match(container.querySelector("#sgo-war-attack-summary").textContent, /3 útokov/);
+  assert.match(container.querySelector("#sgo-war-attack-summary").textContent, /5 útokov/);
+  assert.equal(attacks[2].children[2].children.length, 0, "unnamed planet is never guessed");
+  assert.equal(attacks[3].children[2].children[0].textContent, "Premenovať…");
+  assert.equal(attacks[4].children[2].children.length, 0, "lost planet is never guessed");
   const spyRows = container.querySelector("#sgo-war-spies").children;
   assert.equal(spyRows.length, 1, "two spy results on one planet produce one rename row");
   assert.match(container.querySelector("#sgo-war-spy-summary").textContent, /mayk · 2 špionáží/);
@@ -487,12 +532,26 @@ test("war refresh auto-detects owner, renders grouped rename actions and hands o
   await action.children[1].listeners.click();
   assert.match(destination, /page=planety&s=sp$/);
   assert.equal(drafts.size, 1);
+  const originalDraft = JSON.parse(drafts.get("sgo-war-rename-draft"));
+  await attacks[3].children[2].children[0].listeners.click();
+  assert.equal(JSON.parse(drafts.get("sgo-war-rename-draft")).newName, originalDraft.newName, "ZHN uses the same rename suggestion");
   assert.equal(saved.has("sgo-war-rename-draft"), false, "rename draft is not shared with other tabs");
+  const otherPlayerDoc = {
+    forms: [],
+    querySelector: () => ({ getAttribute: () => "game.php?page=vesmir&hledat=Other" })
+  };
+  const otherPlayer = warContainer(otherPlayerDoc);
+  const otherWar = W.mount(otherPlayer, { session, storage, getDocument: async () => assert.fail("must not fetch") });
+  await otherWar.ready;
+  assert.equal(otherPlayer.querySelector("#sgo-war-attacks").children.length, 0);
+  assert.match(otherPlayer.querySelector("#sgo-war-status").textContent, /inému hráčovi/);
   const nativeDoc = renameDoc();
   const next = warContainer(nativeDoc);
   globalThis.location.href = destination;
-  W.mount(next, { session, storage, getDocument: async () => { throw new Error("must not fetch"); } });
-  await Promise.resolve();
+  const restored = W.mount(next, { session, storage, getDocument: async () => { throw new Error("must not fetch"); } });
+  await restored.draftsReady;
+  assert.equal(next.querySelector("#sgo-war-attacks").children.length, 5);
+  assert.equal(next.querySelector("#sgo-war-spies").children.length, 1);
   assert.equal(nativeDoc.form.get("planeta").value, "2");
   assert.equal(nativeDoc.form.get("novy").value, name);
   assert.equal(drafts.size, 0, "draft is consumed on arrival, not replayed after refresh");

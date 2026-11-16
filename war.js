@@ -5,6 +5,7 @@
   const DEFAULT_DEFENSE_TARGETS = Object.freeze({ sdi: 200, bs: 500 });
   const DEFENSE_SETTINGS_KEY = "sgo-war-defense-settings";
   const SPY_KEY = "sgo-war-spies";
+  const SNAPSHOT_KEY = "sgo-war-snapshot";
   const ARMY_DRAFT_KEY = "sgo-war-army-draft";
   const PLANET_DRAFT_KEY = "sgo-war-planet-draft";
   const RENAME_DRAFT_KEY = "sgo-war-rename-draft";
@@ -365,6 +366,17 @@
       return element;
     }
 
+    function renameButton(planet) {
+      if (!renameSuggestions.has(planet.id)) {
+        renameSuggestions.set(planet.id, randomPlanetName([
+          ...planets.map(item => item.name), ...renameSuggestions.values()
+        ]));
+      }
+      const suggestion = renameSuggestions.get(planet.id);
+      return button("Premenovať…", `${planet.name} → ${suggestion}. Predvyplní Správu planét; potvrdenie zostáva na tebe.`,
+        () => prepareRename(planet, suggestion));
+    }
+
     function render() {
       const armyTarget = $("#sgo-war-army");
       armyTarget.replaceChildren();
@@ -417,6 +429,7 @@
             planet.bsDeficit > 0 ? `${planet.bsDeficit} BS` : ""
           ].filter(Boolean).join(", ");
           actionCell.append(button("Predvyplniť", `Predvyplní ${needs} pre ${planet.name}; nič neodošle.`, () => preparePlanet(planet)));
+          actionCell.append(renameButton(planet));
           row.append(actionCell);
           body.append(row);
         }
@@ -457,16 +470,11 @@
         const action = container.ownerDocument.createElement("div");
         action.className = "sgo-war-rename";
         if (group.planet) {
-          if (!renameSuggestions.has(group.planet.id)) {
-            renameSuggestions.set(group.planet.id, randomPlanetName([
-              ...planets.map(planet => planet.name), ...renameSuggestions.values()
-            ]));
-          }
+          const rename = renameButton(group.planet);
           const suggestion = renameSuggestions.get(group.planet.id);
           const label = container.ownerDocument.createElement("span");
           label.textContent = `Nový názov: ${suggestion}`;
-          action.append(label, button("Premenovať…", "Otvorí Správu planét a predvyplní názov. Potvrdíš ho tlačidlom Přejmenovat v hre.",
-            () => prepareRename(group.planet, suggestion)));
+          action.append(label, rename);
         } else {
           action.textContent = "Planéta už nie je pod týmto názvom v tvojom zozname (premenovaná alebo nevlastnená).";
         }
@@ -485,6 +493,8 @@
           cell.textContent = value;
           row.append(cell);
         }
+        const planet = planets.find(item => item.name === attack.planet);
+        if (planet) row.children[2].append(renameButton(planet));
         attackBody.append(row);
       }
       if (lastUpdated && !attacks.length) {
@@ -513,31 +523,39 @@
       status("Načítavam armádu, planéty a denník útokov…");
       try {
         if (!await ready) throw new Error("Nastavenia obrany sa nepodarilo načítať; obnov stránku.");
-        ownerName = readOwner(await getDocument(gameUrl({ page: "prehled" })));
+        const nextOwner = readOwner(await getDocument(gameUrl({ page: "prehled" })));
         const armyDoc = await getDocument(gameUrl({ page: "jednotky", akce: "armada" }));
         const nextArmy = readArmy(armyDoc);
         const planetDoc = await getDocument(gameUrl({ page: "planety" }));
         const nextPlanets = readPlanets(planetDoc, undefined, targets);
-        const nextAttacks = await loadAttacks(gameUrl({ page: "jednotky" }), ownerName, postDocument);
+        const nextAttacks = await loadAttacks(gameUrl({ page: "jednotky" }), nextOwner, postDocument);
         const current = recentSpies(nextAttacks.filter(entry => /\binformace\b/i.test(entry.result)));
         const previous = await storage.get(SPY_KEY) || [];
         const cutoff = Date.now() - 24 * 60 * 60 * 1000;
         const validPrevious = recentSpies(previous, Date.now()).filter(entry =>
-          C.normalize(entry.defender.replace(/\s*\([^)]*\)\s*$/, "")) === C.normalize(ownerName)
+          C.normalize(entry.defender.replace(/\s*\([^)]*\)\s*$/, "")) === C.normalize(nextOwner)
         );
         const known = new Set(validPrevious.map(entry => entry.id));
-        newSpyIds = new Set(current.filter(entry => entry.time >= cutoff && !known.has(entry.id)).map(entry => entry.id));
-        spies = recentSpies([...validPrevious, ...current], Date.now());
+        const nextSpyIds = new Set(current.filter(entry => entry.time >= cutoff && !known.has(entry.id)).map(entry => entry.id));
+        const nextSpies = recentSpies([...validPrevious, ...current], Date.now());
         for (const entry of current) {
-          if (newSpyIds.has(entry.id)) {
+          if (nextSpyIds.has(entry.id)) {
             log(`Vojna: nová špionáž od ${entry.attacker} na planétu ${entry.planet}: ${entry.result}`);
           }
         }
-        await storage.set(SPY_KEY, spies);
+        await storage.set(SPY_KEY, nextSpies);
+        const updated = Date.now();
+        await storage.set(SNAPSHOT_KEY, {
+          ownerName: nextOwner, army: nextArmy, planets: nextPlanets, spies: nextSpies,
+          attacks: nextAttacks, lastUpdated: updated, newSpyIds: [...nextSpyIds]
+        });
+        ownerName = nextOwner;
+        spies = nextSpies;
+        newSpyIds = nextSpyIds;
         army = nextArmy;
         planets = nextPlanets;
         attacks = nextAttacks;
-        lastUpdated = Date.now();
+        lastUpdated = updated;
         render();
         const fresh = newSpyIds.size;
         status(`Obnovené ${new Date(lastUpdated).toLocaleTimeString("sk-SK")}${fresh ? ` · ${fresh} nová špionáž` : ""}.`);
@@ -690,7 +708,51 @@
       }
     }
 
-    const ready = restoreDefenseSettings();
+    async function restoreSnapshot() {
+      try {
+        const snapshot = await storage.get(SNAPSHOT_KEY);
+        if (!snapshot) return;
+        const integer = value => Number.isSafeInteger(value) && value >= 0;
+        const reports = items => Array.isArray(items) && items.every(item => item &&
+          typeof item.id === "string" && Number.isFinite(item.time) &&
+          ["attacker", "defender", "planet", "result"].every(key => typeof item[key] === "string"));
+        if (typeof snapshot.ownerName !== "string" || !snapshot.ownerName ||
+          !Number.isFinite(snapshot.lastUpdated) || !snapshot.army ||
+          !["own", "race", "deficit", "target"].every(key => integer(snapshot.army[key])) ||
+          !Array.isArray(snapshot.planets) || !snapshot.planets.length ||
+          !snapshot.planets.every(planet => planet && typeof planet.id === "string" && typeof planet.name === "string" &&
+            ["cities", "sdi", "bs"].every(key => integer(planet[key])) &&
+            (planet.maxCities === null || integer(planet.maxCities)) &&
+            (planet.cityDeficit === null || integer(planet.cityDeficit))) ||
+          !reports(snapshot.spies) || !reports(snapshot.attacks) ||
+          !Array.isArray(snapshot.newSpyIds) || !snapshot.newSpyIds.every(id => typeof id === "string")) {
+          throw new Error("Uložený prehľad Vojny je neplatný; načítaj ho tlačidlom Obnoviť.");
+        }
+        if (container.ownerDocument.querySelector?.('#os a[href*="hledat="]') &&
+          C.normalize(readOwner(container.ownerDocument)) !== C.normalize(snapshot.ownerName)) {
+          status("Uložený prehľad patrí inému hráčovi; klikni na Obnoviť.", true);
+          return;
+        }
+        ownerName = snapshot.ownerName;
+        army = snapshot.army;
+        planets = snapshot.planets.map(planet => defenseDeficits(planet, targets));
+        spies = snapshot.spies;
+        attacks = snapshot.attacks;
+        newSpyIds = new Set(snapshot.newSpyIds);
+        lastUpdated = snapshot.lastUpdated;
+        render();
+        status(`Uložený prehľad z ${new Date(lastUpdated).toLocaleString("sk-SK")} · údaje môžu byť neaktuálne; obnovenie je ručné.`);
+      } catch (error) {
+        status(`Načítanie uloženého prehľadu zlyhalo: ${error.message}`, true);
+        log(`Vojna: načítanie uloženého prehľadu zlyhalo: ${error.message}`, "error");
+      }
+    }
+
+    const ready = (async () => {
+      const settingsReady = await restoreDefenseSettings();
+      if (settingsReady) await restoreSnapshot();
+      return settingsReady;
+    })();
     $("#sgo-war-defense-save").addEventListener("click", async () => {
       if (savingSettings) return;
       savingSettings = true;
@@ -718,8 +780,8 @@
     });
     $("#sgo-war-refresh").addEventListener("click", refresh);
     render();
-    applyPendingDrafts();
-    return { refresh, render, ready };
+    const draftsReady = ready.then(applyPendingDrafts);
+    return { refresh, render, ready, draftsReady };
   }
 
   const api = { ARMY_TARGET, DEFAULT_DEFENSE_TARGETS, defenseTargets, readOwner, attackFilter, spyFilter, loadAttacks, loadSpies, randomPlanetName, spiedPlanets,
