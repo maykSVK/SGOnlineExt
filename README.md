@@ -222,6 +222,11 @@ na jej zastavenie pouzi **Zastavit** v podmenu utokov.
   a cielovy pocet aj potrebne rusenie vyroben. Oznacene karty su zvyraznene.
   Pod zoznamom je sucet parkov a rusenych vyroben pre cely vyber a hlavna
   akcia hromadnej stavby; podrobnosti su v rozbalovaci **Ako to funguje?**.
+  Pri oznacenych planetach sa zobrazi aj cena vsetkych parkov podla hernej
+  stavebnej karty, dostupny naqiton a zvysok alebo chybajuca suma.
+  **Obnovit naq** aktualizuje cenu a zostatok bez celeho prepoctu planet.
+  Rozpocet uvadza cas nacitania, neodpocitava pripadnu nahradu za buranie
+  vyroben a je informativny; pri neprecitatelnych udajoch nehlasi dostatok.
   Chyby citania
   su vypisane samostatne a zalogovane, nie vydavane za splneny ciel.
 - Checkboxy vyberu planetu, **Oznacit vsetko** vyberie vsetky zobrazene

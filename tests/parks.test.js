@@ -2,10 +2,11 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const K = require("../parks.js");
 
-function buildings({ free = 500, parks = 20, factories = 100, effect = "+0.1 spokojenost" } = {}) {
+function buildings({ free = 500, parks = 20, factories = 100, effect = "+0.1 spokojenost", price = "30 624.0", balance = "1 101 348 705" } = {}) {
   const fields = Object.fromEntries(["planeta", "mest", "vyroben", "sdi", "bs", "parku", "laboratori", "kasaren", "verze", "postavit"]
     .map(name => [name, { value: "", dispatchEvent() {}, closest: () => ({ textContent:
-      name === "parku" ? effect : name === "mest" ? "+9 000 000 lidí" : "-36 000 lidí" }) }]));
+      name === "parku" ? effect : name === "mest" ? "+9 000 000 lidí" : "-36 000 lidí",
+      querySelector: () => ({ textContent: price }) }) }]));
   fields.planeta.value = "1";
   fields.planeta.options = [{ value: "1", textContent: "Alpha" }, { value: "2", textContent: "Beta" }];
   fields.verze.options = [{ value: "0" }, { value: "1" }];
@@ -19,6 +20,7 @@ function buildings({ free = 500, parks = 20, factories = 100, effect = "+0.1 spo
   const cell = textContent => ({ textContent });
   return {
     fields, forms: [form], defaultView: { Event },
+    querySelector: selector => selector.includes("balance") ? { textContent: balance } : fields.parku,
     getElementById: () => ({ cells: [
       { querySelector: () => ({ getAttribute: () => "?typ=21" }) }, cell(""),
       cell("100"), cell(String(factories)), cell("0"), cell("0"), cell(String(parks)), cell("0"), cell("0"),
@@ -83,6 +85,18 @@ test("park minimum meets the target with no redundant park, including decimal ro
   }
   assert.throws(() => K.calculate(NaN, 20, 180), /Neplatná/);
   assert.throws(() => K.calculate(180, -1, 180), /Neplatná/);
+});
+
+test("park budget reads exact price and balance, including decimals and exact affordability", () => {
+  const budget = K.readBudget(buildings());
+  assert.equal(budget.price, 3062400);
+  assert.equal(budget.balance, 110134870500);
+  assert.deepEqual(K.budgetFor({ price: 1234, balance: 3702 }, 3), { cost: 3702, remaining: 0 });
+  assert.equal(K.budgetFor({ price: 1234, balance: 3701 }, 3).remaining, -1);
+  assert.equal(K.readBudget(buildings({ price: "30\u00a0624,50" })).price, 3062450);
+  assert.throws(() => K.readBudget(buildings({ price: "???" })), /cenu parku/);
+  assert.throws(() => K.readBudget(buildings({ balance: "" })), /zostatok/);
+  assert.throws(() => K.budgetFor({ price: Number.MAX_SAFE_INTEGER }, 2), /rozsahu/);
 });
 
 test("readers verify park effect, selected planet, exact name, current parks and happiness", () => {
@@ -327,6 +341,7 @@ test("bulk builds only selected deficits, frees the exact factory shortfall and 
   await f.ui.querySelector("#sgo-parks-all").listeners.click();
   assert.equal(f.ui.querySelector("#sgo-parks-build").textContent, "Postaviť označené (2)");
   assert.equal(f.ui.querySelector("#sgo-parks-totals").textContent, "+260 parkov · −100 výroben");
+  assert.match(f.ui.querySelector("#sgo-parks-budget").textContent, /Stačí na všetky/);
   assert.equal(f.ui.querySelector("#sgo-parks-selected").textContent, "Vybrané 2");
   const card = f.ui.querySelector("#sgo-parks-list").children[0];
   assert.equal(card["data-selected"], "true");
@@ -462,6 +477,53 @@ test("legacy snapshots show one actionable notice instead of long disabled row b
   await next.load();
   assert.equal(f.ui.querySelector("#sgo-parks-legacy").hidden, true);
   assert.equal(f.ui.querySelector("#sgo-parks-all").disabled, false);
+});
+
+test("selection budget updates on checkbox changes, refresh and restored snapshots without scanning", async t => {
+  locationFor(t);
+  const f = bulkFixture();
+  await f.module.load();
+  f.ui.querySelector("#sgo-parks-all").listeners.click();
+  assert.equal(f.saved.get("sgo-parks-snapshot").budget.price, 3062400);
+  const next = K.mount(f.ui, {
+    ...f.options,
+    getDocument: async () => buildings({ balance: "1 000" })
+  });
+  await next.draftsReady;
+  f.ui.querySelector("#sgo-parks-all").listeners.click();
+  assert.match(f.ui.querySelector("#sgo-parks-budget").textContent, /Stačí na všetky/);
+  await f.ui.querySelector("#sgo-parks-budget-refresh").listeners.click();
+  assert.match(f.ui.querySelector("#sgo-parks-budget").textContent, /Chýba/);
+  assert.equal(f.ui.querySelector("#sgo-parks-budget").className, "sgo-hint sgo-error");
+  const card = f.ui.querySelector("#sgo-parks-list").children[0];
+  card.children[0].checked = false;
+  card.children[0].listeners.change();
+  assert.match(f.ui.querySelector("#sgo-parks-budget").textContent.replace(/\s/g, ""), /3981120/);
+  f.ui.querySelector("#sgo-parks-none").listeners.click();
+  assert.equal(f.ui.querySelector("#sgo-parks-budget").hidden, true);
+});
+
+test("missing or failed budget refresh never reports enough naq from stale data", async t => {
+  locationFor(t);
+  const f = bulkFixture();
+  await f.module.load();
+  let fails = false;
+  const next = K.mount(f.ui, {
+    ...f.options,
+    getDocument: async () => {
+      if (fails) throw new Error("Offline");
+      return buildings({ price: "???" });
+    }
+  });
+  await next.draftsReady;
+  f.ui.querySelector("#sgo-parks-all").listeners.click();
+  await f.ui.querySelector("#sgo-parks-budget-refresh").listeners.click();
+  assert.match(f.ui.querySelector("#sgo-parks-budget").textContent, /cenu parku/);
+  assert.doesNotMatch(f.ui.querySelector("#sgo-parks-budget").textContent, /Stačí/);
+  fails = true;
+  await f.ui.querySelector("#sgo-parks-budget-refresh").listeners.click();
+  assert.match(f.ui.querySelector("#sgo-parks-budget").textContent, /Offline/);
+  assert.equal(f.ui.querySelector("#sgo-parks-build").disabled, false, "budget remains informational");
 });
 
 test("bulk recalculates fresh, refuses insufficient factories, failed storage and foreign actions", async t => {

@@ -188,6 +188,9 @@
 #sgo-addon .sgo-parks-card button { padding: 6px 7px; background: transparent; font-size: 10px; }
 #sgo-addon .sgo-parks-checkout { margin-top: 12px; border-top: 1px solid var(--sgo-line); padding-top: 10px; }
 #sgo-addon #sgo-parks-totals { margin: 0 0 8px; font-size: 12px; font-weight: 600; color: #b6c8df; }
+#sgo-addon #sgo-parks-budget { margin: 6px 0; font-size: 11px; }
+#sgo-addon #sgo-parks-budget.sgo-parks-affordable { color: var(--sgo-accent); }
+#sgo-addon #sgo-parks-budget-refresh { margin-bottom: 8px; padding: 4px 7px; font-size: 10px; }
 #sgo-addon #sgo-parks-build { width: 100%; background: var(--sgo-accent); border-color: var(--sgo-accent); color: #102a29; font-size: 12px; padding: 9px 12px; }
 #sgo-addon #sgo-parks-build:hover:not(:disabled) { background: #8aeed8; }
 #sgo-addon .sgo-parks-checkout small { display: block; margin-top: 6px; color: var(--sgo-muted); font-size: 10px; text-align: center; }

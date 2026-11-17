@@ -7,6 +7,25 @@
   const SNAPSHOT_KEY = "sgo-parks-snapshot";
   const PENDING_KEY = "sgo-parks-pending";
 
+  function readBudget(doc) {
+    const price = doc.querySelector('[name="parku"]')?.closest(".inf")?.querySelector("abbr")?.textContent;
+    const balance = doc.querySelector('.quick-build-summary__balance abbr')?.textContent;
+    const money = (text, label) => {
+      const clean = C.clean(text).replace(/\s/g, "").replace(",", ".");
+      if (!/^\d+(?:\.\d{1,2})?$/.test(clean)) throw new Error(`Nepodarilo sa prečítať ${label}.`);
+      const cents = Math.round(Number(clean) * 100);
+      if (!Number.isSafeInteger(cents)) throw new Error(`Neplatná hodnota: ${label}.`);
+      return cents;
+    };
+    return { price: money(price, "cenu parku"), balance: money(balance, "zostatok naquitonu"), time: Date.now() };
+  }
+
+  function budgetFor(budget, parks) {
+    const cost = budget.price * parks;
+    if (!Number.isSafeInteger(cost)) throw new Error("Cena označených parkov je mimo podporovaného rozsahu.");
+    return { cost, remaining: budget.balance - cost };
+  }
+
   function construction(report, planet = report) {
     const demolish = Math.max(0, report.missing - planet.freeSlots);
     if (!Number.isSafeInteger(planet.factories) || demolish > planet.factories) {
@@ -113,7 +132,9 @@
       <p id="sgo-parks-legacy" class="sgo-hint" hidden>Starší prepočet neobsahuje výrobne. Obnov údaje pre výber a hromadnú stavbu.</p>
       <div class="sgo-parks-selection"><button type="button" id="sgo-parks-all">Označiť všetko</button><button type="button" id="sgo-parks-none">Zrušiť výber</button><span id="sgo-parks-selected">Vybrané 0</span></div>
       <div class="sgo-parks-scroll" tabindex="0" role="region" aria-label="Parky na planétach"><div id="sgo-parks-list" role="list"></div><p id="sgo-parks-empty" class="sgo-hint">Načítaj planéty tlačidlom Obnoviť údaje.</p></div>
-      <div class="sgo-parks-checkout"><p id="sgo-parks-totals">Označ planéty, ktoré chceš upraviť.</p><button type="button" id="sgo-parks-build" disabled>Postaviť označené (0)</button>
+      <div class="sgo-parks-checkout"><p id="sgo-parks-totals">Označ planéty, ktoré chceš upraviť.</p>
+      <p id="sgo-parks-budget" class="sgo-hint" role="status"></p><button type="button" id="sgo-parks-budget-refresh">Obnoviť naq</button>
+      <button type="button" id="sgo-parks-build" disabled>Postaviť označené (0)</button>
       <small>Ihneď odošle stavby aj potrebné rušenie výroben.</small></div>`;
     const $ = selector => container.querySelector(selector);
     let target = 180;
@@ -121,6 +142,8 @@
     const prefilled = new Set();
     const selected = new Set();
     let updatedAt = null;
+    let budget = null;
+    let budgetError = "";
     let working = false;
     let stopped = false;
     const message = (text, error = false) => {
@@ -133,13 +156,20 @@
       return address.href;
     };
     const controls = () => {
-      for (const id of ["load", "save", "target", "all", "none", "build"]) $(`#sgo-parks-${id}`).disabled = working;
+      for (const id of ["load", "save", "target", "all", "none", "build", "budget-refresh"]) $(`#sgo-parks-${id}`).disabled = working;
       $("#sgo-parks-stop").disabled = !working;
       $("#sgo-parks-stop").hidden = !working;
     };
     const detail = (planet, goal) => postDocument(url({ page: "planety", s: "detail" }),
       new URLSearchParams({ planeta: planet.id, vyberpl: "Vyber planetu" })).then(doc => readDetail(doc, planet, goal));
-    const persist = () => storage.set(SNAPSHOT_KEY, { rows, updatedAt });
+    const persist = () => storage.set(SNAPSHOT_KEY, { rows, updatedAt, budget });
+    const updateBudget = doc => {
+      try { budget = readBudget(doc); budgetError = ""; }
+      catch (error) {
+        budget = null; budgetError = error.message;
+        log(`Parky: ${error.message}`, "error");
+      }
+    };
     const isBuildingPage = () => {
       const params = new URL(root.location.href).searchParams;
       return params.get("page") === "planety" && !params.has("s");
@@ -160,6 +190,26 @@
         : "Označ planéty, ktoré chceš upraviť.";
       $("#sgo-parks-all").disabled = working || !selectable().length;
       $("#sgo-parks-none").disabled = working || !reports.length;
+      const budgetElement = $("#sgo-parks-budget");
+      budgetElement.hidden = !reports.length;
+      budgetElement.className = "sgo-hint";
+      if (reports.length) {
+        if (!budget) {
+          budgetElement.textContent = `${budgetError || "Cena a zostatok nie sú načítané."} Klikni na Obnoviť naq.`;
+        } else {
+          try {
+            const { cost, remaining } = budgetFor(budget, parks);
+            const format = cents => (cents / 100).toLocaleString("sk-SK", { maximumFractionDigits: 2 });
+            budgetElement.textContent = `Cena parkov: ${format(cost)} naq · máš ${format(budget.balance)} naq. ` +
+              (remaining >= 0 ? `Stačí na všetky · zostane ${format(remaining)} naq.` : `Chýba ${format(-remaining)} naq.`) +
+              ` Stav k ${new Date(budget.time).toLocaleTimeString("sk-SK")}; bez prípadnej náhrady za búranie.`;
+            budgetElement.className = remaining >= 0 ? "sgo-hint sgo-parks-affordable" : "sgo-hint sgo-error";
+          } catch (error) {
+            budgetElement.textContent = error.message;
+            budgetElement.className = "sgo-hint sgo-error";
+          }
+        }
+      }
     };
 
     function render() {
@@ -256,6 +306,7 @@
             if (!canEdit()) throw new Error("Najprv dokonči prebiehajúcu operáciu.");
             const address = url({ page: "planety" });
             const doc = await getDocument(address);
+            updateBudget(doc);
             const planets = readPlanets(doc);
             const pending = await storage.get(PENDING_KEY);
             if (pending) {
@@ -298,7 +349,9 @@
             message(`${report.name}: staviam +${report.missing} parkov / ruším ${plan.demolish} výroben.`);
             log(`Parky ${report.name}: odosielam +${report.missing} parkov / ${-plan.demolish} výroben.`);
             await postDocument(action.href, body);
-            const actual = readPlanets(await getDocument(address)).find(item => item.id === report.id && item.name === report.name);
+            const verifiedDoc = await getDocument(address);
+            updateBudget(verifiedDoc);
+            const actual = readPlanets(verifiedDoc).find(item => item.id === report.id && item.name === report.name);
             if (!actual || actual.parks !== plan.parks || actual.factories !== plan.factories) {
               if (actual?.parks === planet.parks && actual.factories === planet.factories) {
                 await storage.set(PENDING_KEY, null);
@@ -356,7 +409,9 @@
       try {
         if (!await ready) throw new Error("Nastavenia sa nepodarilo načítať; obnov stránku.");
         if (!canEdit()) throw new Error("Najprv dokonči prebiehajúcu operáciu.");
-        const planets = readPlanets(await getDocument(url({ page: "planety" })));
+        const doc = await getDocument(url({ page: "planety" }));
+        const planets = readPlanets(doc);
+        updateBudget(doc);
         rows = [];
         prefilled.clear();
         let failures = 0;
@@ -403,6 +458,12 @@
             })) throw new Error("Uložený prepočet parkov je poškodený; spusti nový prepočet.");
           rows = snapshot.rows;
           updatedAt = snapshot.updatedAt;
+          if (snapshot.budget != null) {
+            if (!["price", "balance", "time"].every(key => Number.isSafeInteger(snapshot.budget[key]) && snapshot.budget[key] >= 0)) {
+              budgetError = "Uložená cena alebo zostatok sú neplatné.";
+              log(`Parky: ${budgetError}`, "error");
+            } else budget = snapshot.budget;
+          }
           render();
           message(`Uložené ${new Date(updatedAt).toLocaleString()} · údaje môžu byť neaktuálne.`);
         }
@@ -429,6 +490,18 @@
       } finally { working = false; controls(); render(); }
     });
     $("#sgo-parks-load").addEventListener("click", load);
+    $("#sgo-parks-budget-refresh").addEventListener("click", async () => {
+      await draftsReady;
+      if (working) return;
+      working = true; controls();
+      try {
+        updateBudget(await getDocument(url({ page: "planety" })));
+        if (updatedAt != null) await persist();
+      } catch (error) {
+        budget = null; budgetError = error.message;
+        log(`Parky: ${error.message}`, "error");
+      } finally { working = false; controls(); selectionLabel(); }
+    });
     $("#sgo-parks-all").addEventListener("click", () => {
       if (working) return;
       for (const report of selectable()) selected.add(report.id);
@@ -471,7 +544,7 @@
     });
     return { load, ready, draftsReady, buildSelected, get isWorking() { return working; } };
   }
-  const api = { targetValue, calculate, construction, readPlanets, readDetail, fill, mount };
+  const api = { targetValue, calculate, construction, readBudget, budgetFor, readPlanets, readDetail, fill, mount };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.SGOParks = api;
 })(globalThis);
