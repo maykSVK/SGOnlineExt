@@ -217,6 +217,11 @@ na jej zastavenie pouzi **Zastavit** v podmenu utokov.
   POST s `vyberpl` iba vybera detail, nestavia. Zobrazuje priebeh, ciastkove
   vysledky a tlacidlo **Zastavit**. Chyba jednej planety je oznacena a zalogovana;
   ostatne pokracuju. Otvorenie sekcie samo nespusta sietove nacitavanie.
+  Obnova ihned ukazuje nacitavanie zoznamu a potom priebeh X/Y s nazvom
+  planety a ukazovatelom priebehu. Citanie stavieb a detailov ma limit
+  30 sekund; neodpovedajuci server zastavi prepocty s viditelnou chybou
+  a umozni novu obnovu. Limit sa nevztahuje na odoslanie samotnej stavby.
+  **Zastavit** pocas citania pocka na aktualnu poziadavku a nespusti dalsiu.
 - Kompaktne karty zobrazuju iba planety pod ulozenym cielom spokojnosti.
   Vyber je vlavo pri nazve, vedla spokojnosti je prirastok parkov, aktualny
   a cielovy pocet aj potrebne rusenie vyroben. Oznacene karty su zvyraznene.

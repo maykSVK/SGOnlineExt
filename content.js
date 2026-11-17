@@ -599,7 +599,7 @@
   population = globalThis.SGOPopulation.mount($("#sgo-population-feature"), { getDocument, log, canEdit: () => !run?.active && !busy && !parks?.isWorking, revealGame });
   $("#sgo-open-parks").addEventListener("click", () => showFeature("parks"));
   parks = globalThis.SGOParks.mount($("#sgo-parks-feature"), {
-    getDocument, postDocument: (url, body) => getDocument(url, { method: "POST", body }),
+    getDocument, postDocument: (url, body, options) => getDocument(url, { ...options, method: "POST", body }),
     storage, log, canEdit: () => !run?.active && !busy, revealGame,
     navigate: async url => { await writes; location.assign(url); }
   });

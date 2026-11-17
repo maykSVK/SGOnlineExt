@@ -48,13 +48,14 @@ class Element {
   replaceChildren(...children) { this.children = children; }
   addEventListener(name, callback) { this.listeners[name] = callback; }
   setAttribute(name, value) { this[name] = value; }
+  removeAttribute(name) { delete this[name]; }
 }
 
 function container(doc = buildings()) {
   doc.createElement = () => new Element(doc);
   const elements = new Map();
   return {
-    ownerDocument: doc, innerHTML: "",
+    ownerDocument: doc, innerHTML: "", setAttribute(name, value) { this[name] = value; },
     querySelector: selector => {
       if (!elements.has(selector)) elements.set(selector, new Element(doc));
       return elements.get(selector);
@@ -97,6 +98,116 @@ test("park budget reads exact price and balance, including decimals and exact af
   assert.throws(() => K.readBudget(buildings({ price: "???" })), /cenu parku/);
   assert.throws(() => K.readBudget(buildings({ balance: "" })), /zostatok/);
   assert.throws(() => K.budgetFor({ price: Number.MAX_SAFE_INTEGER }, 2), /rozsahu/);
+});
+
+test("refresh immediately shows pending buildings, per-planet progress and completed controls", async t => {
+  locationFor(t);
+  const ui = container();
+  let releaseBuildings;
+  let releaseDetail;
+  let detailStarted;
+  const started = new Promise(resolve => { detailStarted = resolve; });
+  const module = K.mount(ui, {
+    storage: { get: async () => null, set: async () => {} },
+    getDocument: () => new Promise(resolve => { releaseBuildings = resolve; }),
+    postDocument: (url, body, options) => {
+      assert.ok(options.signal instanceof AbortSignal);
+      if (body.get("planeta") === "1") {
+        detailStarted();
+        return new Promise(resolve => { releaseDetail = resolve; });
+      }
+      return Promise.resolve(detail());
+    }
+  });
+  await module.draftsReady;
+  const loading = module.load();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.match(ui.querySelector("#sgo-parks-status").textContent, /Načítavam zoznam/);
+  assert.equal(ui.querySelector("#sgo-parks-load").textContent, "Prebieha operácia…");
+  assert.equal(ui["aria-busy"], "true");
+  assert.equal(ui.querySelector("#sgo-parks-stop").hidden, false);
+  assert.equal(ui.querySelector("#sgo-parks-progress").hidden, false);
+  assert.equal(ui.querySelector("#sgo-parks-progress").value, undefined, "indeterminate before list response");
+  releaseBuildings(buildings());
+  await started;
+  assert.match(ui.querySelector("#sgo-parks-status").textContent, /1\/2: Alpha/);
+  assert.equal(ui.querySelector("#sgo-parks-progress").max, 2);
+  assert.equal(ui.querySelector("#sgo-parks-progress").value, 0);
+  releaseDetail(detail("1", "167", 20, "Alpha"));
+  await loading;
+  assert.equal(ui.querySelector("#sgo-parks-progress").value, 2);
+  assert.equal(ui.querySelector("#sgo-parks-progress").hidden, true);
+  assert.equal(ui.querySelector("#sgo-parks-load").textContent, "Obnoviť údaje");
+  assert.equal(ui["aria-busy"], "false");
+});
+
+test("a hung buildings request times out with an explicit error and allows retry", async t => {
+  locationFor(t);
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const ui = container();
+  let signal;
+  let fail = true;
+  const module = K.mount(ui, {
+    storage: { get: async () => null, set: async () => {} },
+    getDocument: (url, options) => {
+      signal = options.signal;
+      return fail ? new Promise(() => {}) : Promise.resolve(buildings());
+    },
+    postDocument: async (url, body) => detail(body.get("planeta"), "167", 20, body.get("planeta") === "1" ? "Alpha" : "Beta")
+  });
+  await module.draftsReady;
+  const loading = module.load();
+  await new Promise(resolve => setImmediate(resolve));
+  t.mock.timers.tick(30000);
+  await loading;
+  assert.equal(signal.aborted, true);
+  assert.match(ui.querySelector("#sgo-parks-status").textContent, /30 sekúnd/);
+  assert.equal(ui.querySelector("#sgo-parks-load").disabled, false);
+  assert.equal(module.isWorking, false);
+  fail = false;
+  await module.load();
+  assert.match(ui.querySelector("#sgo-parks-status").textContent, /Prepočítané 2\/2/);
+});
+
+test("stop during buildings fetch keeps the previous snapshot and does not start details", async t => {
+  locationFor(t);
+  const f = bulkFixture();
+  await f.module.load();
+  let release;
+  const next = K.mount(f.ui, {
+    ...f.options,
+    getDocument: () => new Promise(resolve => { release = resolve; }),
+    postDocument: async () => assert.fail("stopped request must not start planet details")
+  });
+  await next.draftsReady;
+  const loading = next.load();
+  await new Promise(resolve => setImmediate(resolve));
+  f.ui.querySelector("#sgo-parks-stop").listeners.click();
+  assert.match(f.ui.querySelector("#sgo-parks-status").textContent, /Zastavujem/);
+  release(buildings());
+  await loading;
+  assert.equal(f.ui.querySelector("#sgo-parks-list").children.length, 2);
+  assert.match(f.ui.querySelector("#sgo-parks-status").textContent, /zostal zachovaný/);
+});
+
+test("a hung detail stops the scan instead of timing out every remaining planet", async t => {
+  locationFor(t);
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const ui = container();
+  let calls = 0;
+  const module = K.mount(ui, {
+    storage: { get: async () => null, set: async () => {} },
+    getDocument: async () => buildings(),
+    postDocument: () => { calls++; return new Promise(() => {}); }
+  });
+  await module.draftsReady;
+  const loading = module.load();
+  await new Promise(resolve => setImmediate(resolve));
+  t.mock.timers.tick(30000);
+  await loading;
+  assert.equal(calls, 1);
+  assert.match(ui.querySelector("#sgo-parks-status").textContent, /Detail Alpha.*30 sekúnd/);
+  assert.equal(ui.querySelector("#sgo-parks-stop").hidden, true);
 });
 
 test("readers verify park effect, selected planet, exact name, current parks and happiness", () => {

@@ -129,6 +129,7 @@
       <p class="sgo-hint">Predvyplniť otvorí stavebný formulár, ktorý potvrdíš sám. Hromadná stavba sa odosiela priamo. Ak chýba miesto, zruší sa len potrebný počet výroben. Medzi planétami je pauza 2,5–6 s. Zastaviť nevráti odoslanú stavbu.</p></details>
       <p id="sgo-parks-errors" class="sgo-hint" role="status"></p>
       <p id="sgo-parks-status" class="sgo-hint" role="status">Cieľ 180 % · načítanie je ručné.</p>
+      <progress id="sgo-parks-progress" aria-label="Priebeh načítania planét" hidden></progress>
       <p id="sgo-parks-legacy" class="sgo-hint" hidden>Starší prepočet neobsahuje výrobne. Obnov údaje pre výber a hromadnú stavbu.</p>
       <div class="sgo-parks-selection"><button type="button" id="sgo-parks-all">Označiť všetko</button><button type="button" id="sgo-parks-none">Zrušiť výber</button><span id="sgo-parks-selected">Vybrané 0</span></div>
       <div class="sgo-parks-scroll" tabindex="0" role="region" aria-label="Parky na planétach"><div id="sgo-parks-list" role="list"></div><p id="sgo-parks-empty" class="sgo-hint">Načítaj planéty tlačidlom Obnoviť údaje.</p></div>
@@ -159,9 +160,32 @@
       for (const id of ["load", "save", "target", "all", "none", "build", "budget-refresh"]) $(`#sgo-parks-${id}`).disabled = working;
       $("#sgo-parks-stop").disabled = !working;
       $("#sgo-parks-stop").hidden = !working;
+      $("#sgo-parks-load").textContent = working ? "Prebieha operácia…" : "Obnoviť údaje";
+      container.setAttribute("aria-busy", String(working));
     };
-    const detail = (planet, goal) => postDocument(url({ page: "planety", s: "detail" }),
-      new URLSearchParams({ planeta: planet.id, vyberpl: "Vyber planetu" })).then(doc => readDetail(doc, planet, goal));
+    const readRequest = async (label, action) => {
+      const controller = new AbortController();
+      let timer;
+      try {
+        return await Promise.race([
+          action(controller.signal),
+          new Promise((resolve, reject) => {
+            timer = setTimeout(() => {
+              const error = new Error(`${label}: server neodpovedal do 30 sekúnd. Skús obnoviť údaje znova.`);
+              error.name = "TimeoutError";
+              reject(error);
+              controller.abort();
+            }, 30000);
+          })
+        ]);
+      } finally { clearTimeout(timer); }
+    };
+    const getBuildings = () => readRequest("Načítanie stavieb",
+      signal => getDocument(url({ page: "planety" }), { signal }));
+    const detail = (planet, goal) => readRequest(`Detail ${planet.name}`, signal =>
+      postDocument(url({ page: "planety", s: "detail" }),
+        new URLSearchParams({ planeta: planet.id, vyberpl: "Vyber planetu" }), { signal }))
+      .then(doc => readDetail(doc, planet, goal));
     const persist = () => storage.set(SNAPSHOT_KEY, { rows, updatedAt, budget });
     const updateBudget = doc => {
       try { budget = readBudget(doc); budgetError = ""; }
@@ -406,11 +430,24 @@
       if (working) return;
       working = true; stopped = false;
       controls();
+      message("Načítavam zoznam planét a aktuálne stavby…");
+      log("Parky: spúšťam obnovu údajov, načítavam zoznam planét.");
+      const progress = $("#sgo-parks-progress");
+      progress.hidden = false;
+      progress.removeAttribute("value");
       try {
         if (!await ready) throw new Error("Nastavenia sa nepodarilo načítať; obnov stránku.");
         if (!canEdit()) throw new Error("Najprv dokonči prebiehajúcu operáciu.");
-        const doc = await getDocument(url({ page: "planety" }));
+        const doc = await getBuildings();
+        if (stopped) {
+          message("Načítanie zastavené. Predchádzajúci prepočet zostal zachovaný.");
+          log("Parky: načítanie zastavené pred čítaním detailov.");
+          return;
+        }
         const planets = readPlanets(doc);
+        progress.max = planets.length;
+        progress.value = 0;
+        log(`Parky: načítaný zoznam ${planets.length} planét, čítam detaily.`);
         updateBudget(doc);
         rows = [];
         prefilled.clear();
@@ -421,11 +458,14 @@
           message(`Čítam spokojnosť ${rows.length + 1}/${planets.length}: ${planet.name}…`);
           try { rows.push({ name: planet.name, report: await detail(planet, target) }); }
           catch (error) {
+            if (error.name === "TimeoutError") throw error;
             failures++;
             rows.push({ name: planet.name, error: error.message });
             log(`Parky ${planet.name}: ${error.message}`, "error");
           }
           updatedAt = Date.now();
+          progress.value = rows.length;
+          message(`Ukladám výsledok ${rows.length}/${planets.length}: ${planet.name}…`);
           await persist();
           render();
         }
@@ -433,7 +473,7 @@
         log(`Parky: načítaných ${rows.length}/${planets.length} planét, cieľ ${target} %, chyby ${failures}.`);
       } catch (error) {
         message(error.message, true); log(`Parky: ${error.message}`, "error");
-      } finally { working = false; controls(); render(); }
+      } finally { progress.hidden = true; working = false; controls(); render(); }
     }
 
     async function restore() {
@@ -495,10 +535,13 @@
       if (working) return;
       working = true; controls();
       try {
-        updateBudget(await getDocument(url({ page: "planety" })));
+        message("Načítavam cenu parkov a zostatok naquitonu…");
+        updateBudget(await getBuildings());
+        message(budget ? "Cena parkov a zostatok naquitonu obnovené." : budgetError, !budget);
         if (updatedAt != null) await persist();
       } catch (error) {
         budget = null; budgetError = error.message;
+        message(error.message, true);
         log(`Parky: ${error.message}`, "error");
       } finally { working = false; controls(); selectionLabel(); }
     });
@@ -512,25 +555,33 @@
       selected.clear(); render();
     });
     $("#sgo-parks-build").addEventListener("click", buildSelected);
-    $("#sgo-parks-stop").addEventListener("click", () => { stopped = true; });
+    $("#sgo-parks-stop").addEventListener("click", () => {
+      stopped = true;
+      message("Zastavujem po aktuálnej požiadavke… Už odoslanú stavbu nie je možné vrátiť.");
+      log("Parky: požadované zastavenie po aktuálnej požiadavke.");
+    });
     const draftsReady = ready.then(async ok => {
       if (!ok) return;
       if (!isBuildingPage()) return;
       working = true; controls();
+      stopped = false;
       try {
         if (rows.some(row => row.report)) {
           const planets = readPlanets(container.ownerDocument);
           let changed = false;
           for (const row of [...rows]) {
+            if (stopped) break;
             if (!row.report) continue;
             const planet = planets.find(item => item.id === row.report.id);
             if (!planet || planet.name !== row.name || planet.parks === row.report.parks) continue;
+            message(`Overujem zmenené stavby: ${planet.name}…`);
             row.report = await detail(planet, target);
             if (!row.report.missing) rows = rows.filter(item => item !== row);
             changed = true;
           }
           if (changed) { updatedAt = Date.now(); await persist(); }
         }
+        if (stopped) { message("Overovanie stavieb zastavené."); return; }
         const draft = JSON.parse(session.getItem(DRAFT_KEY) || "null");
         if (!draft) return;
         session.removeItem(DRAFT_KEY);

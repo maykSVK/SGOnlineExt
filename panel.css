@@ -165,6 +165,8 @@
 #sgo-addon .sgo-parks-tools input { display: block; width: 100px; margin-top: 4px; }
 #sgo-addon .sgo-parks-tools button { padding: 6px 8px; font-size: 11px; }
 #sgo-addon #sgo-parks-status { margin: 10px 0; font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
+#sgo-addon #sgo-parks-progress { display: block; width: 100%; height: 6px; margin: 0 0 10px; accent-color: var(--sgo-accent); }
+#sgo-addon #sgo-parks-feature[aria-busy=true] #sgo-parks-status { color: #eac57c; }
 #sgo-addon #sgo-parks-legacy { margin: 8px 0; padding: 8px 10px; background: #ffcb8210; border: 1px solid #ffcb8233; border-radius: 8px; color: #ffcb82; }
 #sgo-addon #sgo-parks-errors { color: #ffb1a3; overflow-wrap: anywhere; }
 #sgo-addon .sgo-parks-selection { display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--sgo-line); padding: 10px 0; }
