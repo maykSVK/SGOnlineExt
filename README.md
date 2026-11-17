@@ -204,7 +204,7 @@ na jej zastavenie pouzi **Zastavit** v podmenu utokov.
 
 ### Parky a spokojnost
 
-- Samostatna dlazdica **Parky a spokojnost** vypocita minimalny prirastok parkov
+- Samostatna dlazdica **Parky a spokojnost** vypocita prirastok parkov s rezervou
   pre ulozeny ciel spokojnosti (predvolene **180 %**, nastavitelne 0–200 %).
   Ciel je schovany v rozbalovaci **Nastavenia parkov**.
 - Priebezny prepocet sa uklada a zostava dostupny aj po navigacii bez noveho
@@ -248,9 +248,14 @@ na jej zastavenie pouzi **Zastavit** v podmenu utokov.
   najprv skontroluje tento zaznam a pri neistote vyzaduje kontrolu v hre.
 - Podla [oficialneho navodu o spokojnosti](https://www.stargame-online.cz/index.php?stranka=blog&akce=detail&detail=73)
   park pridava 0,1 percentualneho bodu a ciel maximalnej spokojnosti je 200 %.
-  Doplnenie = `max(0, ceil((ciel - aktualna_spokojnost) / 0.1))`.
-  Pocita sa s presnostou zobrazenej spokojnosti. Napriklad zo 167 % na 180 %
-  treba 130 dalsich parkov, pri existujucich 20 teda spolu 150.
+  Ak je spokojnost pod cielom, pouzije sa rezerva +2 percentualne body
+  (najviac do 200 %) a pocet dalsich parkov sa zaokruhli nahor na desiatky:
+  `ceil((min(200, ciel + 2) - aktualna_spokojnost) / 1) * 10`.
+  Pocita sa s presnostou zobrazenej spokojnosti. Napriklad zo 167 % pri cieli
+  180 % navrhne 150 dalsich parkov (na 182 %), pri existujucich 20 spolu 170.
+  Planety, ktore uz dosiahli povodny ciel, nic nedostavaju. Rezerva plati
+  rovnako pre zoznam, cenu, predvyplnenie a hromadnu stavbu; moze zvysit
+  potrebne rusenie vyroben. Nezarucuje ciel pri dalsich zmenach bonusov.
 - Vypocet zohladnuje aktualne bonusy a nezamestnanych cez spokojnost z detailu.
   Po zmene politiky, artefaktov alebo populacie treba prepoctat znova.
   Nejde o automaticke sledovanie ani garanciu pri buducich zmenach bonusov.

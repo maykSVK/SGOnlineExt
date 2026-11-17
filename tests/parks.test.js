@@ -69,15 +69,18 @@ function locationFor(t, href = "https://game.test/game.php?page=prehled") {
   t.after(() => { if (previous === undefined) delete globalThis.location; else globalThis.location = previous; });
 }
 
-test("park minimum meets the target with no redundant park, including decimal rounding", () => {
-  assert.deepEqual(K.calculate(167, 20, 180), { happiness: 167, parks: 20, target: 180, missing: 130, total: 150 });
-  for (const [current, goal, expected] of [[152, 180, 280], [179.9, 180, 1], [179.91, 180, 1],
-    [180, 180, 0], [200, 180, 0], [199.99, 200, 1], [180.01, 180.1, 1], [0, 200, 2000]]) {
+test("park additions include two happiness points and round up to tens only below the original target", () => {
+  assert.deepEqual(K.calculate(167, 20, 180), { happiness: 167, parks: 20, target: 180, missing: 150, total: 170 });
+  for (const [current, goal, expected] of [[152, 180, 300], [179.9, 180, 30], [179.91, 180, 30],
+    [180, 180, 0], [200, 180, 0], [199.99, 200, 10], [180.01, 180.1, 30], [0, 200, 2000],
+    [198.9, 199, 20], [199, 199, 0], [0, 0, 0], [178, 180, 40], [178.01, 180, 40]]) {
     const result = K.calculate(current, 20, goal);
     assert.equal(result.missing, expected);
     if (expected) {
-      assert.ok(Math.round(current * 100) + expected * 10 >= Math.round(goal * 100));
-      assert.ok(Math.round(current * 100) + (expected - 1) * 10 < Math.round(goal * 100));
+      const buffered = Math.round(Math.min(200, goal + 2) * 100);
+      assert.equal(expected % 10, 0);
+      assert.ok(Math.round(current * 100) + expected * 10 >= buffered);
+      assert.ok(Math.round(current * 100) + (expected - 10) * 10 < buffered);
     }
   }
   assert.equal(K.targetValue("180,5"), 180.5);
@@ -213,9 +216,9 @@ test("a hung detail stops the scan instead of timing out every remaining planet"
 test("readers verify park effect, selected planet, exact name, current parks and happiness", () => {
   const planets = K.readPlanets(buildings());
   assert.deepEqual(planets[1], { id: "2", name: "Beta", parks: 20, factories: 100, freeSlots: 500 });
-  assert.equal(K.readDetail(detail(), planets[1], 180).missing, 130);
-  assert.equal(K.readDetail(detail("2", "167,00", 20, "Beta (DP)"), { ...planets[1], name: "Beta (DP)" }, 180).missing, 130);
-  assert.equal(K.readDetail(detail("2", "167", 20, "Beta (DP)"), planets[1], 180).missing, 130);
+  assert.equal(K.readDetail(detail(), planets[1], 180).missing, 150);
+  assert.equal(K.readDetail(detail("2", "167,00", 20, "Beta (DP)"), { ...planets[1], name: "Beta (DP)" }, 180).missing, 150);
+  assert.equal(K.readDetail(detail("2", "167", 20, "Beta (DP)"), planets[1], 180).missing, 150);
   assert.throws(() => K.readPlanets(buildings({ effect: "+0.2 spokojenost" })), /účinok/);
   assert.throws(() => K.readDetail(detail("1"), planets[1], 180), /nezodpovedá/);
   assert.throws(() => K.readDetail(detail("2", "167", 20, "Renamed"), planets[1], 180), /nezodpovedá/);
@@ -229,7 +232,7 @@ test("park prefill only selects construction mode and parks and refuses drafts o
   K.fill(doc, report);
   assert.equal(doc.fields.planeta.value, "2");
   assert.equal(doc.fields.verze.value, "0");
-  assert.equal(doc.fields.parku.value, "130");
+  assert.equal(doc.fields.parku.value, "150");
   assert.equal(doc.fields.vyroben.value, "");
   const unfinished = buildings();
   unfinished.fields.vyroben.value = "12";
@@ -237,8 +240,8 @@ test("park prefill only selects construction mode and parks and refuses drafts o
   assert.equal(unfinished.fields.planeta.value, "1");
   const tight = buildings({ free: 129 });
   K.fill(tight, report);
-  assert.equal(tight.fields.vyroben.value, "-1");
-  assert.equal(tight.fields.parku.value, "130");
+  assert.equal(tight.fields.vyroben.value, "-21");
+  assert.equal(tight.fields.parku.value, "150");
   assert.throws(() => K.fill(buildings({ free: 0 }), report), /dosť výroben/);
   assert.throws(() => K.fill(buildings({ parks: 21 }), report), /zmenili/);
   assert.throws(() => K.fill(doc, { ...report, missing: 0 }), /spĺňa/);
@@ -281,13 +284,13 @@ test("parks settings persist, reports recalculate and draft revalidates on desti
   assert.equal(detailCalls, 2, "navigation restores snapshot without requests");
   assert.match(restored.querySelector("#sgo-parks-status").textContent, /neaktuálne/);
   const row = () => ui.querySelector("#sgo-parks-list").children[1];
-  assert.equal(row().children[1].children[1].children[0].textContent, "+130 parkov");
-  assert.equal(row().children[1].children[1].children[1].textContent, "20 → 150");
+  assert.equal(row().children[1].children[1].children[0].textContent, "+150 parkov");
+  assert.equal(row().children[1].children[1].children[1].textContent, "20 → 170");
   ui.querySelector("#sgo-parks-target").value = "190";
   await ui.querySelector("#sgo-parks-save").listeners.click();
   assert.equal(saved.get("sgo-parks-target"), 190);
   assert.equal(detailCalls, 2);
-  assert.equal(row().children[1].children[1].children[0].textContent, "+230 parkov");
+  assert.equal(row().children[1].children[1].children[0].textContent, "+250 parkov");
   await row().children[2].listeners.click();
   assert.match(destination, /page=planety$/);
   globalThis.location.href = destination;
@@ -296,7 +299,7 @@ test("parks settings persist, reports recalculate and draft revalidates on desti
   const next = container(native);
   let revealed = false;
   await K.mount(next, { ...options, revealGame: () => { revealed = true; } }).draftsReady;
-  assert.equal(native.fields.parku.value, "100", "fresh detail used, not stale report amount");
+  assert.equal(native.fields.parku.value, "120", "fresh detail used, not stale report amount");
   assert.equal(native.fields.planeta.value, "2");
   assert.equal(revealed, true);
   assert.equal(drafts.size, 0);
@@ -451,17 +454,17 @@ test("bulk builds only selected deficits, frees the exact factory shortfall and 
   await f.module.load();
   await f.ui.querySelector("#sgo-parks-all").listeners.click();
   assert.equal(f.ui.querySelector("#sgo-parks-build").textContent, "Postaviť označené (2)");
-  assert.equal(f.ui.querySelector("#sgo-parks-totals").textContent, "+260 parkov · −100 výroben");
+  assert.equal(f.ui.querySelector("#sgo-parks-totals").textContent, "+300 parkov · −120 výroben");
   assert.match(f.ui.querySelector("#sgo-parks-budget").textContent, /Stačí na všetky/);
   assert.equal(f.ui.querySelector("#sgo-parks-selected").textContent, "Vybrané 2");
   const card = f.ui.querySelector("#sgo-parks-list").children[0];
   assert.equal(card["data-selected"], "true");
   assert.equal(card.children[0]["aria-label"], "Vybrať Alpha");
-  assert.equal(card.children[1].children[2].textContent, "Uvoľní miesto: −100 výroben");
+  assert.equal(card.children[1].children[2].textContent, "Uvoľní miesto: −120 výroben");
   await f.module.buildSelected();
   assert.equal(f.submissions.length, 2);
-  assert.equal(f.submissions[0].get("vyroben"), "-100");
-  assert.equal(f.submissions[0].get("parku"), "130");
+  assert.equal(f.submissions[0].get("vyroben"), "-120");
+  assert.equal(f.submissions[0].get("parku"), "150");
   assert.equal(f.submissions[0].get("verze"), "0");
   assert.equal(f.submissions[1].get("vyroben"), "");
   assert.equal(f.submissions[1].get("planeta"), "2");
@@ -609,7 +612,7 @@ test("selection budget updates on checkbox changes, refresh and restored snapsho
   const card = f.ui.querySelector("#sgo-parks-list").children[0];
   card.children[0].checked = false;
   card.children[0].listeners.change();
-  assert.match(f.ui.querySelector("#sgo-parks-budget").textContent.replace(/\s/g, ""), /3981120/);
+  assert.match(f.ui.querySelector("#sgo-parks-budget").textContent.replace(/\s/g, ""), /4593600/);
   f.ui.querySelector("#sgo-parks-none").listeners.click();
   assert.equal(f.ui.querySelector("#sgo-parks-budget").hidden, true);
 });

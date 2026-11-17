@@ -46,7 +46,9 @@
     target = targetValue(target);
     if (!Number.isFinite(happiness) || happiness < 0 || happiness > 200 ||
       !Number.isSafeInteger(parks) || parks < 0) throw new Error("Neplatná spokojnosť alebo počet parkov.");
-    const missing = Math.max(0, Math.ceil((Math.round(target * 100) - Math.round(happiness * 100)) / 10));
+    const bufferedTarget = Math.min(200, target + 2);
+    const missing = happiness >= target ? 0 :
+      Math.ceil((Math.round(bufferedTarget * 100) - Math.round(happiness * 100)) / 100) * 10;
     return { happiness, parks, target, missing, total: parks + missing };
   }
 
@@ -119,7 +121,7 @@
       });
     } }) {
     container.innerHTML = `<div class="sgo-feature-heading"><span class="sgo-eyebrow">SPRÁVA PLANÉT</span><h3>Parky a spokojnosť</h3>
-      <p class="sgo-hint">Doplň parky len tam, kde chýbajú.</p></div>
+      <p class="sgo-hint">Pod cieľom doplníme parky s rezervou +2 body, nahor na desiatky (najviac k 200 %).</p></div>
       <div class="sgo-parks-overview"><strong id="sgo-parks-count">Zatiaľ bez prepočtu</strong><span id="sgo-parks-goal">Cieľ 180 %</span></div>
       <div class="sgo-parks-toolbar"><button type="button" id="sgo-parks-load">Obnoviť údaje</button><button type="button" id="sgo-parks-stop" disabled hidden>Zastaviť</button></div>
       <details class="sgo-watch-settings"><summary>Nastavenia parkov</summary>
