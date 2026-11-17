@@ -156,13 +156,14 @@ test("parks settings persist, reports recalculate and draft revalidates on desti
   assert.equal(detailCalls, 2, "navigation restores snapshot without requests");
   assert.match(restored.querySelector("#sgo-parks-status").textContent, /neaktuálne/);
   const row = () => ui.querySelector("#sgo-parks-list").children[1];
-  assert.equal(row().children[3].textContent, "+130 · spolu 150");
+  assert.equal(row().children[1].children[1].children[0].textContent, "+130 parkov");
+  assert.equal(row().children[1].children[1].children[1].textContent, "20 → 150");
   ui.querySelector("#sgo-parks-target").value = "190";
   await ui.querySelector("#sgo-parks-save").listeners.click();
   assert.equal(saved.get("sgo-parks-target"), 190);
   assert.equal(detailCalls, 2);
-  assert.equal(row().children[3].textContent, "+230 · spolu 250");
-  await row().children[4].children[0].listeners.click();
+  assert.equal(row().children[1].children[1].children[0].textContent, "+230 parkov");
+  await row().children[2].listeners.click();
   assert.match(destination, /page=planety$/);
   globalThis.location.href = destination;
   happiness = "180.00";
@@ -229,7 +230,7 @@ test("prefill from a detail page navigates to construction and failures never hi
   let destination;
   const module = K.mount(ui, { ...options, navigate: async url => { destination = url; throw new Error("Navigation failed"); } });
   await module.load();
-  const click = panel => panel.querySelector("#sgo-parks-list").children[1].children[4].children[0].listeners.click();
+  const click = panel => panel.querySelector("#sgo-parks-list").children[1].children[2].listeners.click();
   await click(ui);
   assert.equal(destination, "https://game.test/www/game.php?page=planety");
   assert.equal(drafts.size, 0);
@@ -325,6 +326,12 @@ test("bulk builds only selected deficits, frees the exact factory shortfall and 
   await f.module.load();
   await f.ui.querySelector("#sgo-parks-all").listeners.click();
   assert.equal(f.ui.querySelector("#sgo-parks-build").textContent, "Postaviť označené (2)");
+  assert.equal(f.ui.querySelector("#sgo-parks-totals").textContent, "+260 parkov · −100 výroben");
+  assert.equal(f.ui.querySelector("#sgo-parks-selected").textContent, "Vybrané 2");
+  const card = f.ui.querySelector("#sgo-parks-list").children[0];
+  assert.equal(card["data-selected"], "true");
+  assert.equal(card.children[0]["aria-label"], "Vybrať Alpha");
+  assert.equal(card.children[1].children[2].textContent, "Uvoľní miesto: −100 výroben");
   await f.module.buildSelected();
   assert.equal(f.submissions.length, 2);
   assert.equal(f.submissions[0].get("vyroben"), "-100");
@@ -347,7 +354,7 @@ test("bulk individual checkbox, select all and clear only affect eligible planet
   await f.module.load();
   const list = f.ui.querySelector("#sgo-parks-list");
   assert.equal(list.children.length, 1, "satisfied planet is hidden");
-  const checkbox = list.children[0].children[4].children[1];
+  const checkbox = list.children[0].children[0];
   checkbox.checked = true;
   checkbox.listeners.change();
   await f.module.buildSelected();
@@ -357,6 +364,8 @@ test("bulk individual checkbox, select all and clear only affect eligible planet
   await f.module.load();
   f.ui.querySelector("#sgo-parks-all").listeners.click();
   f.ui.querySelector("#sgo-parks-none").listeners.click();
+  assert.equal(f.ui.querySelector("#sgo-parks-totals").textContent, "Označ planéty, ktoré chceš upraviť.");
+  assert.equal(f.ui.querySelector("#sgo-parks-build").disabled, true);
   await f.module.buildSelected();
   assert.equal(f.submissions.length, 1);
 });
@@ -432,6 +441,27 @@ test("freshly satisfied planets and insufficient factory reserves are never subm
   f.states.get("1").happiness = 180;
   await f.module.buildSelected();
   assert.equal(f.submissions.length, 0, "fresh detail prevents stale construction");
+});
+
+test("legacy snapshots show one actionable notice instead of long disabled row buttons", async t => {
+  locationFor(t);
+  const f = bulkFixture();
+  await f.module.load();
+  const snapshot = f.saved.get("sgo-parks-snapshot");
+  for (const row of snapshot.rows) delete row.report.factories;
+  const next = K.mount(f.ui, f.options);
+  await next.draftsReady;
+  assert.equal(f.ui.querySelector("#sgo-parks-legacy").hidden, false);
+  assert.equal(f.ui.querySelector("#sgo-parks-count").textContent, "Planéty pod cieľom: 2");
+  for (const card of f.ui.querySelector("#sgo-parks-list").children) {
+    assert.equal(card.children[0].disabled, true);
+    assert.equal(card.children[2].textContent, "Predvyplniť");
+    assert.equal(card.children[2].disabled, true);
+  }
+  assert.equal(f.ui.querySelector("#sgo-parks-all").disabled, true);
+  await next.load();
+  assert.equal(f.ui.querySelector("#sgo-parks-legacy").hidden, true);
+  assert.equal(f.ui.querySelector("#sgo-parks-all").disabled, false);
 });
 
 test("bulk recalculates fresh, refuses insufficient factories, failed storage and foreign actions", async t => {

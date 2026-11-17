@@ -152,11 +152,49 @@
 #sgo-addon .sgo-war-ok { color: #83e0b3; font-size: 11px; }
 #sgo-addon .sgo-war-warning { color: #ffcb82; }
 #sgo-addon #sgo-parks-feature { padding: 14px 18px 18px; }
+#sgo-addon #sgo-parks-feature .sgo-feature-heading .sgo-hint { margin: 4px 0 12px; }
+#sgo-addon .sgo-parks-overview { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 12px; }
+#sgo-addon #sgo-parks-goal { padding: 3px 8px; border-radius: 6px; background: #65dec314; color: var(--sgo-accent); font-size: 11px; white-space: nowrap; }
+#sgo-addon .sgo-parks-toolbar { display: flex; gap: 6px; margin-bottom: 10px; }
+#sgo-addon .sgo-parks-toolbar button { padding: 6px 10px; font-size: 11px; }
+#sgo-addon #sgo-parks-stop { color: #ffb1a3; border-color: #ff9a8955; background: #ff9a8910; }
+#sgo-addon #sgo-parks-feature details { margin: 6px 0; }
+#sgo-addon #sgo-parks-feature summary { cursor: pointer; width: fit-content; }
+#sgo-addon #sgo-parks-feature details .sgo-hint { margin: 6px 0; }
 #sgo-addon .sgo-parks-tools { display: flex; flex-wrap: wrap; align-items: end; gap: 6px; font-size: 11px; }
 #sgo-addon .sgo-parks-tools input { display: block; width: 100px; margin-top: 4px; }
 #sgo-addon .sgo-parks-tools button { padding: 6px 8px; font-size: 11px; }
-#sgo-addon .sgo-parks-scroll { max-height: 45dvh; overflow: auto; scrollbar-width: thin; }
-#sgo-addon .sgo-parks-scroll button { padding: 4px 6px; font-size: 10px; }
+#sgo-addon #sgo-parks-status { margin: 10px 0; font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
+#sgo-addon #sgo-parks-legacy { margin: 8px 0; padding: 8px 10px; background: #ffcb8210; border: 1px solid #ffcb8233; border-radius: 8px; color: #ffcb82; }
+#sgo-addon #sgo-parks-errors { color: #ffb1a3; overflow-wrap: anywhere; }
+#sgo-addon .sgo-parks-selection { display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--sgo-line); padding: 10px 0; }
+#sgo-addon .sgo-parks-selection button { padding: 0; border: 0; border-radius: 2px; background: transparent; font-size: 10px; color: #b6c8df; }
+#sgo-addon .sgo-parks-selection button:hover:not(:disabled) { background: transparent; color: var(--sgo-accent); }
+#sgo-addon #sgo-parks-selected { margin-left: auto; font-size: 10px; color: var(--sgo-muted); white-space: nowrap; }
+#sgo-addon .sgo-parks-scroll { max-height: 38dvh; overflow: auto; scrollbar-width: thin; scrollbar-color: #3a4d67 transparent; }
+#sgo-addon .sgo-parks-scroll:focus-visible { outline: 2px solid var(--sgo-accent); outline-offset: 2px; }
+#sgo-addon #sgo-parks-list { display: grid; gap: 7px; padding: 1px; }
+#sgo-addon .sgo-parks-card { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 9px; padding: 10px; background: #152136; border: 1px solid var(--sgo-line); border-radius: 10px; }
+#sgo-addon .sgo-parks-card[data-selected=true] { border-color: #65dec377; background: #172e3b; box-shadow: 2px 0 0 var(--sgo-accent) inset; }
+#sgo-addon .sgo-parks-info { min-width: 0; }
+#sgo-addon .sgo-parks-card-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 8px; font-size: 11px; }
+#sgo-addon .sgo-parks-card-title strong { overflow-wrap: anywhere; }
+#sgo-addon .sgo-parks-happiness { color: #eac57c; font-size: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+#sgo-addon .sgo-parks-metrics { display: flex; flex-wrap: wrap; gap: 3px 8px; align-items: baseline; margin-top: 4px; font-size: 10px; font-variant-numeric: tabular-nums; }
+#sgo-addon .sgo-parks-metrics span, #sgo-addon .sgo-parks-space { color: var(--sgo-muted); }
+#sgo-addon .sgo-parks-add { color: var(--sgo-accent); font-size: 12px; }
+#sgo-addon :is(.sgo-parks-demolish, .sgo-parks-space) { display: block; margin-top: 3px; font-size: 10px; }
+#sgo-addon .sgo-parks-demolish { color: #ffcb82; }
+#sgo-addon .sgo-parks-card button { padding: 6px 7px; background: transparent; font-size: 10px; }
+#sgo-addon .sgo-parks-checkout { margin-top: 12px; border-top: 1px solid var(--sgo-line); padding-top: 10px; }
+#sgo-addon #sgo-parks-totals { margin: 0 0 8px; font-size: 12px; font-weight: 600; color: #b6c8df; }
+#sgo-addon #sgo-parks-build { width: 100%; background: var(--sgo-accent); border-color: var(--sgo-accent); color: #102a29; font-size: 12px; padding: 9px 12px; }
+#sgo-addon #sgo-parks-build:hover:not(:disabled) { background: #8aeed8; }
+#sgo-addon .sgo-parks-checkout small { display: block; margin-top: 6px; color: var(--sgo-muted); font-size: 10px; text-align: center; }
+@media (max-width: 380px) {
+  #sgo-addon .sgo-parks-card { grid-template-columns: 22px minmax(0, 1fr); }
+  #sgo-addon .sgo-parks-card button { grid-column: 2; justify-self: start; }
+}
 #sgo-addon .sgo-war-table-scroll { max-height: 220px; overflow: auto; margin-top: 6px; scrollbar-width: thin; }
 #sgo-addon .sgo-war-table { width: 100%; border-collapse: collapse; font-size: 10px; }
 #sgo-addon .sgo-war-table th, #sgo-addon .sgo-war-table td { padding: 4px 3px; border-bottom: 1px solid #28374e; text-align: left; vertical-align: middle; }

@@ -213,11 +213,16 @@ na jej zastavenie pouzi **Zastavit** v podmenu utokov.
   alebo prechode na Staveni. Bez potvrdenia stavby sa po obnoveni znovu objavi.
   Na Staveni sa zmenene pocty parkov overia cerstvym detailom; planety, ktore
   po stavbe splnaju ciel, sa z ulozeneho zoznamu odstrania.
-- **Prepocitat planety** precita stavby a postupne otvori detail kazdej planety.
+- **Obnovit udaje** precita stavby a postupne otvori detail kazdej planety.
   POST s `vyberpl` iba vybera detail, nestavia. Zobrazuje priebeh, ciastkove
   vysledky a tlacidlo **Zastavit**. Chyba jednej planety je oznacena a zalogovana;
   ostatne pokracuju. Otvorenie sekcie samo nespusta sietove nacitavanie.
-- Tabulka zobrazuje iba planety pod ulozenym cielom spokojnosti. Chyby citania
+- Kompaktne karty zobrazuju iba planety pod ulozenym cielom spokojnosti.
+  Vyber je vlavo pri nazve, vedla spokojnosti je prirastok parkov, aktualny
+  a cielovy pocet aj potrebne rusenie vyroben. Oznacene karty su zvyraznene.
+  Pod zoznamom je sucet parkov a rusenych vyroben pre cely vyber a hlavna
+  akcia hromadnej stavby; podrobnosti su v rozbalovaci **Ako to funguje?**.
+  Chyby citania
   su vypisane samostatne a zalogovane, nie vydavane za splneny ciel.
 - Checkboxy vyberu planetu, **Oznacit vsetko** vyberie vsetky zobrazene
   spracovatelne planety a **Zrusit vyber** vyber vymaze.

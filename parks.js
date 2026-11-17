@@ -99,17 +99,22 @@
         return action();
       });
     } }) {
-    container.innerHTML = `<div class="sgo-feature-heading"><span class="sgo-eyebrow">PLANÉTY / SPOKOJNOSŤ</span><h3>Parky a spokojnosť</h3>
-      <p class="sgo-hint">Minimum ďalších parkov pre zvolený cieľ. Pri nedostatku miesta sa zruší len potrebný počet výroben.</p></div>
+    container.innerHTML = `<div class="sgo-feature-heading"><span class="sgo-eyebrow">SPRÁVA PLANÉT</span><h3>Parky a spokojnosť</h3>
+      <p class="sgo-hint">Doplň parky len tam, kde chýbajú.</p></div>
+      <div class="sgo-parks-overview"><strong id="sgo-parks-count">Zatiaľ bez prepočtu</strong><span id="sgo-parks-goal">Cieľ 180 %</span></div>
+      <div class="sgo-parks-toolbar"><button type="button" id="sgo-parks-load">Obnoviť údaje</button><button type="button" id="sgo-parks-stop" disabled hidden>Zastaviť</button></div>
       <details class="sgo-watch-settings"><summary>Nastavenia parkov</summary>
       <div class="sgo-parks-tools"><label>Cieľ spokojnosti (%)<input id="sgo-parks-target" type="number" min="0" max="200" step="0.1" value="180"></label>
       <button type="button" id="sgo-parks-save">Uložiť cieľ</button></div></details>
-      <div class="sgo-parks-tools"><button type="button" id="sgo-parks-load">Prepočítať planéty</button><button type="button" id="sgo-parks-stop" disabled>Zastaviť</button></div>
-      <div class="sgo-parks-tools"><button type="button" id="sgo-parks-all">Označiť všetko</button><button type="button" id="sgo-parks-none">Zrušiť výber</button><button type="button" id="sgo-parks-build">Postaviť označené (0)</button></div>
-      <p class="sgo-hint">Len planéty pod cieľom. Predvyplnenie potvrdíš v hre; Postaviť označené ihneď odošle stavby aj potrebné rušenie výroben. Medzi planétami je pauza 2,5–6 s. Zastaviť nevráti odoslanú stavbu.</p>
+      <details class="sgo-watch-settings sgo-parks-help"><summary>Ako to funguje?</summary>
+      <p class="sgo-hint">Predvyplniť otvorí stavebný formulár, ktorý potvrdíš sám. Hromadná stavba sa odosiela priamo. Ak chýba miesto, zruší sa len potrebný počet výroben. Medzi planétami je pauza 2,5–6 s. Zastaviť nevráti odoslanú stavbu.</p></details>
       <p id="sgo-parks-errors" class="sgo-hint" role="status"></p>
       <p id="sgo-parks-status" class="sgo-hint" role="status">Cieľ 180 % · načítanie je ručné.</p>
-      <div class="sgo-parks-scroll" tabindex="0" role="region" aria-label="Parky na planétach"><table class="sgo-war-table"><thead><tr><th>Planéta</th><th>Spokojnosť</th><th>Parky</th><th>Doplniť</th><th></th></tr></thead><tbody id="sgo-parks-list"></tbody></table></div>`;
+      <p id="sgo-parks-legacy" class="sgo-hint" hidden>Starší prepočet neobsahuje výrobne. Obnov údaje pre výber a hromadnú stavbu.</p>
+      <div class="sgo-parks-selection"><button type="button" id="sgo-parks-all">Označiť všetko</button><button type="button" id="sgo-parks-none">Zrušiť výber</button><span id="sgo-parks-selected">Vybrané 0</span></div>
+      <div class="sgo-parks-scroll" tabindex="0" role="region" aria-label="Parky na planétach"><div id="sgo-parks-list" role="list"></div><p id="sgo-parks-empty" class="sgo-hint">Načítaj planéty tlačidlom Obnoviť údaje.</p></div>
+      <div class="sgo-parks-checkout"><p id="sgo-parks-totals">Označ planéty, ktoré chceš upraviť.</p><button type="button" id="sgo-parks-build" disabled>Postaviť označené (0)</button>
+      <small>Ihneď odošle stavby aj potrebné rušenie výroben.</small></div>`;
     const $ = selector => container.querySelector(selector);
     let target = 180;
     let rows = [];
@@ -130,6 +135,7 @@
     const controls = () => {
       for (const id of ["load", "save", "target", "all", "none", "build"]) $(`#sgo-parks-${id}`).disabled = working;
       $("#sgo-parks-stop").disabled = !working;
+      $("#sgo-parks-stop").hidden = !working;
     };
     const detail = (planet, goal) => postDocument(url({ page: "planety", s: "detail" }),
       new URLSearchParams({ planeta: planet.id, vyberpl: "Vyber planetu" })).then(doc => readDetail(doc, planet, goal));
@@ -146,47 +152,76 @@
       const reports = selectable().filter(report => selected.has(report.id));
       $("#sgo-parks-build").textContent = `Postaviť označené (${reports.length})`;
       $("#sgo-parks-build").disabled = working || !reports.length;
+      $("#sgo-parks-selected").textContent = `Vybrané ${reports.length}`;
+      const parks = reports.reduce((sum, report) => sum + report.missing, 0);
+      const factories = reports.reduce((sum, report) => sum + Math.max(0, report.missing - report.freeSlots), 0);
+      $("#sgo-parks-totals").textContent = reports.length
+        ? `+${parks} parkov${factories ? ` · −${factories} výroben` : " · bez búrania"}`
+        : "Označ planéty, ktoré chceš upraviť.";
+      $("#sgo-parks-all").disabled = working || !selectable().length;
+      $("#sgo-parks-none").disabled = working || !reports.length;
     };
 
     function render() {
       const list = $("#sgo-parks-list");
       list.replaceChildren();
       $("#sgo-parks-errors").textContent = rows.filter(row => row.error).map(row => `${row.name}: ${row.error}`).join(" · ");
+      $("#sgo-parks-errors").hidden = !rows.some(row => row.error);
+      $("#sgo-parks-goal").textContent = `Cieľ ${target} %`;
+      let visible = 0;
+      let legacy = false;
       for (const row of rows) {
         if (prefilled.has(row.report?.id)) continue;
         const report = reportFor(row);
         if (!report || report.missing <= 0) continue;
-        const tr = container.ownerDocument.createElement("tr");
-        for (const value of [row.name, report ? `${report.happiness} %` : "Neznáme",
-          report ? String(report.parks) : "?", report ? `+${report.missing} · spolu ${report.total}` : row.error]) {
-          const td = container.ownerDocument.createElement("td");
-          td.textContent = value;
-          tr.append(td);
-        }
-        const cell = container.ownerDocument.createElement("td");
-        if (report?.missing > 0) {
-          const button = container.ownerDocument.createElement("button");
-          button.type = "button";
-          const demolish = Math.max(0, report.missing - report.freeSlots);
-          const possible = Number.isSafeInteger(report.factories) && report.factories >= demolish;
-          button.textContent = !possible ? "Obnov prepočet / chýbajú výrobne" : demolish ? `Predvyplniť (+${report.missing} P / −${demolish} V)` : "Predvyplniť";
-          button.disabled = working || !possible;
-          button.addEventListener("click", () => prepare(report));
-          cell.append(button);
-          const checkbox = container.ownerDocument.createElement("input");
-          checkbox.type = "checkbox";
-          checkbox.setAttribute("aria-label", `Vybrať ${report.name}`);
-          checkbox.checked = selected.has(report.id);
-          checkbox.disabled = working || !possible;
-          checkbox.addEventListener("change", () => {
-            if (checkbox.checked) selected.add(report.id); else selected.delete(report.id);
-            selectionLabel();
-          });
-          cell.append(checkbox);
-        } else if (report) cell.textContent = "Cieľ splnený";
-        tr.append(cell);
-        list.append(tr);
+        visible++;
+        const element = (tag, className, text) => {
+          const node = container.ownerDocument.createElement(tag);
+          node.className = className;
+          if (text !== undefined) node.textContent = text;
+          return node;
+        };
+        const card = element("div", "sgo-parks-card");
+        card.setAttribute("role", "listitem");
+        const demolish = Math.max(0, report.missing - report.freeSlots);
+        const knownFactories = Number.isSafeInteger(report.factories);
+        const possible = knownFactories && report.factories >= demolish;
+        legacy ||= !knownFactories;
+        const checkbox = element("input", "sgo-parks-checkbox");
+        checkbox.type = "checkbox";
+        checkbox.setAttribute("aria-label", `Vybrať ${report.name}`);
+        checkbox.checked = selected.has(report.id) && possible;
+        checkbox.disabled = working || !possible;
+        card.setAttribute("data-selected", String(checkbox.checked));
+        checkbox.addEventListener("change", () => {
+          if (checkbox.checked) selected.add(report.id); else selected.delete(report.id);
+          card.setAttribute("data-selected", String(checkbox.checked));
+          selectionLabel();
+        });
+        const info = element("div", "sgo-parks-info");
+        const title = element("div", "sgo-parks-card-title");
+        title.append(element("strong", "", row.name), element("span", "sgo-parks-happiness", `${report.happiness} %`));
+        const metrics = element("div", "sgo-parks-metrics");
+        metrics.append(element("strong", "sgo-parks-add", `+${report.missing} parkov`),
+          element("span", "", `${report.parks} → ${report.total}`));
+        info.append(title, metrics);
+        info.append(element("span", demolish ? "sgo-parks-demolish" : "sgo-parks-space",
+          !knownFactories ? "Výrobne neoverené" : !possible ? "Nedostatok výroben na uvoľnenie miesta" :
+            demolish ? `Uvoľní miesto: −${demolish} výroben` : "Voľné miesto stačí"));
+        const button = element("button", "sgo-parks-prefill", "Predvyplniť");
+        button.type = "button";
+        button.disabled = working || !possible;
+        button.title = "Otvorí Stavění a pripraví formulár. Nič neodošle.";
+        button.addEventListener("click", () => prepare(report));
+        card.append(checkbox, info, button);
+        list.append(card);
       }
+      $("#sgo-parks-count").textContent = updatedAt == null && !rows.length ? "Zatiaľ bez prepočtu" : `Planéty pod cieľom: ${visible}`;
+      $("#sgo-parks-legacy").hidden = !legacy;
+      $("#sgo-parks-empty").hidden = visible > 0;
+      $("#sgo-parks-empty").textContent = updatedAt == null ? "Načítaj planéty tlačidlom Obnoviť údaje." :
+        prefilled.size ? "Predvyplnené. Stavbu ešte potvrď v hre." :
+          rows.some(row => row.error) ? "Niektoré planéty sa nepodarilo overiť. Obnov údaje." : "Žiadne ďalšie planéty pod cieľom.";
       selectionLabel();
     }
 
@@ -369,8 +404,9 @@
           rows = snapshot.rows;
           updatedAt = snapshot.updatedAt;
           render();
-          message(`Uložený prepočet z ${new Date(updatedAt).toLocaleString()} · cieľ ${target} %. Údaje môžu byť neaktuálne; obnov ich ručne.`);
+          message(`Uložené ${new Date(updatedAt).toLocaleString()} · údaje môžu byť neaktuálne.`);
         }
+        render();
         return true;
       } catch (error) {
         message(error.message, true); log(`Parky: ${error.message}`, "error");
@@ -387,7 +423,7 @@
         const next = targetValue($("#sgo-parks-target").value);
         await storage.set(SETTINGS_KEY, next);
         target = next;
-        message(`Cieľ ${target} % uložený. Už načítané údaje sú prepočítané; nové údaje načítaj tlačidlom Prepočítať planéty.`);
+        message(`Cieľ ${target} % uložený. Pre aktuálny stav obnov údaje.`);
       } catch (error) {
         message(error.message, true); log(`Parky: ${error.message}`, "error");
       } finally { working = false; controls(); render(); }
