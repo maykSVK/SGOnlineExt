@@ -2,7 +2,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const K = require("../parks.js");
 
-function buildings({ free = 500, parks = 20, effect = "+0.1 spokojenost" } = {}) {
+function buildings({ free = 500, parks = 20, factories = 100, effect = "+0.1 spokojenost" } = {}) {
   const fields = Object.fromEntries(["planeta", "mest", "vyroben", "sdi", "bs", "parku", "laboratori", "kasaren", "verze", "postavit"]
     .map(name => [name, { value: "", dispatchEvent() {}, closest: () => ({ textContent:
       name === "parku" ? effect : name === "mest" ? "+9 000 000 lidí" : "-36 000 lidí" }) }]));
@@ -11,7 +11,8 @@ function buildings({ free = 500, parks = 20, effect = "+0.1 spokojenost" } = {})
   fields.verze.options = [{ value: "0" }, { value: "1" }];
   fields.verze.value = "1";
   const form = {
-    elements: { namedItem: name => fields[name] },
+    method: "post", getAttribute: () => "game.php?page=planety",
+    elements: Object.assign(Object.entries(fields).map(([name, field]) => Object.assign(field, { name, type: name === "postavit" ? "submit" : "text" })), { namedItem: name => fields[name] }),
     querySelector: selector => fields[selector.match(/name="([^"]+)"/)?.[1]] || null,
     scrollIntoView() {}
   };
@@ -20,7 +21,7 @@ function buildings({ free = 500, parks = 20, effect = "+0.1 spokojenost" } = {})
     fields, forms: [form], defaultView: { Event },
     getElementById: () => ({ cells: [
       { querySelector: () => ({ getAttribute: () => "?typ=21" }) }, cell(""),
-      cell("100"), cell("100"), cell("0"), cell("0"), cell(String(parks)), cell("0"), cell("0"),
+      cell("100"), cell(String(factories)), cell("0"), cell("0"), cell(String(parks)), cell("0"), cell("0"),
       cell(`${100 + parks} / ${100 + parks + free}`)
     ] })
   };
@@ -44,6 +45,7 @@ class Element {
   append(...children) { this.children.push(...children); }
   replaceChildren(...children) { this.children = children; }
   addEventListener(name, callback) { this.listeners[name] = callback; }
+  setAttribute(name, value) { this[name] = value; }
 }
 
 function container(doc = buildings()) {
@@ -85,7 +87,7 @@ test("park minimum meets the target with no redundant park, including decimal ro
 
 test("readers verify park effect, selected planet, exact name, current parks and happiness", () => {
   const planets = K.readPlanets(buildings());
-  assert.deepEqual(planets[1], { id: "2", name: "Beta", parks: 20, freeSlots: 500 });
+  assert.deepEqual(planets[1], { id: "2", name: "Beta", parks: 20, factories: 100, freeSlots: 500 });
   assert.equal(K.readDetail(detail(), planets[1], 180).missing, 130);
   assert.equal(K.readDetail(detail("2", "167,00", 20, "Beta (DP)"), { ...planets[1], name: "Beta (DP)" }, 180).missing, 130);
   assert.equal(K.readDetail(detail("2", "167", 20, "Beta (DP)"), planets[1], 180).missing, 130);
@@ -108,7 +110,11 @@ test("park prefill only selects construction mode and parks and refuses drafts o
   unfinished.fields.vyroben.value = "12";
   assert.throws(() => K.fill(unfinished, report), /rozpracované/);
   assert.equal(unfinished.fields.planeta.value, "1");
-  assert.throws(() => K.fill(buildings({ free: 129 }), report), /stavebné miesta/);
+  const tight = buildings({ free: 129 });
+  K.fill(tight, report);
+  assert.equal(tight.fields.vyroben.value, "-1");
+  assert.equal(tight.fields.parku.value, "130");
+  assert.throws(() => K.fill(buildings({ free: 0 }), report), /dosť výroben/);
   assert.throws(() => K.fill(buildings({ parks: 21 }), report), /zmenili/);
   assert.throws(() => K.fill(doc, { ...report, missing: 0 }), /spĺňa/);
 });
@@ -201,11 +207,11 @@ test("planet errors are explicit, other planets continue and scan can stop", asy
     }
   });
   await module.load();
-  assert.equal(ui.querySelector("#sgo-parks-list").children.length, 2);
-  assert.equal(ui.querySelector("#sgo-parks-list").children[0].children[3].textContent, "Offline");
+  assert.equal(ui.querySelector("#sgo-parks-list").children.length, 1);
+  assert.match(ui.querySelector("#sgo-parks-errors").textContent, /Alpha: Offline/);
   stop = true;
   await module.load();
-  assert.equal(ui.querySelector("#sgo-parks-list").children.length, 1);
+  assert.equal(ui.querySelector("#sgo-parks-list").children.length, 0);
   assert.match(ui.querySelector("#sgo-parks-status").textContent, /Zastavené 1\/2/);
 });
 
@@ -270,4 +276,196 @@ test("expired drafts, failed settings and blocked operations never prefill or fe
     getDocument: async () => assert.fail("busy operation must not fetch")
   }).load();
   assert.match(blocked.querySelector("#sgo-parks-status").textContent, /prebiehajúcu operáciu/);
+});
+
+function bulkFixture(overrides = {}) {
+  const states = new Map([
+    ["1", { parks: 20, factories: 200, free: 30, happiness: 167, name: "Alpha" }],
+    ["2", { parks: 20, factories: 200, free: 500, happiness: 167, name: "Beta" }]
+  ]);
+  const saved = new Map();
+  const submissions = [];
+  const pauses = [];
+  const ui = container();
+  const options = {
+    storage: {
+      get: async key => structuredClone(saved.get(key)),
+      set: async (key, value) => saved.set(key, structuredClone(value))
+    },
+    getDocument: async () => {
+      const doc = buildings();
+      doc.getElementById = id => buildings(states.get(id.slice(3))).getElementById(id);
+      return doc;
+    },
+    postDocument: async (url, body) => {
+      const state = states.get(body.get("planeta"));
+      if (new URL(url).searchParams.has("s")) {
+        return detail(body.get("planeta"), String(state.happiness), state.parks, state.name);
+      }
+      const parks = Number(body.get("parku"));
+      const factories = Number(body.get("vyroben") || 0);
+      submissions.push(new URLSearchParams(body));
+      state.parks += parks;
+      state.factories += factories;
+      state.free -= parks + factories;
+      state.happiness = 180;
+      return {};
+    },
+    withLock: async action => action(), delayFn: () => 3456,
+    sleep: async ms => pauses.push(ms),
+    ...overrides
+  };
+  const module = K.mount(ui, options);
+  return { states, saved, submissions, pauses, ui, module, options };
+}
+
+test("bulk builds only selected deficits, frees the exact factory shortfall and verifies every POST", async t => {
+  locationFor(t);
+  const f = bulkFixture();
+  await f.module.load();
+  await f.ui.querySelector("#sgo-parks-all").listeners.click();
+  assert.equal(f.ui.querySelector("#sgo-parks-build").textContent, "Postaviť označené (2)");
+  await f.module.buildSelected();
+  assert.equal(f.submissions.length, 2);
+  assert.equal(f.submissions[0].get("vyroben"), "-100");
+  assert.equal(f.submissions[0].get("parku"), "130");
+  assert.equal(f.submissions[0].get("verze"), "0");
+  assert.equal(f.submissions[1].get("vyroben"), "");
+  assert.equal(f.submissions[1].get("planeta"), "2");
+  assert.deepEqual(f.pauses, [3456]);
+  assert.equal(f.saved.get("sgo-parks-pending"), null);
+  assert.equal(f.ui.querySelector("#sgo-parks-list").children.length, 0);
+  assert.match(f.ui.querySelector("#sgo-parks-status").textContent, /overených stavieb 2\/2/);
+  await f.module.buildSelected();
+  assert.equal(f.submissions.length, 2, "completed planets never submitted again");
+});
+
+test("bulk individual checkbox, select all and clear only affect eligible planets", async t => {
+  locationFor(t);
+  const f = bulkFixture();
+  f.states.get("1").happiness = 190;
+  await f.module.load();
+  const list = f.ui.querySelector("#sgo-parks-list");
+  assert.equal(list.children.length, 1, "satisfied planet is hidden");
+  const checkbox = list.children[0].children[4].children[1];
+  checkbox.checked = true;
+  checkbox.listeners.change();
+  await f.module.buildSelected();
+  assert.equal(f.submissions.length, 1);
+  assert.equal(f.submissions[0].get("planeta"), "2");
+  f.states.get("2").happiness = 170;
+  await f.module.load();
+  f.ui.querySelector("#sgo-parks-all").listeners.click();
+  f.ui.querySelector("#sgo-parks-none").listeners.click();
+  await f.module.buildSelected();
+  assert.equal(f.submissions.length, 1);
+});
+
+test("stop during cooldown sends no further builds", async t => {
+  locationFor(t);
+  const f = bulkFixture();
+  f.options.sleep = async () => f.ui.querySelector("#sgo-parks-stop").listeners.click();
+  const module = K.mount(f.ui, f.options);
+  await module.load();
+  f.ui.querySelector("#sgo-parks-all").listeners.click();
+  await module.buildSelected();
+  assert.equal(f.submissions.length, 1);
+  assert.match(f.ui.querySelector("#sgo-parks-status").textContent, /Zastavené/);
+});
+
+test("lost POST response retains journal, stops queue and never blindly retries", async t => {
+  locationFor(t);
+  const f = bulkFixture();
+  const post = f.options.postDocument;
+  let attempts = 0;
+  const module = K.mount(f.ui, {
+    ...f.options,
+    postDocument: async (url, body) => {
+      if (!new URL(url).searchParams.has("s")) { attempts++; throw new Error("Connection lost"); }
+      return post(url, body);
+    }
+  });
+  await module.load();
+  f.ui.querySelector("#sgo-parks-all").listeners.click();
+  await module.buildSelected();
+  assert.equal(attempts, 1);
+  assert.equal(f.saved.get("sgo-parks-pending").id, "1");
+  await module.buildSelected();
+  assert.equal(attempts, 1);
+  assert.match(f.ui.querySelector("#sgo-parks-status").textContent, /Neistý výsledok/);
+});
+
+test("lost response after successful construction is reconciled on the next run without duplicate demolition", async t => {
+  locationFor(t);
+  const f = bulkFixture();
+  const post = f.options.postDocument;
+  const first = K.mount(f.ui, {
+    ...f.options,
+    postDocument: async (url, body) => {
+      const result = await post(url, body);
+      if (!new URL(url).searchParams.has("s")) throw new Error("Response lost");
+      return result;
+    }
+  });
+  await first.load();
+  f.ui.querySelector("#sgo-parks-all").listeners.click();
+  await first.buildSelected();
+  assert.equal(f.submissions.length, 1);
+  assert.ok(f.saved.get("sgo-parks-pending"));
+  const next = K.mount(f.ui, f.options);
+  await next.draftsReady;
+  f.ui.querySelector("#sgo-parks-all").listeners.click();
+  await next.buildSelected();
+  assert.equal(f.submissions.length, 2);
+  assert.deepEqual(f.submissions.map(body => body.get("planeta")), ["1", "2"]);
+  assert.equal(f.saved.get("sgo-parks-pending"), null);
+});
+
+test("freshly satisfied planets and insufficient factory reserves are never submitted", async t => {
+  locationFor(t);
+  const f = bulkFixture();
+  f.states.get("2").factories = 0;
+  f.states.get("2").free = 0;
+  await f.module.load();
+  f.ui.querySelector("#sgo-parks-all").listeners.click();
+  assert.equal(f.ui.querySelector("#sgo-parks-build").textContent, "Postaviť označené (1)");
+  f.states.get("1").happiness = 180;
+  await f.module.buildSelected();
+  assert.equal(f.submissions.length, 0, "fresh detail prevents stale construction");
+});
+
+test("bulk recalculates fresh, refuses insufficient factories, failed storage and foreign actions", async t => {
+  locationFor(t);
+  for (const failure of ["factories", "storage", "action", "verification"]) {
+    const f = bulkFixture();
+    await f.module.load();
+    f.ui.querySelector("#sgo-parks-all").listeners.click();
+    if (failure === "factories") f.states.get("1").factories = 1;
+    if (failure === "storage") {
+      const set = f.options.storage.set;
+      f.options.storage.set = async (key, value) => {
+        if (key === "sgo-parks-pending") throw new Error("Storage failed");
+        return set(key, value);
+      };
+    }
+    if (failure === "action") {
+      const get = f.options.getDocument;
+      f.options.getDocument = async () => {
+        const doc = await get();
+        doc.forms[0].getAttribute = () => "https://other.test/game.php?page=planety";
+        return doc;
+      };
+    }
+    if (failure === "verification") {
+      const post = f.options.postDocument;
+      f.options.postDocument = async (url, body) => new URL(url).searchParams.has("s") ? post(url, body) : {};
+    }
+    const next = K.mount(f.ui, f.options);
+    await next.draftsReady;
+    f.ui.querySelector("#sgo-parks-all").listeners.click();
+    await next.buildSelected();
+    assert.equal(f.submissions.length, 0, failure);
+    assert.ok(f.ui.querySelector("#sgo-parks-status").className.includes("sgo-error"), failure);
+    if (failure === "verification") assert.equal(f.saved.get("sgo-parks-pending"), null, "verified no-op can be retried explicitly");
+  }
 });

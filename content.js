@@ -350,7 +350,7 @@
     finally { targetsLoading = false; }
   }
   async function discover() {
-    if (busy || run?.active) return;
+    if (busy || run?.active || parks?.isWorking) return;
     const ownOperation = ++operation;
     busy = true; controls(); status("Načítavam jednotky a limity zo stránky...");
     try {
@@ -550,6 +550,7 @@
   $("#sgo-load").addEventListener("click", discover);
   $("#sgo-start").addEventListener("click", () => {
     try {
+      if (parks?.isWorking) throw new Error("Najprv dokonči alebo zastav operáciu parkov.");
       const requested = catalog.filter(e => data.plans[e.id]?.enabled);
       if (!requested.length) throw new Error("Vyber aspon jeden typ utoku.");
       const depleted = requested.filter(e => e.remaining === 0 || e.status.kind === "exhausted");
@@ -595,7 +596,7 @@
   $("#sgo-back").addEventListener("click", () => showFeature("home"));
   $("#sgo-open-attacks").addEventListener("click", () => showFeature("attacks"));
   $("#sgo-open-population").addEventListener("click", () => showFeature("population"));
-  population = globalThis.SGOPopulation.mount($("#sgo-population-feature"), { getDocument, log, canEdit: () => !run?.active && !busy, revealGame });
+  population = globalThis.SGOPopulation.mount($("#sgo-population-feature"), { getDocument, log, canEdit: () => !run?.active && !busy && !parks?.isWorking, revealGame });
   $("#sgo-open-parks").addEventListener("click", () => showFeature("parks"));
   parks = globalThis.SGOParks.mount($("#sgo-parks-feature"), {
     getDocument, postDocument: (url, body) => getDocument(url, { method: "POST", body }),
@@ -605,16 +606,16 @@
   $("#sgo-open-sectors").addEventListener("click", () => showFeature("sectors"));
   $("#sgo-open-war").addEventListener("click", () => showFeature("war"));
   guardian = globalThis.SGOGuardian.mount($("#sgo-guardian-feature"), {
-    getDocument, log, storage, rankingContainer: $("#sgo-ranking"), canEdit: () => !run?.active && !busy,
+    getDocument, log, storage, rankingContainer: $("#sgo-ranking"), canEdit: () => !run?.active && !busy && !parks?.isWorking,
     revealGame, navigate: async url => { await writes; location.assign(url); }
   });
   sectors = globalThis.SGOSectors.mount($("#sgo-sectors-feature"), {
-    getDocument, log, canEdit: () => !run?.active && !busy, revealGame,
+    getDocument, log, canEdit: () => !run?.active && !busy && !parks?.isWorking, revealGame,
     navigate: async url => { await writes; location.assign(url); }
   });
   war = globalThis.SGOWar.mount($("#sgo-war-feature"), {
     getDocument, postDocument: (url, body) => getDocument(url, { method: "POST", body }),
-    storage, log, revealGame, canEdit: () => !run?.active && !busy,
+    storage, log, revealGame, canEdit: () => !run?.active && !busy && !parks?.isWorking,
     navigate: async url => { await writes; location.assign(url); }
   });
   $("#sgo-export").addEventListener("click", () => {

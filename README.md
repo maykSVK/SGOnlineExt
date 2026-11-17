@@ -217,6 +217,20 @@ na jej zastavenie pouzi **Zastavit** v podmenu utokov.
   POST s `vyberpl` iba vybera detail, nestavia. Zobrazuje priebeh, ciastkove
   vysledky a tlacidlo **Zastavit**. Chyba jednej planety je oznacena a zalogovana;
   ostatne pokracuju. Otvorenie sekcie samo nespusta sietove nacitavanie.
+- Tabulka zobrazuje iba planety pod ulozenym cielom spokojnosti. Chyby citania
+  su vypisane samostatne a zalogovane, nie vydavane za splneny ciel.
+- Checkboxy vyberu planetu, **Oznacit vsetko** vyberie vsetky zobrazene
+  spracovatelne planety a **Zrusit vyber** vyber vymaze.
+  **Postavit oznacene** vykona stavby priamo bez dalsieho potvrdenia v hre.
+  Pred kazdou planetou znovu nacita stavby a spokojnost, po odoslani overi
+  presny pocet parkov aj vyroben. Medzi planetami je variabilna pauza 2,5–6 s
+  (rovnaky pacing helper ako pri utokoch); nezarucuje neodhalenie automatizacie.
+  **Zastavit** zabrani dalsiemu odoslaniu, uz odoslanu stavbu nevrati.
+  Spracovanie bezi iba v otvorenej karte a po navigacii sa samo neobnovuje.
+  Web Locks brania sucasnej hromadnej stavbe vo viacerych kartach.
+  Chyba stavby zastavi celu seriu. Pred POST sa ulozi zaznam ocakavaneho
+  vysledku; pri strate odpovede sa stavba naslepo neopakuje. Dalsie spustenie
+  najprv skontroluje tento zaznam a pri neistote vyzaduje kontrolu v hre.
 - Podla [oficialneho navodu o spokojnosti](https://www.stargame-online.cz/index.php?stranka=blog&akce=detail&detail=73)
   park pridava 0,1 percentualneho bodu a ciel maximalnej spokojnosti je 200 %.
   Doplnenie = `max(0, ceil((ciel - aktualna_spokojnost) / 0.1))`.
@@ -228,10 +242,14 @@ na jej zastavenie pouzi **Zastavit** v podmenu utokov.
   Pri uz splnenom cieli nic nestavia ani neodporuca burat parky; z hodnoty
   orezanej na maximum sa presny prebytok neda zistit.
 - **Predvyplnit** otvori Staveni, znovu overi planetu a cerstvu spokojnost
-  a vyplni iba potrebne parky v rezime pristavovania. Navrh sa prenasa
+  a vyplni potrebne parky v rezime pristavovania. Ak nestaci miesto, vyplni aj
+  zaporny pocet vyroben presne vo vyske chybajuceho miesta, aby ich hra zrusila
+  a postavila parky v jednej poziadavke. Rovnaky vypocet pouziva hromadna stavba.
+  Ak nie je dost vyroben na uvolnenie miesta, akcia je zablokovana.
+  Navrh sa prenasa
   jednorazovo v rovnakej karte (10 minut). Stavbu a cenu potvrdis sam v hre.
-  Odmietne prepisat rozpracovane stavby, zmeneny nazov/vlastnictvo alebo
-  stavbu bez dostatku volnych stavebnych miest. Nic automaticky neburame.
+  Odmietne prepisat rozpracovane stavby alebo zmeneny nazov/vlastnictvo.
+  Ostatne typy budov sa nikdy neburaju.
 
 ### Idealne zaludnenie
 
