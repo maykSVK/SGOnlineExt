@@ -151,6 +151,12 @@
 #sgo-addon .sgo-war-action button, #sgo-addon .sgo-war-table button { margin: 3px 0; padding: 5px 7px; font-size: 10px; }
 #sgo-addon .sgo-war-ok { color: #83e0b3; font-size: 11px; }
 #sgo-addon .sgo-war-warning { color: #ffcb82; }
+#sgo-addon #sgo-parks-feature { padding: 14px 18px 18px; }
+#sgo-addon .sgo-parks-tools { display: flex; flex-wrap: wrap; align-items: end; gap: 6px; font-size: 11px; }
+#sgo-addon .sgo-parks-tools input { display: block; width: 100px; margin-top: 4px; }
+#sgo-addon .sgo-parks-tools button { padding: 6px 8px; font-size: 11px; }
+#sgo-addon .sgo-parks-scroll { max-height: 45dvh; overflow: auto; scrollbar-width: thin; }
+#sgo-addon .sgo-parks-scroll button { padding: 4px 6px; font-size: 10px; }
 #sgo-addon .sgo-war-table-scroll { max-height: 220px; overflow: auto; margin-top: 6px; scrollbar-width: thin; }
 #sgo-addon .sgo-war-table { width: 100%; border-collapse: collapse; font-size: 10px; }
 #sgo-addon .sgo-war-table th, #sgo-addon .sgo-war-table td { padding: 4px 3px; border-bottom: 1px solid #28374e; text-align: left; vertical-align: middle; }

@@ -2,7 +2,7 @@
 
 Tampermonkey userscript aj lokalne rozsirenie Manifest V3 pre kompatibilne prehliadace.
 Funkcie su dostupne z hlavneho menu: **Utok na RR**, **Idealne zaludnenie**,
-**Nase sektory** a **Vojna**.
+**Nase sektory**, **Vojna** a **Parky a spokojnost**.
 Volitelna synchronizacia posiela iba historiu zrebovani do nastaveneho Gistu.
 Doplnok nepozaduje pristup k hernemu heslu.
 Tampermonkey stahuje instalaciu a aktualizacie z GitHubu.
@@ -201,6 +201,30 @@ Oba rezimy maju vlastny stav, takze zmena sirky okna neprepise zbalenie na PC.
 Tlacidlo **Vsetky funkcie** vrati hlavne menu. Utoky so svojim nastavenim
 a dennikom su v samostatnom podmenu. Prebiehajuca seria sa otvorenim menu nerusi;
 na jej zastavenie pouzi **Zastavit** v podmenu utokov.
+
+### Parky a spokojnost
+
+- Samostatna dlazdica **Parky a spokojnost** vypocita minimalny prirastok parkov
+  pre ulozeny ciel spokojnosti (predvolene **180 %**, nastavitelne 0–200 %).
+- **Prepocitat planety** precita stavby a postupne otvori detail kazdej planety.
+  POST s `vyberpl` iba vybera detail, nestavia. Zobrazuje priebeh, ciastkove
+  vysledky a tlacidlo **Zastavit**. Chyba jednej planety je oznacena a zalogovana;
+  ostatne pokracuju. Otvorenie sekcie samo nespusta sietove nacitavanie.
+- Podla [oficialneho navodu o spokojnosti](https://www.stargame-online.cz/index.php?stranka=blog&akce=detail&detail=73)
+  park pridava 0,1 percentualneho bodu a ciel maximalnej spokojnosti je 200 %.
+  Doplnenie = `max(0, ceil((ciel - aktualna_spokojnost) / 0.1))`.
+  Pocita sa s presnostou zobrazenej spokojnosti. Napriklad zo 167 % na 180 %
+  treba 130 dalsich parkov, pri existujucich 20 teda spolu 150.
+- Vypocet zohladnuje aktualne bonusy a nezamestnanych cez spokojnost z detailu.
+  Po zmene politiky, artefaktov alebo populacie treba prepoctat znova.
+  Nejde o automaticke sledovanie ani garanciu pri buducich zmenach bonusov.
+  Pri uz splnenom cieli nic nestavia ani neodporuca burat parky; z hodnoty
+  orezanej na maximum sa presny prebytok neda zistit.
+- **Predvyplnit** otvori Staveni, znovu overi planetu a cerstvu spokojnost
+  a vyplni iba potrebne parky v rezime pristavovania. Navrh sa prenasa
+  jednorazovo v rovnakej karte (10 minut). Stavbu a cenu potvrdis sam v hre.
+  Odmietne prepisat rozpracovane stavby, zmeneny nazov/vlastnictvo alebo
+  stavbu bez dostatku volnych stavebnych miest. Nic automaticky neburame.
 
 ### Idealne zaludnenie
 
