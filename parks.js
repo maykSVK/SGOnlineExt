@@ -4,6 +4,7 @@
   const P = typeof module !== "undefined" && module.exports ? require("./population.js") : root.SGOPopulation;
   const SETTINGS_KEY = "sgo-parks-target";
   const DRAFT_KEY = "sgo-parks-draft";
+  const SNAPSHOT_KEY = "sgo-parks-snapshot";
 
   function targetValue(value) {
     const text = String(value).trim().replace(",", ".");
@@ -81,14 +82,18 @@
     navigate = url => root.location.assign(url), log = () => {}, canEdit = () => true, revealGame = () => {} }) {
     container.innerHTML = `<div class="sgo-feature-heading"><span class="sgo-eyebrow">PLANÉTY / SPOKOJNOSŤ</span><h3>Parky a spokojnosť</h3>
       <p class="sgo-hint">Minimum ďalších parkov pre zvolený cieľ. Výpočet zahŕňa aktuálne bonusy aj nezamestnaných; po ich zmene ho zopakuj. Nič nebúra ani nestavia.</p></div>
+      <details class="sgo-watch-settings"><summary>Nastavenia parkov</summary>
       <div class="sgo-parks-tools"><label>Cieľ spokojnosti (%)<input id="sgo-parks-target" type="number" min="0" max="200" step="0.1" value="180"></label>
-      <button type="button" id="sgo-parks-save">Uložiť cieľ</button><button type="button" id="sgo-parks-load">Prepočítať planéty</button><button type="button" id="sgo-parks-stop" disabled>Zastaviť</button></div>
+      <button type="button" id="sgo-parks-save">Uložiť cieľ</button></div></details>
+      <div class="sgo-parks-tools"><button type="button" id="sgo-parks-load">Prepočítať planéty</button><button type="button" id="sgo-parks-stop" disabled>Zastaviť</button></div>
       <p class="sgo-hint">Každá planéta potrebuje vlastný detail, väčší zoznam chvíľu trvá. Pri nedostatku miesta sa stavba nepredvyplní. Pri už splnenom cieli neodhadujeme nadbytočné parky.</p>
       <p id="sgo-parks-status" class="sgo-hint" role="status">Cieľ 180 % · načítanie je ručné.</p>
       <div class="sgo-parks-scroll" tabindex="0" role="region" aria-label="Parky na planétach"><table class="sgo-war-table"><thead><tr><th>Planéta</th><th>Spokojnosť</th><th>Parky</th><th>Doplniť</th><th></th></tr></thead><tbody id="sgo-parks-list"></tbody></table></div>`;
     const $ = selector => container.querySelector(selector);
     let target = 180;
     let rows = [];
+    const prefilled = new Set();
+    let updatedAt = null;
     let working = false;
     let stopped = false;
     const message = (text, error = false) => {
@@ -106,11 +111,17 @@
     };
     const detail = (planet, goal) => postDocument(url({ page: "planety", s: "detail" }),
       new URLSearchParams({ planeta: planet.id, vyberpl: "Vyber planetu" })).then(doc => readDetail(doc, planet, goal));
+    const persist = () => storage.set(SNAPSHOT_KEY, { rows, updatedAt });
+    const isBuildingPage = () => {
+      const params = new URL(root.location.href).searchParams;
+      return params.get("page") === "planety" && !params.has("s");
+    };
 
     function render() {
       const list = $("#sgo-parks-list");
       list.replaceChildren();
       for (const row of rows) {
+        if (prefilled.has(row.report?.id)) continue;
         const tr = container.ownerDocument.createElement("tr");
         const report = row.report && { ...row.report, ...calculate(row.report.happiness, row.report.parks, target) };
         for (const value of [row.name, report ? `${report.happiness} %` : "Neznáme",
@@ -140,6 +151,7 @@
       const report = await detail(planet, goal);
       if (!canEdit()) throw new Error("Začala iná operácia; nič nepredvypĺňam.");
       fill(container.ownerDocument, report);
+      prefilled.add(planetId);
       revealGame();
       const text = `${planet.name}: predvyplnených ${report.missing} parkov pre cieľ ${goal} %. Skontroluj cenu a potvrď stavbu v hre.`;
       message(text);
@@ -151,11 +163,12 @@
       working = true;
       controls(); render();
       try {
+        if (!await ready) throw new Error("Nastavenia sa nepodarilo načítať; obnov stránku.");
         if (!canEdit()) throw new Error("Najprv dokonči prebiehajúcu operáciu.");
-        const params = new URL(root.location.href).searchParams;
-        if (params.get("page") === "planety" && !params.has("s")) {
+        if (isBuildingPage()) {
           await apply(report.id, report.name, target);
         } else {
+          await persist();
           session.setItem(DRAFT_KEY, JSON.stringify({ id: report.id, name: report.name, target, time: Date.now() }));
           try { await navigate(url({ page: "planety" })); }
           catch (error) { session.removeItem(DRAFT_KEY); throw error; }
@@ -175,6 +188,7 @@
         if (!canEdit()) throw new Error("Najprv dokonči prebiehajúcu operáciu.");
         const planets = readPlanets(await getDocument(url({ page: "planety" })));
         rows = [];
+        prefilled.clear();
         let failures = 0;
         for (const planet of planets) {
           if (stopped) break;
@@ -186,6 +200,8 @@
             rows.push({ name: planet.name, error: error.message });
             log(`Parky ${planet.name}: ${error.message}`, "error");
           }
+          updatedAt = Date.now();
+          await persist();
           render();
         }
         message(`${stopped ? "Zastavené" : "Prepočítané"} ${rows.length}/${planets.length} planét · cieľ ${target} % · ${failures} chýb.`, failures > 0);
@@ -196,15 +212,34 @@
     }
 
     async function restore() {
+      let settingsLoaded = false;
       try {
         const saved = await storage.get(SETTINGS_KEY);
         target = targetValue(saved == null ? 180 : saved);
         $("#sgo-parks-target").value = String(target);
+        settingsLoaded = true;
         message(`Cieľ ${target} % · načítanie je ručné.`);
+        const snapshot = await storage.get(SNAPSHOT_KEY);
+        if (snapshot != null) {
+          if (!Number.isFinite(snapshot.updatedAt) || !Array.isArray(snapshot.rows) ||
+            !snapshot.rows.every(row => {
+              if (!row || typeof row.name !== "string" || !row.name) return false;
+              if (!row.report) return typeof row.error === "string" && !!row.error;
+              const report = row.report;
+              return typeof report.id === "string" && /^\d+$/.test(report.id) && report.name === row.name &&
+                Number.isFinite(report.happiness) && report.happiness >= 0 && report.happiness <= 200 &&
+                Number.isSafeInteger(report.parks) && report.parks >= 0 &&
+                Number.isSafeInteger(report.freeSlots) && report.freeSlots >= 0;
+            })) throw new Error("Uložený prepočet parkov je poškodený; spusti nový prepočet.");
+          rows = snapshot.rows;
+          updatedAt = snapshot.updatedAt;
+          render();
+          message(`Uložený prepočet z ${new Date(updatedAt).toLocaleString()} · cieľ ${target} %. Údaje môžu byť neaktuálne; obnov ich ručne.`);
+        }
         return true;
       } catch (error) {
         message(error.message, true); log(`Parky: ${error.message}`, "error");
-        return false;
+        return settingsLoaded;
       }
     }
     const ready = restore();
@@ -226,10 +261,22 @@
     $("#sgo-parks-stop").addEventListener("click", () => { stopped = true; });
     const draftsReady = ready.then(async ok => {
       if (!ok) return;
-      const params = new URL(root.location.href).searchParams;
-      if (params.get("page") !== "planety" || params.has("s")) return;
+      if (!isBuildingPage()) return;
       working = true; controls();
       try {
+        if (rows.some(row => row.report)) {
+          const planets = readPlanets(container.ownerDocument);
+          let changed = false;
+          for (const row of [...rows]) {
+            if (!row.report) continue;
+            const planet = planets.find(item => item.id === row.report.id);
+            if (!planet || planet.name !== row.name || planet.parks === row.report.parks) continue;
+            row.report = await detail(planet, target);
+            if (!row.report.missing) rows = rows.filter(item => item !== row);
+            changed = true;
+          }
+          if (changed) { updatedAt = Date.now(); await persist(); }
+        }
         const draft = JSON.parse(session.getItem(DRAFT_KEY) || "null");
         if (!draft) return;
         session.removeItem(DRAFT_KEY);

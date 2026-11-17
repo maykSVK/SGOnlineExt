@@ -206,6 +206,13 @@ na jej zastavenie pouzi **Zastavit** v podmenu utokov.
 
 - Samostatna dlazdica **Parky a spokojnost** vypocita minimalny prirastok parkov
   pre ulozeny ciel spokojnosti (predvolene **180 %**, nastavitelne 0–200 %).
+  Ciel je schovany v rozbalovaci **Nastavenia parkov**.
+- Priebezny prepocet sa uklada a zostava dostupny aj po navigacii bez noveho
+  nacitavania celej rise. Obnoveny zoznam je oznaceny ako potencialne neaktualny.
+  Riadok sa docasne schova az po uspesnom predvyplneni, nie uz pri kliknuti
+  alebo prechode na Staveni. Bez potvrdenia stavby sa po obnoveni znovu objavi.
+  Na Staveni sa zmenene pocty parkov overia cerstvym detailom; planety, ktore
+  po stavbe splnaju ciel, sa z ulozeneho zoznamu odstrania.
 - **Prepocitat planety** precita stavby a postupne otvori detail kazdej planety.
   POST s `vyberpl` iba vybera detail, nestavia. Zobrazuje priebeh, ciastkove
   vysledky a tlacidlo **Zastavit**. Chyba jednej planety je oznacena a zalogovana;

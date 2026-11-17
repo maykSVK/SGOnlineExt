@@ -143,6 +143,12 @@ test("parks settings persist, reports recalculate and draft revalidates on desti
   assert.equal(ui.querySelector("#sgo-parks-target").value, "180");
   await module.load();
   assert.equal(detailCalls, 2);
+  assert.match(ui.innerHTML, /<details class="sgo-watch-settings"><summary>Nastavenia parkov/);
+  const restored = container();
+  await K.mount(restored, options).draftsReady;
+  assert.equal(restored.querySelector("#sgo-parks-list").children.length, 2);
+  assert.equal(detailCalls, 2, "navigation restores snapshot without requests");
+  assert.match(restored.querySelector("#sgo-parks-status").textContent, /neaktuálne/);
   const row = () => ui.querySelector("#sgo-parks-list").children[1];
   assert.equal(row().children[3].textContent, "+130 · spolu 150");
   ui.querySelector("#sgo-parks-target").value = "190";
@@ -163,6 +169,22 @@ test("parks settings persist, reports recalculate and draft revalidates on desti
   assert.equal(revealed, true);
   assert.equal(drafts.size, 0);
   assert.equal(next.querySelector("#sgo-parks-target").value, "190");
+  assert.equal(next.querySelector("#sgo-parks-list").children.length, 1, "only successfully prefilled row is hidden");
+  const unconfirmed = container();
+  await K.mount(unconfirmed, options).draftsReady;
+  assert.equal(unconfirmed.querySelector("#sgo-parks-list").children.length, 2, "unconfirmed prefill returns on refresh");
+  assert.equal(unconfirmed.ownerDocument.fields.parku.value, "", "refresh never repeats a consumed draft");
+  const confirmed = container(buildings({ parks: 120 }));
+  await K.mount(confirmed, {
+    ...options,
+    postDocument: async (url, body) => detail(body.get("planeta"), "190.00", 120,
+      body.get("planeta") === "1" ? "Alpha" : "Beta")
+  }).draftsReady;
+  assert.equal(confirmed.querySelector("#sgo-parks-list").children.length, 0, "confirmed target is removed");
+  globalThis.location.href = "https://game.test/game.php?page=prehled";
+  const after = container();
+  await K.mount(after, options).draftsReady;
+  assert.equal(after.querySelector("#sgo-parks-list").children.length, 0, "confirmed completion persists");
 });
 
 test("planet errors are explicit, other planets continue and scan can stop", async t => {
@@ -171,7 +193,7 @@ test("planet errors are explicit, other planets continue and scan can stop", asy
   let module;
   let stop = false;
   module = K.mount(ui, {
-    storage: { get: async () => null }, getDocument: async () => buildings(), log() {},
+    storage: { get: async () => null, set: async () => {} }, getDocument: async () => buildings(), log() {},
     postDocument: async (url, body) => {
       if (stop) ui.querySelector("#sgo-parks-stop").listeners.click();
       if (body.get("planeta") === "1") throw new Error("Offline");
@@ -185,6 +207,36 @@ test("planet errors are explicit, other planets continue and scan can stop", asy
   await module.load();
   assert.equal(ui.querySelector("#sgo-parks-list").children.length, 1);
   assert.match(ui.querySelector("#sgo-parks-status").textContent, /Zastavené 1\/2/);
+});
+
+test("prefill from a detail page navigates to construction and failures never hide rows", async t => {
+  locationFor(t, "https://game.test/www/game.php?page=planety&s=detail&planeta=1");
+  const saved = new Map();
+  const drafts = new Map();
+  const options = {
+    storage: { get: async key => saved.get(key), set: async (key, value) => saved.set(key, structuredClone(value)) },
+    session: { getItem: key => drafts.get(key), setItem: (key, value) => drafts.set(key, value), removeItem: key => drafts.delete(key) },
+    getDocument: async () => buildings(),
+    postDocument: async (url, body) => detail(body.get("planeta"), "167", 20, body.get("planeta") === "1" ? "Alpha" : "Beta")
+  };
+  const ui = container();
+  let destination;
+  const module = K.mount(ui, { ...options, navigate: async url => { destination = url; throw new Error("Navigation failed"); } });
+  await module.load();
+  const click = panel => panel.querySelector("#sgo-parks-list").children[1].children[4].children[0].listeners.click();
+  await click(ui);
+  assert.equal(destination, "https://game.test/www/game.php?page=planety");
+  assert.equal(drafts.size, 0);
+  assert.equal(ui.querySelector("#sgo-parks-list").children.length, 2);
+  assert.match(ui.querySelector("#sgo-parks-status").textContent, /Navigation failed/);
+  const next = container();
+  next.ownerDocument.fields.vyroben.value = "5";
+  globalThis.location.href = destination;
+  await K.mount(next, options).draftsReady;
+  await click(next);
+  assert.match(next.querySelector("#sgo-parks-status").textContent, /rozpracované/);
+  assert.equal(next.querySelector("#sgo-parks-list").children.length, 2);
+  assert.equal(next.ownerDocument.fields.parku.value, "");
 });
 
 test("expired drafts, failed settings and blocked operations never prefill or fetch details", async t => {
