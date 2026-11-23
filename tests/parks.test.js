@@ -2,676 +2,292 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const K = require("../parks.js");
 
-function buildings({ free = 500, parks = 20, factories = 100, effect = "+0.1 spokojenost", price = "30 624.0", balance = "1 101 348 705" } = {}) {
-  const fields = Object.fromEntries(["planeta", "mest", "vyroben", "sdi", "bs", "parku", "laboratori", "kasaren", "verze", "postavit"]
-    .map(name => [name, { value: "", dispatchEvent() {}, closest: () => ({ textContent:
-      name === "parku" ? effect : name === "mest" ? "+9 000 000 lidí" : "-36 000 lidí",
-      querySelector: () => ({ textContent: price }) }) }]));
-  fields.planeta.value = "1";
-  fields.planeta.options = [{ value: "1", textContent: "Alpha" }, { value: "2", textContent: "Beta" }];
-  fields.verze.options = [{ value: "0" }, { value: "1" }];
-  fields.verze.value = "1";
+function buildings(states = {
+  "1": { name: "Alpha", sdi: 100, bs: 800, parks: 50, factories: 600, freeSlots: 50 },
+  "2": { name: "Beta", sdi: 200, bs: 400, parks: 100, factories: 2000, freeSlots: 2000 }
+}, balance = "1 000 000") {
+  const prices = { sdi: "100.0", bs: "10.5", parku: "20.25" };
+  const fields = Object.fromEntries(["planeta", "mest", "vyroben", "sdi", "bs", "parku", "laboratori", "kasaren", "verze", "postavit"].map(name => [name, {
+    name, type: name === "postavit" ? "submit" : "text", value: "", dispatchEvent() {},
+    closest: () => ({ textContent: name === "mest" ? "+9 000 000 lidí" : "-36 000 lidí", querySelector: () => ({ textContent: prices[name] }) })
+  }]));
+  fields.planeta.value = "2";
+  fields.planeta.options = Object.entries(states).map(([id, state]) => ({ value: id, textContent: state.name }));
+  fields.verze.options = [{ value: "0" }]; fields.postavit.value = "Postavit";
   const form = {
     method: "post", getAttribute: () => "game.php?page=planety",
-    elements: Object.assign(Object.entries(fields).map(([name, field]) => Object.assign(field, { name, type: name === "postavit" ? "submit" : "text" })), { namedItem: name => fields[name] }),
-    querySelector: selector => fields[selector.match(/name="([^"]+)"/)?.[1]] || null,
-    scrollIntoView() {}
+    elements: Object.assign(Object.values(fields), { namedItem: name => fields[name] }),
+    querySelector: selector => fields[selector.match(/name="([^"]+)"/)?.[1]] || null, scrollIntoView() {}
   };
-  const cell = textContent => ({ textContent });
+  const cell = textContent => ({ textContent: String(textContent) });
   return {
-    fields, forms: [form], defaultView: { Event },
-    querySelector: selector => selector.includes("balance") ? { textContent: balance } : fields.parku,
-    getElementById: () => ({ cells: [
-      { querySelector: () => ({ getAttribute: () => "?typ=21" }) }, cell(""),
-      cell("100"), cell(String(factories)), cell("0"), cell("0"), cell(String(parks)), cell("0"), cell("0"),
-      cell(`${100 + parks} / ${100 + parks + free}`)
-    ] })
+    forms: [form], fields, defaultView: { Event },
+    querySelector: selector => selector.includes("balance") ? { textContent: balance } : fields[selector.match(/name="([^"]+)"/)?.[1]],
+    getElementById(id) {
+      const state = states[id.slice(3)];
+      return state && { cells: [{ querySelector: () => ({ getAttribute: () => "?typ=21" }) }, cell(state.name),
+        cell(100), cell(state.factories), cell(state.sdi), cell(state.bs), cell(state.parks), cell(0), cell(0),
+        cell(`100 / ${100 + state.freeSlots}`)] };
+    }
   };
 }
-
-function detail(id = "2", happiness = "167.00", parks = 20, name = "Beta") {
-  const end = { nodeName: "BR" };
-  const text = { nodeName: "#text", textContent: ` ${happiness} %`, nextSibling: end };
-  return {
-    querySelector: selector => selector.startsWith("select")
-      ? { value: id, options: [{ value: id, textContent: name }] }
-      : { nextSibling: text },
-    querySelectorAll: () => [{
-      textContent: "Parky", parentElement: { nextElementSibling: { textContent: String(parks) } }
-    }]
-  };
-}
-
 class Element {
   constructor(doc) { this.ownerDocument = doc; this.children = []; this.listeners = {}; this.value = ""; }
   append(...children) { this.children.push(...children); }
   replaceChildren(...children) { this.children = children; }
   addEventListener(name, callback) { this.listeners[name] = callback; }
   setAttribute(name, value) { this[name] = value; }
-  removeAttribute(name) { delete this[name]; }
 }
-
 function container(doc = buildings()) {
   doc.createElement = () => new Element(doc);
   const elements = new Map();
-  return {
-    ownerDocument: doc, innerHTML: "", setAttribute(name, value) { this[name] = value; },
-    querySelector: selector => {
-      if (!elements.has(selector)) elements.set(selector, new Element(doc));
-      return elements.get(selector);
-    }
-  };
+  return { ownerDocument: doc, innerHTML: "", setAttribute(name, value) { this[name] = value; },
+    querySelector(selector) { if (!elements.has(selector)) elements.set(selector, new Element(doc)); return elements.get(selector); } };
 }
-
-function locationFor(t, href = "https://game.test/game.php?page=prehled") {
+function setup(t, overrides = {}) {
   const previous = globalThis.location;
-  globalThis.location = { href };
+  globalThis.location = { href: "https://game.test/game.php?page=prehled" };
   t.after(() => { if (previous === undefined) delete globalThis.location; else globalThis.location = previous; });
-}
-
-test("park additions include two happiness points and round up to tens only below the original target", () => {
-  assert.deepEqual(K.calculate(167, 20, 180), { happiness: 167, parks: 20, target: 180, missing: 150, total: 170 });
-  for (const [current, goal, expected] of [[152, 180, 300], [179.9, 180, 30], [179.91, 180, 30],
-    [180, 180, 0], [200, 180, 0], [199.99, 200, 10], [180.01, 180.1, 30], [0, 200, 2000],
-    [198.9, 199, 20], [199, 199, 0], [0, 0, 0], [178, 180, 40], [178.01, 180, 40]]) {
-    const result = K.calculate(current, 20, goal);
-    assert.equal(result.missing, expected);
-    if (expected) {
-      const buffered = Math.round(Math.min(200, goal + 2) * 100);
-      assert.equal(expected % 10, 0);
-      assert.ok(Math.round(current * 100) + expected * 10 >= buffered);
-      assert.ok(Math.round(current * 100) + (expected - 10) * 10 < buffered);
-    }
-  }
-  assert.equal(K.targetValue("180,5"), 180.5);
-  for (const invalid of ["", "NaN", "-1", "200.1", "180.01", Infinity, null]) {
-    assert.throws(() => K.targetValue(invalid), /Cieľ/);
-  }
-  assert.throws(() => K.calculate(NaN, 20, 180), /Neplatná/);
-  assert.throws(() => K.calculate(180, -1, 180), /Neplatná/);
-});
-
-test("park budget reads exact price and balance, including decimals and exact affordability", () => {
-  const budget = K.readBudget(buildings());
-  assert.equal(budget.price, 3062400);
-  assert.equal(budget.balance, 110134870500);
-  assert.deepEqual(K.budgetFor({ price: 1234, balance: 3702 }, 3), { cost: 3702, remaining: 0 });
-  assert.equal(K.budgetFor({ price: 1234, balance: 3701 }, 3).remaining, -1);
-  assert.equal(K.readBudget(buildings({ price: "30\u00a0624,50" })).price, 3062450);
-  assert.throws(() => K.readBudget(buildings({ price: "???" })), /cenu parku/);
-  assert.throws(() => K.readBudget(buildings({ balance: "" })), /zostatok/);
-  assert.throws(() => K.budgetFor({ price: Number.MAX_SAFE_INTEGER }, 2), /rozsahu/);
-});
-
-test("refresh immediately shows pending buildings, per-planet progress and completed controls", async t => {
-  locationFor(t);
+  const states = {
+    "1": { name: "Alpha", sdi: 100, bs: 800, parks: 50, factories: 600, freeSlots: 50 },
+    "2": { name: "Beta", sdi: 200, bs: 400, parks: 100, factories: 2000, freeSlots: 2000 }
+  };
+  const saved = new Map(), drafts = new Map(), calls = [], pauses = [];
+  const storage = { get: async key => structuredClone(saved.get(key)), set: async (key, value) => saved.set(key, structuredClone(value)) };
+  const session = { getItem: key => drafts.get(key) || null, setItem: (key, value) => drafts.set(key, value), removeItem: key => drafts.delete(key) };
   const ui = container();
-  let releaseBuildings;
-  let releaseDetail;
-  let detailStarted;
-  const started = new Promise(resolve => { detailStarted = resolve; });
-  const module = K.mount(ui, {
-    storage: { get: async () => null, set: async () => {} },
-    getDocument: () => new Promise(resolve => { releaseBuildings = resolve; }),
-    postDocument: (url, body, options) => {
-      assert.ok(options.signal instanceof AbortSignal);
-      if (body.get("planeta") === "1") {
-        detailStarted();
-        return new Promise(resolve => { releaseDetail = resolve; });
+  const options = {
+    storage, session, getDocument: async () => buildings(states),
+    postDocument: async (url, body) => {
+      calls.push(new URLSearchParams(body));
+      const state = states[body.get("planeta")];
+      for (const [key, field] of [["sdi", "sdi"], ["bs", "bs"], ["parks", "parku"]]) {
+        const change = Number(body.get(field) || 0); state[key] += change; state.freeSlots -= change;
       }
-      return Promise.resolve(detail());
-    }
-  });
-  await module.draftsReady;
-  const loading = module.load();
-  await new Promise(resolve => setImmediate(resolve));
-  assert.match(ui.querySelector("#sgo-parks-status").textContent, /Načítavam zoznam/);
-  assert.equal(ui.querySelector("#sgo-parks-load").textContent, "Prebieha operácia…");
-  assert.equal(ui["aria-busy"], "true");
-  assert.equal(ui.querySelector("#sgo-parks-stop").hidden, false);
-  assert.equal(ui.querySelector("#sgo-parks-progress").hidden, false);
-  assert.equal(ui.querySelector("#sgo-parks-progress").value, undefined, "indeterminate before list response");
-  releaseBuildings(buildings());
-  await started;
-  assert.match(ui.querySelector("#sgo-parks-status").textContent, /1\/2: Alpha/);
-  assert.equal(ui.querySelector("#sgo-parks-progress").max, 2);
-  assert.equal(ui.querySelector("#sgo-parks-progress").value, 0);
-  releaseDetail(detail("1", "167", 20, "Alpha"));
-  await loading;
-  assert.equal(ui.querySelector("#sgo-parks-progress").value, 2);
-  assert.equal(ui.querySelector("#sgo-parks-progress").hidden, true);
-  assert.equal(ui.querySelector("#sgo-parks-load").textContent, "Obnoviť údaje");
-  assert.equal(ui["aria-busy"], "false");
-});
-
-test("a hung buildings request times out with an explicit error and allows retry", async t => {
-  locationFor(t);
-  t.mock.timers.enable({ apis: ["setTimeout"] });
-  const ui = container();
-  let signal;
-  let fail = true;
-  const module = K.mount(ui, {
-    storage: { get: async () => null, set: async () => {} },
-    getDocument: (url, options) => {
-      signal = options.signal;
-      return fail ? new Promise(() => {}) : Promise.resolve(buildings());
-    },
-    postDocument: async (url, body) => detail(body.get("planeta"), "167", 20, body.get("planeta") === "1" ? "Alpha" : "Beta")
-  });
-  await module.draftsReady;
-  const loading = module.load();
-  await new Promise(resolve => setImmediate(resolve));
-  t.mock.timers.tick(30000);
-  await loading;
-  assert.equal(signal.aborted, true);
-  assert.match(ui.querySelector("#sgo-parks-status").textContent, /30 sekúnd/);
-  assert.equal(ui.querySelector("#sgo-parks-load").disabled, false);
-  assert.equal(module.isWorking, false);
-  fail = false;
-  await module.load();
-  assert.match(ui.querySelector("#sgo-parks-status").textContent, /Prepočítané 2\/2/);
-});
-
-test("stop during buildings fetch keeps the previous snapshot and does not start details", async t => {
-  locationFor(t);
-  const f = bulkFixture();
-  await f.module.load();
-  let release;
-  const next = K.mount(f.ui, {
-    ...f.options,
-    getDocument: () => new Promise(resolve => { release = resolve; }),
-    postDocument: async () => assert.fail("stopped request must not start planet details")
-  });
-  await next.draftsReady;
-  const loading = next.load();
-  await new Promise(resolve => setImmediate(resolve));
-  f.ui.querySelector("#sgo-parks-stop").listeners.click();
-  assert.match(f.ui.querySelector("#sgo-parks-status").textContent, /Zastavujem/);
-  release(buildings());
-  await loading;
-  assert.equal(f.ui.querySelector("#sgo-parks-list").children.length, 2);
-  assert.match(f.ui.querySelector("#sgo-parks-status").textContent, /zostal zachovaný/);
-});
-
-test("a hung detail stops the scan instead of timing out every remaining planet", async t => {
-  locationFor(t);
-  t.mock.timers.enable({ apis: ["setTimeout"] });
-  const ui = container();
-  let calls = 0;
-  const module = K.mount(ui, {
-    storage: { get: async () => null, set: async () => {} },
-    getDocument: async () => buildings(),
-    postDocument: () => { calls++; return new Promise(() => {}); }
-  });
-  await module.draftsReady;
-  const loading = module.load();
-  await new Promise(resolve => setImmediate(resolve));
-  t.mock.timers.tick(30000);
-  await loading;
-  assert.equal(calls, 1);
-  assert.match(ui.querySelector("#sgo-parks-status").textContent, /Detail Alpha.*30 sekúnd/);
-  assert.equal(ui.querySelector("#sgo-parks-stop").hidden, true);
-});
-
-test("readers verify park effect, selected planet, exact name, current parks and happiness", () => {
-  const planets = K.readPlanets(buildings());
-  assert.deepEqual(planets[1], { id: "2", name: "Beta", parks: 20, factories: 100, freeSlots: 500 });
-  assert.equal(K.readDetail(detail(), planets[1], 180).missing, 150);
-  assert.equal(K.readDetail(detail("2", "167,00", 20, "Beta (DP)"), { ...planets[1], name: "Beta (DP)" }, 180).missing, 150);
-  assert.equal(K.readDetail(detail("2", "167", 20, "Beta (DP)"), planets[1], 180).missing, 150);
-  assert.throws(() => K.readPlanets(buildings({ effect: "+0.2 spokojenost" })), /účinok/);
-  assert.throws(() => K.readDetail(detail("1"), planets[1], 180), /nezodpovedá/);
-  assert.throws(() => K.readDetail(detail("2", "167", 20, "Renamed"), planets[1], 180), /nezodpovedá/);
-  assert.throws(() => K.readDetail(detail("2", "167", 21), planets[1], 180), /zmenil/);
-  assert.throws(() => K.readDetail(detail("2", "???"), planets[1], 180), /spokojnosť/);
-});
-
-test("park prefill only selects construction mode and parks and refuses drafts or insufficient space", () => {
-  const doc = buildings();
-  const report = K.readDetail(detail(), K.readPlanets(doc)[1], 180);
-  K.fill(doc, report);
-  assert.equal(doc.fields.planeta.value, "2");
-  assert.equal(doc.fields.verze.value, "0");
-  assert.equal(doc.fields.parku.value, "150");
-  assert.equal(doc.fields.vyroben.value, "");
-  const unfinished = buildings();
-  unfinished.fields.vyroben.value = "12";
-  assert.throws(() => K.fill(unfinished, report), /rozpracované/);
-  assert.equal(unfinished.fields.planeta.value, "1");
-  const tight = buildings({ free: 129 });
-  K.fill(tight, report);
-  assert.equal(tight.fields.vyroben.value, "-21");
-  assert.equal(tight.fields.parku.value, "150");
-  assert.throws(() => K.fill(buildings({ free: 0 }), report), /dosť výroben/);
-  assert.throws(() => K.fill(buildings({ parks: 21 }), report), /zmenili/);
-  assert.throws(() => K.fill(doc, { ...report, missing: 0 }), /spĺňa/);
-});
-
-test("parks settings persist, reports recalculate and draft revalidates on destination without building", async t => {
-  locationFor(t);
-  const saved = new Map();
-  const drafts = new Map();
-  const storage = { get: async key => saved.get(key), set: async (key, value) => saved.set(key, value) };
-  const session = {
-    getItem: key => drafts.get(key) || null, setItem: (key, value) => drafts.set(key, value),
-    removeItem: key => drafts.delete(key)
-  };
-  const ui = container();
-  let destination;
-  let detailCalls = 0;
-  let happiness = "167.00";
-  const options = {
-    storage, session, getDocument: async () => buildings(), log() {},
-    postDocument: async (url, body) => {
-      detailCalls++;
-      assert.equal(new URL(url).searchParams.get("s"), "detail", "POST is only the view selector");
-      assert.equal(body.get("vyberpl"), "Vyber planetu");
-      assert.equal(body.has("postavit"), false);
-      return detail(body.get("planeta"), happiness, 20, body.get("planeta") === "1" ? "Alpha" : "Beta");
-    },
-    navigate: async url => { destination = url; }
-  };
-  const module = K.mount(ui, options);
-  await module.ready;
-  assert.equal(detailCalls, 0);
-  assert.equal(ui.querySelector("#sgo-parks-target").value, "180");
-  await module.load();
-  assert.equal(detailCalls, 2);
-  assert.match(ui.innerHTML, /<details class="sgo-watch-settings"><summary>Nastavenia parkov/);
-  const restored = container();
-  await K.mount(restored, options).draftsReady;
-  assert.equal(restored.querySelector("#sgo-parks-list").children.length, 2);
-  assert.equal(detailCalls, 2, "navigation restores snapshot without requests");
-  assert.match(restored.querySelector("#sgo-parks-status").textContent, /neaktuálne/);
-  const row = () => ui.querySelector("#sgo-parks-list").children[1];
-  assert.equal(row().children[1].children[1].children[0].textContent, "+150 parkov");
-  assert.equal(row().children[1].children[1].children[1].textContent, "20 → 170");
-  ui.querySelector("#sgo-parks-target").value = "190";
-  await ui.querySelector("#sgo-parks-save").listeners.click();
-  assert.equal(saved.get("sgo-parks-target"), 190);
-  assert.equal(detailCalls, 2);
-  assert.equal(row().children[1].children[1].children[0].textContent, "+250 parkov");
-  await row().children[2].listeners.click();
-  assert.match(destination, /page=planety$/);
-  globalThis.location.href = destination;
-  happiness = "180.00";
-  const native = buildings();
-  const next = container(native);
-  let revealed = false;
-  await K.mount(next, { ...options, revealGame: () => { revealed = true; } }).draftsReady;
-  assert.equal(native.fields.parku.value, "120", "fresh detail used, not stale report amount");
-  assert.equal(native.fields.planeta.value, "2");
-  assert.equal(revealed, true);
-  assert.equal(drafts.size, 0);
-  assert.equal(next.querySelector("#sgo-parks-target").value, "190");
-  assert.equal(next.querySelector("#sgo-parks-list").children.length, 1, "only successfully prefilled row is hidden");
-  const unconfirmed = container();
-  await K.mount(unconfirmed, options).draftsReady;
-  assert.equal(unconfirmed.querySelector("#sgo-parks-list").children.length, 2, "unconfirmed prefill returns on refresh");
-  assert.equal(unconfirmed.ownerDocument.fields.parku.value, "", "refresh never repeats a consumed draft");
-  const confirmed = container(buildings({ parks: 120 }));
-  await K.mount(confirmed, {
-    ...options,
-    postDocument: async (url, body) => detail(body.get("planeta"), "190.00", 120,
-      body.get("planeta") === "1" ? "Alpha" : "Beta")
-  }).draftsReady;
-  assert.equal(confirmed.querySelector("#sgo-parks-list").children.length, 0, "confirmed target is removed");
-  globalThis.location.href = "https://game.test/game.php?page=prehled";
-  const after = container();
-  await K.mount(after, options).draftsReady;
-  assert.equal(after.querySelector("#sgo-parks-list").children.length, 0, "confirmed completion persists");
-});
-
-test("planet errors are explicit, other planets continue and scan can stop", async t => {
-  locationFor(t);
-  const ui = container();
-  let module;
-  let stop = false;
-  module = K.mount(ui, {
-    storage: { get: async () => null, set: async () => {} }, getDocument: async () => buildings(), log() {},
-    postDocument: async (url, body) => {
-      if (stop) ui.querySelector("#sgo-parks-stop").listeners.click();
-      if (body.get("planeta") === "1") throw new Error("Offline");
-      return detail();
-    }
-  });
-  await module.load();
-  assert.equal(ui.querySelector("#sgo-parks-list").children.length, 1);
-  assert.match(ui.querySelector("#sgo-parks-errors").textContent, /Alpha: Offline/);
-  stop = true;
-  await module.load();
-  assert.equal(ui.querySelector("#sgo-parks-list").children.length, 0);
-  assert.match(ui.querySelector("#sgo-parks-status").textContent, /Zastavené 1\/2/);
-});
-
-test("prefill from a detail page navigates to construction and failures never hide rows", async t => {
-  locationFor(t, "https://game.test/www/game.php?page=planety&s=detail&planeta=1");
-  const saved = new Map();
-  const drafts = new Map();
-  const options = {
-    storage: { get: async key => saved.get(key), set: async (key, value) => saved.set(key, structuredClone(value)) },
-    session: { getItem: key => drafts.get(key), setItem: (key, value) => drafts.set(key, value), removeItem: key => drafts.delete(key) },
-    getDocument: async () => buildings(),
-    postDocument: async (url, body) => detail(body.get("planeta"), "167", 20, body.get("planeta") === "1" ? "Alpha" : "Beta")
-  };
-  const ui = container();
-  let destination;
-  const module = K.mount(ui, { ...options, navigate: async url => { destination = url; throw new Error("Navigation failed"); } });
-  await module.load();
-  const click = panel => panel.querySelector("#sgo-parks-list").children[1].children[2].listeners.click();
-  await click(ui);
-  assert.equal(destination, "https://game.test/www/game.php?page=planety");
-  assert.equal(drafts.size, 0);
-  assert.equal(ui.querySelector("#sgo-parks-list").children.length, 2);
-  assert.match(ui.querySelector("#sgo-parks-status").textContent, /Navigation failed/);
-  const next = container();
-  next.ownerDocument.fields.vyroben.value = "5";
-  globalThis.location.href = destination;
-  await K.mount(next, options).draftsReady;
-  await click(next);
-  assert.match(next.querySelector("#sgo-parks-status").textContent, /rozpracované/);
-  assert.equal(next.querySelector("#sgo-parks-list").children.length, 2);
-  assert.equal(next.ownerDocument.fields.parku.value, "");
-});
-
-test("expired drafts, failed settings and blocked operations never prefill or fetch details", async t => {
-  locationFor(t, "https://game.test/game.php?page=planety");
-  const ui = container();
-  let removed = false;
-  await K.mount(ui, {
-    storage: { get: async () => null },
-    session: {
-      getItem: () => JSON.stringify({ id: "2", name: "Beta", target: 180, time: Date.now() - 600001 }),
-      removeItem: () => { removed = true; }
-    },
-    postDocument: async () => assert.fail("expired draft must not fetch")
-  }).draftsReady;
-  assert.equal(removed, true);
-  assert.match(ui.querySelector("#sgo-parks-status").textContent, /vypršalo/);
-  assert.equal(ui.ownerDocument.fields.parku.value, "");
-  const failed = container();
-  const module = K.mount(failed, {
-    storage: { get: async () => { throw new Error("Read failed"); } },
-    getDocument: async () => assert.fail("must not fetch")
-  });
-  assert.equal(await module.ready, false);
-  assert.match(failed.querySelector("#sgo-parks-status").textContent, /Read failed/);
-  await module.load();
-  assert.match(failed.querySelector("#sgo-parks-status").textContent, /Nastavenia/);
-  globalThis.location.href = "https://game.test/game.php?page=prehled";
-  const blocked = container();
-  await K.mount(blocked, {
-    storage: { get: async () => null }, canEdit: () => false,
-    getDocument: async () => assert.fail("busy operation must not fetch")
-  }).load();
-  assert.match(blocked.querySelector("#sgo-parks-status").textContent, /prebiehajúcu operáciu/);
-});
-
-function bulkFixture(overrides = {}) {
-  const states = new Map([
-    ["1", { parks: 20, factories: 200, free: 30, happiness: 167, name: "Alpha" }],
-    ["2", { parks: 20, factories: 200, free: 500, happiness: 167, name: "Beta" }]
-  ]);
-  const saved = new Map();
-  const submissions = [];
-  const pauses = [];
-  const ui = container();
-  const options = {
-    storage: {
-      get: async key => structuredClone(saved.get(key)),
-      set: async (key, value) => saved.set(key, structuredClone(value))
-    },
-    getDocument: async () => {
-      const doc = buildings();
-      doc.getElementById = id => buildings(states.get(id.slice(3))).getElementById(id);
-      return doc;
-    },
-    postDocument: async (url, body) => {
-      const state = states.get(body.get("planeta"));
-      if (new URL(url).searchParams.has("s")) {
-        return detail(body.get("planeta"), String(state.happiness), state.parks, state.name);
-      }
-      const parks = Number(body.get("parku"));
-      const factories = Number(body.get("vyroben") || 0);
-      submissions.push(new URLSearchParams(body));
-      state.parks += parks;
-      state.factories += factories;
-      state.free -= parks + factories;
-      state.happiness = 180;
+      const factories = Number(body.get("vyroben") || 0); state.factories += factories; state.freeSlots -= factories;
       return {};
-    },
-    withLock: async action => action(), delayFn: () => 3456,
-    sleep: async ms => pauses.push(ms),
+    }, withLock: async action => action(), delayFn: () => 3000, sleep: async ms => pauses.push(ms),
     ...overrides
   };
   const module = K.mount(ui, options);
-  return { states, saved, submissions, pauses, ui, module, options };
+  return { states, saved, drafts, calls, pauses, storage, session, ui, options, module };
 }
 
-test("bulk builds only selected deficits, frees the exact factory shortfall and verifies every POST", async t => {
-  locationFor(t);
-  const f = bulkFixture();
+test("defaults and strict AND filter require every enabled building below its target", () => {
+  const config = K.settings(K.DEFAULTS);
+  assert.deepEqual(config, { sdi: { enabled: true, target: 200 }, bs: { enabled: true, target: 1000 }, parks: { enabled: false, target: 500 } });
+  const [a, b] = K.readPlanets(buildings());
+  assert.deepEqual(K.calculate(a, config).missing, { sdi: 100, bs: 200, parks: 0 });
+  assert.equal(K.calculate(b, config).matches, false, "SDI exactly at target disqualifies planet");
+  config.sdi.enabled = false;
+  assert.equal(K.calculate(b, config).matches, true);
+  config.bs.enabled = false;
+  assert.equal(K.calculate(b, config).matches, false, "no enabled targets means no matches");
+  config.parks.enabled = true;
+  assert.deepEqual(K.calculate(b, config).missing, { sdi: 0, bs: 0, parks: 400 });
+  config.sdi.enabled = true;
+  assert.equal(K.calculate(b, config).matches, false);
+  assert.throws(() => K.settings({ ...config, sdi: { enabled: true, target: -1 } }), /nezáporné/);
+});
+
+test("multi-building budget uses precise prices and compares exact total", () => {
+  const budget = K.readBudget(buildings());
+  assert.deepEqual(budget.prices, { sdi: 10000, bs: 1050, parks: 2025 });
+  assert.deepEqual(K.budgetFor({ prices: budget.prices, balance: 102025 }, { sdi: 10, bs: 0, parks: 1 }), { cost: 102025, remaining: 0 });
+  assert.equal(K.budgetFor({ prices: budget.prices, balance: 102024 }, { sdi: 10, bs: 0, parks: 1 }).remaining, -1);
+});
+
+test("prefill calculates all enabled quantities and demolishes only necessary factories", () => {
+  const doc = buildings();
+  const report = K.calculate(K.readPlanets(doc)[0], K.settings(K.DEFAULTS));
+  const plan = K.fill(doc, report);
+  assert.equal(doc.fields.planeta.value, "1");
+  assert.equal(doc.fields.sdi.value, "100"); assert.equal(doc.fields.bs.value, "200");
+  assert.equal(doc.fields.parku.value, ""); assert.equal(doc.fields.vyroben.value, "-250");
+  assert.deepEqual(plan, { demolish: 250, factories: 350, sdi: 200, bs: 1000, parks: 50 });
+  const dirty = buildings(); dirty.fields.parku.value = "3";
+  assert.throws(() => K.fill(dirty, report), /rozpracované/);
+  assert.throws(() => K.fill(buildings({ "1": { name: "Alpha", sdi: 101, bs: 800, parks: 50, factories: 600, freeSlots: 50 } }), report), /zmenili/);
+  assert.throws(() => K.construction({ ...report, factories: 249 }), /dosť výroben/);
+});
+
+test("settings persist, filter updates without scan and all disabled yields empty list", async t => {
+  const f = setup(t);
   await f.module.load();
-  await f.ui.querySelector("#sgo-parks-all").listeners.click();
-  assert.equal(f.ui.querySelector("#sgo-parks-build").textContent, "Postaviť označené (2)");
-  assert.equal(f.ui.querySelector("#sgo-parks-totals").textContent, "+300 parkov · −120 výroben");
-  assert.match(f.ui.querySelector("#sgo-parks-budget").textContent, /Stačí na všetky/);
-  assert.equal(f.ui.querySelector("#sgo-parks-selected").textContent, "Vybrané 2");
-  const card = f.ui.querySelector("#sgo-parks-list").children[0];
-  assert.equal(card["data-selected"], "true");
-  assert.equal(card.children[0]["aria-label"], "Vybrať Alpha");
-  assert.equal(card.children[1].children[2].textContent, "Uvoľní miesto: −120 výroben");
-  await f.module.buildSelected();
-  assert.equal(f.submissions.length, 2);
-  assert.equal(f.submissions[0].get("vyroben"), "-120");
-  assert.equal(f.submissions[0].get("parku"), "150");
-  assert.equal(f.submissions[0].get("verze"), "0");
-  assert.equal(f.submissions[1].get("vyroben"), "");
-  assert.equal(f.submissions[1].get("planeta"), "2");
-  assert.deepEqual(f.pauses, [3456]);
-  assert.equal(f.saved.get("sgo-parks-pending"), null);
+  assert.equal(f.ui.querySelector("#sgo-parks-list").children.length, 1);
+  f.ui.querySelector("#sgo-build-sdi-enabled").checked = false;
+  await f.ui.querySelector("#sgo-parks-save").listeners.click();
+  assert.equal(f.saved.get("sgo-dostavby-settings").bs.target, 1000);
+  assert.equal(f.ui.querySelector("#sgo-parks-list").children.length, 2);
+  f.ui.querySelector("#sgo-build-bs-enabled").checked = false;
+  await f.ui.querySelector("#sgo-parks-save").listeners.click();
   assert.equal(f.ui.querySelector("#sgo-parks-list").children.length, 0);
-  assert.match(f.ui.querySelector("#sgo-parks-status").textContent, /overených stavieb 2\/2/);
-  await f.module.buildSelected();
-  assert.equal(f.submissions.length, 2, "completed planets never submitted again");
+  const next = K.mount(container(), f.options); await next.draftsReady;
+  assert.equal(f.calls.length, 0, "filter and restore never submit");
 });
 
-test("bulk individual checkbox, select all and clear only affect eligible planets", async t => {
-  locationFor(t);
-  const f = bulkFixture();
-  f.states.get("1").happiness = 190;
+test("prefill navigation uses building page, rechecks fresh state and reappears if not confirmed", async t => {
+  let destination;
+  const f = setup(t, { navigate: async url => { destination = url; } });
   await f.module.load();
-  const list = f.ui.querySelector("#sgo-parks-list");
-  assert.equal(list.children.length, 1, "satisfied planet is hidden");
-  const checkbox = list.children[0].children[0];
-  checkbox.checked = true;
-  checkbox.listeners.change();
-  await f.module.buildSelected();
-  assert.equal(f.submissions.length, 1);
-  assert.equal(f.submissions[0].get("planeta"), "2");
-  f.states.get("2").happiness = 170;
+  await f.ui.querySelector("#sgo-parks-list").children[0].children[2].listeners.click();
+  assert.equal(destination, "https://game.test/game.php?page=planety");
+  globalThis.location.href = destination;
+  const native = buildings(f.states), next = container(native);
+  await K.mount(next, f.options).draftsReady;
+  assert.equal(native.fields.sdi.value, "100");
+  assert.equal(native.fields.bs.value, "200");
+  assert.equal(native.fields.vyroben.value, "-250");
+  assert.equal(next.querySelector("#sgo-parks-list").children.length, 0);
+  const unconfirmed = container(buildings(f.states));
+  await K.mount(unconfirmed, f.options).draftsReady;
+  assert.equal(unconfirmed.querySelector("#sgo-parks-list").children.length, 1);
+  assert.equal(f.calls.length, 0);
+});
+
+test("bulk builds selected planets with fresh AND recheck, correct form and verified journal", async t => {
+  const f = setup(t);
   await f.module.load();
   f.ui.querySelector("#sgo-parks-all").listeners.click();
-  f.ui.querySelector("#sgo-parks-none").listeners.click();
-  assert.equal(f.ui.querySelector("#sgo-parks-totals").textContent, "Označ planéty, ktoré chceš upraviť.");
-  assert.equal(f.ui.querySelector("#sgo-parks-build").disabled, true);
+  assert.match(f.ui.querySelector("#sgo-parks-totals").textContent, /\+100 SDI · \+200 BS · −250 výroben/);
+  assert.match(f.ui.querySelector("#sgo-parks-budget").textContent.replace(/\s/g, ""), /12100/);
   await f.module.buildSelected();
-  assert.equal(f.submissions.length, 1);
+  assert.equal(f.calls.length, 1);
+  assert.equal(f.calls[0].get("sdi"), "100"); assert.equal(f.calls[0].get("bs"), "200");
+  assert.equal(f.calls[0].get("parku"), ""); assert.equal(f.calls[0].get("vyroben"), "-250");
+  assert.equal(f.saved.get("sgo-dostavby-pending"), null);
+  assert.equal(f.ui.querySelector("#sgo-parks-list").children.length, 0);
+  await f.module.buildSelected();
+  assert.equal(f.calls.length, 1);
 });
 
-test("stop during cooldown sends no further builds", async t => {
-  locationFor(t);
-  const f = bulkFixture();
-  f.options.sleep = async () => f.ui.querySelector("#sgo-parks-stop").listeners.click();
-  const module = K.mount(f.ui, f.options);
-  await module.load();
-  f.ui.querySelector("#sgo-parks-all").listeners.click();
-  await module.buildSelected();
-  assert.equal(f.submissions.length, 1);
-  assert.match(f.ui.querySelector("#sgo-parks-status").textContent, /Zastavené/);
-});
-
-test("lost POST response retains journal, stops queue and never blindly retries", async t => {
-  locationFor(t);
-  const f = bulkFixture();
+test("lost response never repeats a potentially applied build; verified state reconciles", async t => {
+  const f = setup(t);
   const post = f.options.postDocument;
-  let attempts = 0;
-  const module = K.mount(f.ui, {
-    ...f.options,
-    postDocument: async (url, body) => {
-      if (!new URL(url).searchParams.has("s")) { attempts++; throw new Error("Connection lost"); }
-      return post(url, body);
-    }
-  });
-  await module.load();
-  f.ui.querySelector("#sgo-parks-all").listeners.click();
-  await module.buildSelected();
-  assert.equal(attempts, 1);
-  assert.equal(f.saved.get("sgo-parks-pending").id, "1");
-  await module.buildSelected();
-  assert.equal(attempts, 1);
+  const first = K.mount(f.ui, { ...f.options, postDocument: async (url, body) => { await post(url, body); throw new Error("Offline"); } });
+  await first.load(); f.ui.querySelector("#sgo-parks-all").listeners.click(); await first.buildSelected();
+  assert.equal(f.calls.length, 1);
+  assert.equal(f.saved.get("sgo-dostavby-pending").sdi, 200);
+  const next = K.mount(f.ui, f.options); await next.draftsReady;
+  f.ui.querySelector("#sgo-parks-all").listeners.click(); await next.buildSelected();
+  assert.equal(f.calls.length, 1, "verified prior build is not resent");
+  assert.equal(f.saved.get("sgo-dostavby-pending"), null);
+});
+
+test("different actual values after uncertain POST block further submissions", async t => {
+  const f = setup(t, { postDocument: async () => { throw new Error("Offline"); } });
+  await f.module.load(); f.ui.querySelector("#sgo-parks-all").listeners.click(); await f.module.buildSelected();
+  await f.module.buildSelected();
   assert.match(f.ui.querySelector("#sgo-parks-status").textContent, /Neistý výsledok/);
 });
 
-test("lost response after successful construction is reconciled on the next run without duplicate demolition", async t => {
-  locationFor(t);
-  const f = bulkFixture();
-  const post = f.options.postDocument;
-  const first = K.mount(f.ui, {
-    ...f.options,
-    postDocument: async (url, body) => {
-      const result = await post(url, body);
-      if (!new URL(url).searchParams.has("s")) throw new Error("Response lost");
-      return result;
-    }
-  });
-  await first.load();
-  f.ui.querySelector("#sgo-parks-all").listeners.click();
-  await first.buildSelected();
-  assert.equal(f.submissions.length, 1);
-  assert.ok(f.saved.get("sgo-parks-pending"));
-  const next = K.mount(f.ui, f.options);
-  await next.draftsReady;
-  f.ui.querySelector("#sgo-parks-all").listeners.click();
-  await next.buildSelected();
-  assert.equal(f.submissions.length, 2);
-  assert.deepEqual(f.submissions.map(body => body.get("planeta")), ["1", "2"]);
-  assert.equal(f.saved.get("sgo-parks-pending"), null);
-});
-
-test("freshly satisfied planets and insufficient factory reserves are never submitted", async t => {
-  locationFor(t);
-  const f = bulkFixture();
-  f.states.get("2").factories = 0;
-  f.states.get("2").free = 0;
+test("three enabled targets are added together and budget includes each building", async t => {
+  const f = setup(t);
   await f.module.load();
+  f.ui.querySelector("#sgo-build-parks-enabled").checked = true;
+  await f.ui.querySelector("#sgo-parks-save").listeners.click();
   f.ui.querySelector("#sgo-parks-all").listeners.click();
-  assert.equal(f.ui.querySelector("#sgo-parks-build").textContent, "Postaviť označené (1)");
-  f.states.get("1").happiness = 180;
-  await f.module.buildSelected();
-  assert.equal(f.submissions.length, 0, "fresh detail prevents stale construction");
-});
-
-test("legacy snapshots show one actionable notice instead of long disabled row buttons", async t => {
-  locationFor(t);
-  const f = bulkFixture();
-  await f.module.load();
-  const snapshot = f.saved.get("sgo-parks-snapshot");
-  for (const row of snapshot.rows) delete row.report.factories;
-  const next = K.mount(f.ui, f.options);
-  await next.draftsReady;
-  assert.equal(f.ui.querySelector("#sgo-parks-legacy").hidden, false);
-  assert.equal(f.ui.querySelector("#sgo-parks-count").textContent, "Planéty pod cieľom: 2");
-  for (const card of f.ui.querySelector("#sgo-parks-list").children) {
-    assert.equal(card.children[0].disabled, true);
-    assert.equal(card.children[2].textContent, "Predvyplniť");
-    assert.equal(card.children[2].disabled, true);
-  }
-  assert.equal(f.ui.querySelector("#sgo-parks-all").disabled, true);
-  await next.load();
-  assert.equal(f.ui.querySelector("#sgo-parks-legacy").hidden, true);
-  assert.equal(f.ui.querySelector("#sgo-parks-all").disabled, false);
-});
-
-test("selection budget updates on checkbox changes, refresh and restored snapshots without scanning", async t => {
-  locationFor(t);
-  const f = bulkFixture();
-  await f.module.load();
-  f.ui.querySelector("#sgo-parks-all").listeners.click();
-  assert.equal(f.saved.get("sgo-parks-snapshot").budget.price, 3062400);
-  const next = K.mount(f.ui, {
-    ...f.options,
-    getDocument: async () => buildings({ balance: "1 000" })
-  });
-  await next.draftsReady;
-  f.ui.querySelector("#sgo-parks-all").listeners.click();
-  assert.match(f.ui.querySelector("#sgo-parks-budget").textContent, /Stačí na všetky/);
-  await f.ui.querySelector("#sgo-parks-budget-refresh").listeners.click();
-  assert.match(f.ui.querySelector("#sgo-parks-budget").textContent, /Chýba/);
-  assert.equal(f.ui.querySelector("#sgo-parks-budget").className, "sgo-hint sgo-error");
+  assert.equal(f.ui.querySelector("#sgo-parks-totals").textContent, "Označ planéty, ktoré chceš upraviť.");
   const card = f.ui.querySelector("#sgo-parks-list").children[0];
-  card.children[0].checked = false;
-  card.children[0].listeners.change();
-  assert.match(f.ui.querySelector("#sgo-parks-budget").textContent.replace(/\s/g, ""), /4593600/);
-  f.ui.querySelector("#sgo-parks-none").listeners.click();
-  assert.equal(f.ui.querySelector("#sgo-parks-budget").hidden, true);
-});
-
-test("missing or failed budget refresh never reports enough naq from stale data", async t => {
-  locationFor(t);
-  const f = bulkFixture();
+  assert.equal(card.children[2].disabled, true, "not enough factories prevents building");
+  assert.equal(f.ui.querySelector("#sgo-parks-build").disabled, true);
+  f.states["1"].factories = 800;
   await f.module.load();
-  let fails = false;
-  const next = K.mount(f.ui, {
-    ...f.options,
-    getDocument: async () => {
-      if (fails) throw new Error("Offline");
-      return buildings({ price: "???" });
-    }
-  });
-  await next.draftsReady;
   f.ui.querySelector("#sgo-parks-all").listeners.click();
-  await f.ui.querySelector("#sgo-parks-budget-refresh").listeners.click();
-  assert.match(f.ui.querySelector("#sgo-parks-budget").textContent, /cenu parku/);
-  assert.doesNotMatch(f.ui.querySelector("#sgo-parks-budget").textContent, /Stačí/);
-  fails = true;
-  await f.ui.querySelector("#sgo-parks-budget-refresh").listeners.click();
-  assert.match(f.ui.querySelector("#sgo-parks-budget").textContent, /Offline/);
-  assert.equal(f.ui.querySelector("#sgo-parks-build").disabled, false, "budget remains informational");
+  assert.match(f.ui.querySelector("#sgo-parks-totals").textContent, /\+100 SDI · \+200 BS · \+450 Parky · −700 výroben/);
+  assert.match(f.ui.querySelector("#sgo-parks-budget").textContent.replace(/\s/g, ""), /21212,5/);
+  await f.module.buildSelected();
+  assert.equal(f.calls[0].get("parku"), "450");
+  assert.equal(f.calls[0].get("vyroben"), "-700");
+  assert.deepEqual([f.states["1"].sdi, f.states["1"].bs, f.states["1"].parks], [200, 1000, 500]);
 });
 
-test("bulk recalculates fresh, refuses insufficient factories, failed storage and foreign actions", async t => {
-  locationFor(t);
-  for (const failure of ["factories", "storage", "action", "verification"]) {
-    const f = bulkFixture();
-    await f.module.load();
-    f.ui.querySelector("#sgo-parks-all").listeners.click();
-    if (failure === "factories") f.states.get("1").factories = 1;
-    if (failure === "storage") {
-      const set = f.options.storage.set;
-      f.options.storage.set = async (key, value) => {
-        if (key === "sgo-parks-pending") throw new Error("Storage failed");
-        return set(key, value);
-      };
-    }
-    if (failure === "action") {
-      const get = f.options.getDocument;
-      f.options.getDocument = async () => {
-        const doc = await get();
-        doc.forms[0].getAttribute = () => "https://other.test/game.php?page=planety";
-        return doc;
-      };
-    }
-    if (failure === "verification") {
-      const post = f.options.postDocument;
-      f.options.postDocument = async (url, body) => new URL(url).searchParams.has("s") ? post(url, body) : {};
-    }
-    const next = K.mount(f.ui, f.options);
-    await next.draftsReady;
-    f.ui.querySelector("#sgo-parks-all").listeners.click();
-    await next.buildSelected();
-    assert.equal(f.submissions.length, 0, failure);
-    assert.ok(f.ui.querySelector("#sgo-parks-status").className.includes("sgo-error"), failure);
-    if (failure === "verification") assert.equal(f.saved.get("sgo-parks-pending"), null, "verified no-op can be retried explicitly");
-  }
+test("bulk does not build if a planet no longer satisfies AND or if POST action differs", async t => {
+  const f = setup(t);
+  await f.module.load(); f.ui.querySelector("#sgo-parks-all").listeners.click();
+  f.states["1"].bs = 1000;
+  await f.module.buildSelected();
+  assert.equal(f.calls.length, 0);
+  assert.equal(f.ui.querySelector("#sgo-parks-list").children.length, 0);
+  f.states["1"].bs = 800;
+  const bad = K.mount(f.ui, { ...f.options, getDocument: async () => {
+    const doc = buildings(f.states); doc.forms[0].getAttribute = () => "https://other.test/game.php?page=planety"; return doc;
+  } });
+  await bad.load(); f.ui.querySelector("#sgo-parks-all").listeners.click(); await bad.buildSelected();
+  assert.equal(f.calls.length, 0);
+  assert.match(f.ui.querySelector("#sgo-parks-status").textContent, /Neočakávaný cieľ/);
+});
+
+test("stop during cooldown leaves remaining selected planets untouched", async t => {
+  const f = setup(t);
+  f.states["2"].sdi = 50;
+  f.options.sleep = async () => f.ui.querySelector("#sgo-parks-stop").listeners.click();
+  const module = K.mount(f.ui, f.options);
+  await module.load(); f.ui.querySelector("#sgo-parks-all").listeners.click(); await module.buildSelected();
+  assert.equal(f.calls.length, 1);
+  assert.equal(f.states["2"].sdi, 50);
+  assert.match(f.ui.querySelector("#sgo-parks-status").textContent, /Zastavené/);
+});
+
+test("invalid settings never alter persisted configuration", async t => {
+  const f = setup(t);
+  await f.module.draftsReady;
+  f.ui.querySelector("#sgo-build-bs-target").value = "-1";
+  await f.ui.querySelector("#sgo-parks-save").listeners.click();
+  assert.match(f.ui.querySelector("#sgo-parks-status").textContent, /nezáporné/);
+  assert.equal(f.saved.has("sgo-dostavby-settings"), false);
+});
+
+test("saved planets restore across navigation without a new request and update on building page", async t => {
+  const f = setup(t);
+  await f.module.load();
+  const saved = container();
+  await K.mount(saved, { ...f.options, getDocument: async () => assert.fail("restore must not fetch") }).draftsReady;
+  assert.equal(saved.querySelector("#sgo-parks-list").children.length, 1);
+  assert.match(saved.querySelector("#sgo-parks-status").textContent, /neaktuálne/);
+  f.states["1"].sdi = 200; f.states["1"].bs = 1000;
+  globalThis.location.href = "https://game.test/game.php?page=planety";
+  const refreshed = container(buildings(f.states));
+  await K.mount(refreshed, f.options).draftsReady;
+  assert.equal(refreshed.querySelector("#sgo-parks-list").children.length, 0);
+});
+
+test("expired draft is consumed without touching the native form", async t => {
+  const f = setup(t);
+  await f.module.draftsReady;
+  globalThis.location.href = "https://game.test/game.php?page=planety";
+  f.drafts.set("sgo-dostavby-draft", JSON.stringify({ id: "1", name: "Alpha", config: K.DEFAULTS, time: Date.now() - 600001 }));
+  const native = buildings(f.states), ui = container(native);
+  await K.mount(ui, f.options).draftsReady;
+  assert.match(ui.querySelector("#sgo-parks-status").textContent, /vypršalo/);
+  assert.equal(native.fields.sdi.value, ""); assert.equal(native.fields.bs.value, "");
+  assert.equal(f.drafts.size, 0);
+});
+
+test("hung refresh shows timeout, aborts read and allows retry", async t => {
+  const f = setup(t);
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let signal;
+  const module = K.mount(f.ui, { ...f.options, getDocument: (url, options) => { signal = options.signal; return new Promise(() => {}); } });
+  await module.draftsReady;
+  const loading = module.load();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.match(f.ui.querySelector("#sgo-parks-status").textContent, /Načítavam/);
+  t.mock.timers.tick(30000);
+  await loading;
+  assert.equal(signal.aborted, true);
+  assert.match(f.ui.querySelector("#sgo-parks-status").textContent, /30 sekúnd/);
+  assert.equal(f.ui.querySelector("#sgo-parks-load").disabled, false);
+});
+
+test("invalid price is explicit and never reports affordable", async t => {
+  const f = setup(t);
+  const module = K.mount(f.ui, { ...f.options, getDocument: async () => {
+    const doc = buildings(f.states);
+    doc.fields.bs.closest = () => ({ textContent: "-36 000 lidí", querySelector: () => ({ textContent: "?" }) });
+    return doc;
+  } });
+  await module.load(); f.ui.querySelector("#sgo-parks-all").listeners.click();
+  assert.match(f.ui.querySelector("#sgo-parks-budget").textContent, /nie sú dostupné/);
+  assert.doesNotMatch(f.ui.querySelector("#sgo-parks-budget").textContent, /Stačí/);
 });

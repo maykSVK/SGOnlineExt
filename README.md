@@ -2,7 +2,7 @@
 
 Tampermonkey userscript aj lokalne rozsirenie Manifest V3 pre kompatibilne prehliadace.
 Funkcie su dostupne z hlavneho menu: **Utok na RR**, **Idealne zaludnenie**,
-**Nase sektory**, **Vojna** a **Parky a spokojnost**.
+**Nase sektory**, **Vojna** a **Dostavby**.
 Volitelna synchronizacia posiela iba historiu zrebovani do nastaveneho Gistu.
 Doplnok nepozaduje pristup k hernemu heslu.
 Tampermonkey stahuje instalaciu a aktualizacie z GitHubu.
@@ -202,74 +202,33 @@ Tlacidlo **Vsetky funkcie** vrati hlavne menu. Utoky so svojim nastavenim
 a dennikom su v samostatnom podmenu. Prebiehajuca seria sa otvorenim menu nerusi;
 na jej zastavenie pouzi **Zastavit** v podmenu utokov.
 
-### Parky a spokojnost
+### Dostavby
 
-- Samostatna dlazdica **Parky a spokojnost** vypocita prirastok parkov s rezervou
-  pre ulozeny ciel spokojnosti (predvolene **180 %**, nastavitelne 0–200 %).
-  Ciel je schovany v rozbalovaci **Nastavenia parkov**.
-- Priebezny prepocet sa uklada a zostava dostupny aj po navigacii bez noveho
-  nacitavania celej rise. Obnoveny zoznam je oznaceny ako potencialne neaktualny.
-  Riadok sa docasne schova az po uspesnom predvyplneni, nie uz pri kliknuti
-  alebo prechode na Staveni. Bez potvrdenia stavby sa po obnoveni znovu objavi.
-  Na Staveni sa zmenene pocty parkov overia cerstvym detailom; planety, ktore
-  po stavbe splnaju ciel, sa z ulozeneho zoznamu odstrania.
-- **Obnovit udaje** precita stavby a postupne otvori detail kazdej planety.
-  POST s `vyberpl` iba vybera detail, nestavia. Zobrazuje priebeh, ciastkove
-  vysledky a tlacidlo **Zastavit**. Chyba jednej planety je oznacena a zalogovana;
-  ostatne pokracuju. Otvorenie sekcie samo nespusta sietove nacitavanie.
-  Obnova ihned ukazuje nacitavanie zoznamu a potom priebeh X/Y s nazvom
-  planety a ukazovatelom priebehu. Citanie stavieb a detailov ma limit
-  30 sekund; neodpovedajuci server zastavi prepocty s viditelnou chybou
-  a umozni novu obnovu. Limit sa nevztahuje na odoslanie samotnej stavby.
-  **Zastavit** pocas citania pocka na aktualnu poziadavku a nespusti dalsiu.
-- Kompaktne karty zobrazuju iba planety pod ulozenym cielom spokojnosti.
-  Vyber je vlavo pri nazve, vedla spokojnosti je prirastok parkov, aktualny
-  a cielovy pocet aj potrebne rusenie vyroben. Oznacene karty su zvyraznene.
-  Pod zoznamom je sucet parkov a rusenych vyroben pre cely vyber a hlavna
-  akcia hromadnej stavby; podrobnosti su v rozbalovaci **Ako to funguje?**.
-  Pri oznacenych planetach sa zobrazi aj cena vsetkych parkov podla hernej
-  stavebnej karty, dostupny naqiton a zvysok alebo chybajuca suma.
-  **Obnovit naq** aktualizuje cenu a zostatok bez celeho prepoctu planet.
-  Rozpocet uvadza cas nacitania, neodpocitava pripadnu nahradu za buranie
-  vyroben a je informativny; pri neprecitatelnych udajoch nehlasi dostatok.
-  Chyby citania
-  su vypisane samostatne a zalogovane, nie vydavane za splneny ciel.
-- Checkboxy vyberu planetu, **Oznacit vsetko** vyberie vsetky zobrazene
-  spracovatelne planety a **Zrusit vyber** vyber vymaze.
-  **Postavit oznacene** vykona stavby priamo bez dalsieho potvrdenia v hre.
-  Pred kazdou planetou znovu nacita stavby a spokojnost, po odoslani overi
-  presny pocet parkov aj vyroben. Medzi planetami je variabilna pauza 2,5–6 s
-  (rovnaky pacing helper ako pri utokoch); nezarucuje neodhalenie automatizacie.
-  **Zastavit** zabrani dalsiemu odoslaniu, uz odoslanu stavbu nevrati.
-  Spracovanie bezi iba v otvorenej karte a po navigacii sa samo neobnovuje.
-  Web Locks brania sucasnej hromadnej stavbe vo viacerych kartach.
-  Chyba stavby zastavi celu seriu. Pred POST sa ulozi zaznam ocakavaneho
-  vysledku; pri strate odpovede sa stavba naslepo neopakuje. Dalsie spustenie
-  najprv skontroluje tento zaznam a pri neistote vyzaduje kontrolu v hre.
-- Podla [oficialneho navodu o spokojnosti](https://www.stargame-online.cz/index.php?stranka=blog&akce=detail&detail=73)
-  park pridava 0,1 percentualneho bodu a ciel maximalnej spokojnosti je 200 %.
-  Ak je spokojnost pod cielom, pouzije sa rezerva +2 percentualne body
-  (najviac do 200 %) a pocet dalsich parkov sa zaokruhli nahor na desiatky:
-  `ceil((min(200, ciel + 2) - aktualna_spokojnost) / 1) * 10`.
-  Pocita sa s presnostou zobrazenej spokojnosti. Napriklad zo 167 % pri cieli
-  180 % navrhne 150 dalsich parkov (na 182 %), pri existujucich 20 spolu 170.
-  Planety, ktore uz dosiahli povodny ciel, nic nedostavaju. Rezerva plati
-  rovnako pre zoznam, cenu, predvyplnenie a hromadnu stavbu; moze zvysit
-  potrebne rusenie vyroben. Nezarucuje ciel pri dalsich zmenach bonusov.
-- Vypocet zohladnuje aktualne bonusy a nezamestnanych cez spokojnost z detailu.
-  Po zmene politiky, artefaktov alebo populacie treba prepoctat znova.
-  Nejde o automaticke sledovanie ani garanciu pri buducich zmenach bonusov.
-  Pri uz splnenom cieli nic nestavia ani neodporuca burat parky; z hodnoty
-  orezanej na maximum sa presny prebytok neda zistit.
-- **Predvyplnit** otvori Staveni, znovu overi planetu a cerstvu spokojnost
-  a vyplni potrebne parky v rezime pristavovania. Ak nestaci miesto, vyplni aj
-  zaporny pocet vyroben presne vo vyske chybajuceho miesta, aby ich hra zrusila
-  a postavila parky v jednej poziadavke. Rovnaky vypocet pouziva hromadna stavba.
-  Ak nie je dost vyroben na uvolnenie miesta, akcia je zablokovana.
-  Navrh sa prenasa
-  jednorazovo v rovnakej karte (10 minut). Stavbu a cenu potvrdis sam v hre.
-  Odmietne prepisat rozpracovane stavby alebo zmeneny nazov/vlastnictvo.
-  Ostatne typy budov sa nikdy neburaju.
+- **Nastavenia dostavby** umoznuju nezavisle zapnut a nastavit cele nezaporne
+  ciele SDI, BS a parkov. Predvolene su zapnute 200 SDI a 1 000 BS; ciel
+  500 parkov je predvolene vypnuty. Spokojnost sa nesleduje.
+- Plati **AND**: planeta sa zobrazi iba ak ma kazda zapnuta stavba menej
+  nez svoj ciel. Ak nie je zapnuta ziadna stavba, zoznam je prazdny. Vypnute
+  typy sa nikdy nestavaju. Zmena nastaveni ihned prepocita ulozene udaje.
+- **Obnovit udaje** nacita vsetky planety zo Staveni jedinou poziadavkou.
+  Vysledok sa uchovava medzi strankami a je oznaceny ako potencialne
+  neaktualny. Obnova ukazuje stav, umoznuje zastavenie a citanie ma
+  30-sekundovy limit. Stary prepočet spokojnosti sa nepouziva.
+- Karty zobrazuju kazdy chybajuci pocet a pripadne rusenie vyroben.
+  Pri oznacenych planetach sa scitaju vsetky stavby, ich ceny a porovnaju
+  s nacitanym zostatkom. **Obnovit naq** znovu nacita ceny a zostatok.
+  Cenovy odhad nezapocitava pripadnu nahradu za buranie.
+- **Predvyplnit** otvori Staveni a predvyplni iba zapnute stavby; potvrdenie
+  je rucne. Ak chyba miesto, vyplni aj zaporny pocet vyroben na jeho uvolnenie.
+  Ak vyroben nie je dost, akcia je nedostupna. Navrh sa pouzije jednorazovo,
+  v tej istej karte, do 10 minut; neprepisuje rozpracovany formular. Bez
+  potvrdenia sa planeta po obnoveni vrati.
+- **Postavit oznacene** vykona stavby priamo. Pred kazdou znovu overi planétu,
+  aktualne pocty aj pravidlo AND, po odoslani overi SDI, BS, parky a vyrobne.
+  Medzi planetami je pauza 2,5–6 sekund. **Zastavit** nevrati uz odoslanu
+  stavbu. Web Locks brania sucasnej hromadnej stavbe v dalsich kartach.
+  Pred POST sa uklada ocakavany vysledok; pri neistom vysledku sa stavba
+  naslepo neopakuje a seria sa zastavi. Ostatne typy budov sa neburaju.
 
 ### Idealne zaludnenie
 

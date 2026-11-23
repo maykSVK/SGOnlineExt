@@ -41,7 +41,7 @@
         <button type="button" class="sgo-feature-card" id="sgo-open-population" title="Výpočet a predvyplnenie výroben na planétach"><span class="sgo-feature-icon">02</span><span><strong>Ideálne zaľudnenie</strong></span></button>
         <button type="button" class="sgo-feature-card" id="sgo-open-sectors" title="Náskok pred súpermi a BBCode hlásenie"><span class="sgo-feature-icon">03</span><span><strong>Naše sektory</strong></span></button>
         <button type="button" class="sgo-feature-card" id="sgo-open-war" title="Ručný prehľad vlastnej armády, obrany a prijatých špionáží"><span class="sgo-feature-icon">04</span><span><strong>Vojna</strong></span></button>
-        <button type="button" class="sgo-feature-card" id="sgo-open-parks" title="Minimum parkov pre nastavenú spokojnosť"><span class="sgo-feature-icon">05</span><span><strong>Parky a spokojnosť</strong></span></button>
+        <button type="button" class="sgo-feature-card" id="sgo-open-parks" title="Doplnenie SDI, BS a parkov"><span class="sgo-feature-icon">05</span><span><strong>Dostavby</strong></span></button>
         </div>
         <section id="sgo-ranking" aria-label="TOP 3 hráčov celkovo"></section>
       </section>
@@ -138,7 +138,7 @@
     $("#sgo-sectors-feature").hidden = selected !== "sectors";
     $("#sgo-war-feature").hidden = selected !== "war";
     $("#sgo-back").hidden = selected === "home";
-    $("#sgo-feature-name").textContent = { home: "Prehľad funkcií", attacks: "Útok na RR", population: "Ideálne zaľudnenie", sectors: "Naše sektory", war: "Vojna", parks: "Parky a spokojnosť" }[selected];
+    $("#sgo-feature-name").textContent = { home: "Prehľad funkcií", attacks: "Útok na RR", population: "Ideálne zaľudnenie", sectors: "Naše sektory", war: "Vojna", parks: "Dostavby" }[selected];
     if (selected === "home") guardian?.render();
     if (selected === "attacks") loadTargets();
     if (selected === "population") population?.refresh();
