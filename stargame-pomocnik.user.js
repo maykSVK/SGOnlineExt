@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         StarGame pomocnik
 // @namespace    https://github.com/maykSVK/SGOnlineExt
-// @version      0.5.2
+// @version      0.5.3
 // @description  StarGame helper for army, planet readiness and other game features.
 // @homepageURL  https://github.com/maykSVK/SGOnlineExt
 // @match        https://stargame-online.cz/www/game.php*
@@ -708,8 +708,8 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
     for (const key of KEYS) {
       if (!Number.isSafeInteger(planet[key]) || planet[key] < 0) throw new Error(`Neplatný počet ${LABELS[key]}.`);
     }
-    const matches = active.length > 0 && active.every(key => planet[key] < config[key].target);
-    const missing = Object.fromEntries(KEYS.map(key => [key, matches && config[key].enabled ? config[key].target - planet[key] : 0]));
+    const matches = active.some(key => planet[key] < config[key].target);
+    const missing = Object.fromEntries(KEYS.map(key => [key, config[key].enabled ? Math.max(0, config[key].target - planet[key]) : 0]));
     return { ...planet, matches, missing };
   }
 
@@ -782,14 +782,14 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
       });
     } }) {
     container.innerHTML = `<div class="sgo-feature-heading"><span class="sgo-eyebrow">SPRÁVA PLANÉT</span><h3>Dostavby</h3>
-      <p class="sgo-hint">Zobrazia sa planéty pod všetkými zapnutými cieľmi.</p></div>
+      <p class="sgo-hint">Zobrazia sa planéty, ktorým chýba aspoň jedna zapnutá stavba.</p></div>
       <div class="sgo-parks-overview"><strong id="sgo-parks-count">Zatiaľ bez prepočtu</strong><span id="sgo-parks-goal"></span></div>
       <div class="sgo-parks-toolbar"><button type="button" id="sgo-parks-load">Obnoviť údaje</button><button type="button" id="sgo-parks-stop" disabled hidden>Zastaviť</button></div>
       <details class="sgo-watch-settings"><summary>Nastavenia dostavby</summary>
       <div class="sgo-build-settings">${KEYS.map(key => `<div><label><input id="sgo-build-${key}-enabled" type="checkbox"> ${LABELS[key]}</label><input id="sgo-build-${key}-target" type="number" min="0" step="1" aria-label="Cieľ ${LABELS[key]}"></div>`).join("")}</div>
       <button type="button" id="sgo-parks-save">Uložiť nastavenia</button></details>
       <details class="sgo-watch-settings sgo-parks-help"><summary>Ako to funguje?</summary>
-      <p class="sgo-hint">Všetky zapnuté stavby musia byť pod cieľom (AND). Predvyplnenie potvrdíš v hre. Hromadná stavba sa odošle priamo; miesto sa podľa potreby uvoľní výrobnami. Zastavenie nevráti odoslanú stavbu.</p></details>
+      <p class="sgo-hint">Stačí, aby aspoň jedna zapnutá stavba bola pod cieľom (OR). Dopĺňajú sa iba chýbajúce stavby, existujúce nad cieľom sa nerušia. Predvyplnenie potvrdíš v hre. Hromadná stavba sa odošle priamo; miesto sa podľa potreby uvoľní výrobnami. Zastavenie nevráti odoslanú stavbu.</p></details>
       <p id="sgo-parks-status" class="sgo-hint" role="status">Načítanie je ručné.</p>
       <div class="sgo-parks-selection"><button type="button" id="sgo-parks-all">Označiť všetko</button><button type="button" id="sgo-parks-none">Zrušiť výber</button><span id="sgo-parks-selected">Vybrané 0</span></div>
       <div class="sgo-parks-scroll" tabindex="0" role="region" aria-label="Dostavby planét"><div id="sgo-parks-list" role="list"></div><p id="sgo-parks-empty" class="sgo-hint">Načítaj planéty tlačidlom Obnoviť údaje.</p></div>
@@ -853,7 +853,7 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
       $("#sgo-parks-count").textContent = updatedAt == null ? "Zatiaľ bez prepočtu" : `Planéty na dostavbu: ${visible.length}`;
       $("#sgo-parks-goal").textContent = KEYS.filter(k => config[k].enabled).map(k => `${LABELS[k]} ${config[k].target}`).join(" · ") || "Nič nesleduješ";
       $("#sgo-parks-empty").hidden = visible.length > 0;
-      $("#sgo-parks-empty").textContent = updatedAt == null ? "Načítaj planéty tlačidlom Obnoviť údaje." : "Žiadna planéta nespĺňa všetky zapnuté podmienky.";
+      $("#sgo-parks-empty").textContent = updatedAt == null ? "Načítaj planéty tlačidlom Obnoviť údaje." : "Žiadnej planéte nechýba zapnutá stavba.";
       const el = (tag, cls, text) => { const node = container.ownerDocument.createElement(tag); node.className = cls; if (text !== undefined) node.textContent = text; return node; };
       for (const report of visible) {
         const possible = eligible(report), card = el("div", "sgo-parks-card");
@@ -864,7 +864,9 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
         checkbox.addEventListener("change", () => { if (checkbox.checked) selected.add(report.id); else selected.delete(report.id); card.setAttribute("data-selected", String(checkbox.checked)); selectionLabel(); });
         const info = el("div", "sgo-parks-info"), title = el("div", "sgo-parks-card-title"), metrics = el("div", "sgo-parks-metrics");
         title.append(el("strong", "", report.name));
-        for (const key of KEYS.filter(k => config[k].enabled)) metrics.append(el("strong", "sgo-parks-add", `${LABELS[key]} ${report[key]} → ${config[key].target} (+${report.missing[key]})`));
+        for (const key of KEYS.filter(k => config[k].enabled)) metrics.append(el("strong", "sgo-parks-add", report.missing[key]
+          ? `${LABELS[key]} ${report[key]} → ${config[key].target} (+${report.missing[key]})`
+          : `${LABELS[key]} ${report[key]} (cieľ ${config[key].target} splnený)`));
         info.append(title, metrics);
         const needed = KEYS.reduce((sum, key) => sum + report.missing[key], 0);
         const demolish = Math.max(0, needed - report.freeSlots);

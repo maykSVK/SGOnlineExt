@@ -207,9 +207,10 @@ na jej zastavenie pouzi **Zastavit** v podmenu utokov.
 - **Nastavenia dostavby** umoznuju nezavisle zapnut a nastavit cele nezaporne
   ciele SDI, BS a parkov. Predvolene su zapnute 200 SDI a 1 000 BS; ciel
   500 parkov je predvolene vypnuty. Spokojnost sa nesleduje.
-- Plati **AND**: planeta sa zobrazi iba ak ma kazda zapnuta stavba menej
-  nez svoj ciel. Ak nie je zapnuta ziadna stavba, zoznam je prazdny. Vypnute
-  typy sa nikdy nestavaju. Zmena nastaveni ihned prepocita ulozene udaje.
+- Plati **OR**: planeta sa zobrazi, ak ma aspon jednu zapnutu stavbu pod
+  cielom. Doplnia sa iba chybajuce pocty; stavby nad cielom sa nerusia.
+  Ak nie je zapnuta ziadna stavba, zoznam je prazdny. Vypnute typy sa nikdy
+  nestavaju. Zmena nastaveni ihned prepocita ulozene udaje.
 - **Obnovit udaje** nacita vsetky planety zo Staveni jedinou poziadavkou.
   Vysledok sa uchovava medzi strankami a je oznaceny ako potencialne
   neaktualny. Obnova ukazuje stav, umoznuje zastavenie a citanie ma
@@ -224,7 +225,7 @@ na jej zastavenie pouzi **Zastavit** v podmenu utokov.
   v tej istej karte, do 10 minut; neprepisuje rozpracovany formular. Bez
   potvrdenia sa planeta po obnoveni vrati.
 - **Postavit oznacene** vykona stavby priamo. Pred kazdou znovu overi planétu,
-  aktualne pocty aj pravidlo AND, po odoslani overi SDI, BS, parky a vyrobne.
+  aktualne pocty aj pravidlo OR, po odoslani overi SDI, BS, parky a vyrobne.
   Medzi planetami je pauza 2,5–6 sekund. **Zastavit** nevrati uz odoslanu
   stavbu. Web Locks brania sucasnej hromadnej stavbe v dalsich kartach.
   Pred POST sa uklada ocakavany vysledok; pri neistom vysledku sa stavba
