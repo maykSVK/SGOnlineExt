@@ -230,6 +230,9 @@ na jej zastavenie pouzi **Zastavit** v podmenu utokov.
   stavbu. Web Locks brania sucasnej hromadnej stavbe v dalsich kartach.
   Pred POST sa uklada ocakavany vysledok; pri neistom vysledku sa stavba
   naslepo neopakuje a seria sa zastavi. Ostatne typy budov sa neburaju.
+  Po otvoreni Staveni sa neisty zaznam porovna s aktualnym stavom a automaticky
+  odstrani iba pri presnej zhode. Pri nezhode ho mozes odstranit az po kontrole
+  v hre a vyslovnom potvrdeni; zrusenie ochrany moze zopakovat nedokoncenu stavbu.
 
 ### Idealne zaludnenie
 

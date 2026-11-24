@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         StarGame pomocnik
 // @namespace    https://github.com/maykSVK/SGOnlineExt
-// @version      0.5.3
+// @version      0.5.4
 // @description  StarGame helper for army, planet readiness and other game features.
 // @homepageURL  https://github.com/maykSVK/SGOnlineExt
 // @match        https://stargame-online.cz/www/game.php*
@@ -784,7 +784,7 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
     container.innerHTML = `<div class="sgo-feature-heading"><span class="sgo-eyebrow">SPRÁVA PLANÉT</span><h3>Dostavby</h3>
       <p class="sgo-hint">Zobrazia sa planéty, ktorým chýba aspoň jedna zapnutá stavba.</p></div>
       <div class="sgo-parks-overview"><strong id="sgo-parks-count">Zatiaľ bez prepočtu</strong><span id="sgo-parks-goal"></span></div>
-      <div class="sgo-parks-toolbar"><button type="button" id="sgo-parks-load">Obnoviť údaje</button><button type="button" id="sgo-parks-stop" disabled hidden>Zastaviť</button></div>
+      <div class="sgo-parks-toolbar"><button type="button" id="sgo-parks-load">Obnoviť údaje</button><button type="button" id="sgo-parks-stop" disabled hidden>Zastaviť</button><button type="button" id="sgo-parks-clear-pending" hidden>Potvrdil som kontrolu</button></div>
       <details class="sgo-watch-settings"><summary>Nastavenia dostavby</summary>
       <div class="sgo-build-settings">${KEYS.map(key => `<div><label><input id="sgo-build-${key}-enabled" type="checkbox"> ${LABELS[key]}</label><input id="sgo-build-${key}-target" type="number" min="0" step="1" aria-label="Cieľ ${LABELS[key]}"></div>`).join("")}</div>
       <button type="button" id="sgo-parks-save">Uložiť nastavenia</button></details>
@@ -801,11 +801,13 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
     const onBuildings = () => { const p = new URL(root.location.href).searchParams; return p.get("page") === "planety" && !p.has("s"); };
     let config = settings(DEFAULTS), planets = [], budget = null, updatedAt = null, working = false, stopped = false;
     const selected = new Set(), prefilled = new Set();
+    let pendingIssues = [];
     const message = (text, error = false) => { $("#sgo-parks-status").textContent = text; $("#sgo-parks-status").className = error ? "sgo-hint sgo-error" : "sgo-hint"; };
     const controls = () => {
-      for (const id of ["load", "save", "all", "none", "build", "budget-refresh"]) $(`#sgo-parks-${id}`).disabled = working;
+      for (const id of ["load", "save", "all", "none", "build", "budget-refresh", "clear-pending"]) $(`#sgo-parks-${id}`).disabled = working;
       for (const key of KEYS) for (const field of ["enabled", "target"]) $(`#sgo-build-${key}-${field}`).disabled = working;
       $("#sgo-parks-stop").disabled = !working; $("#sgo-parks-stop").hidden = !working;
+      $("#sgo-parks-clear-pending").hidden = working || !pendingIssues.length;
       $("#sgo-parks-load").textContent = working ? "Prebieha operácia…" : "Obnoviť údaje";
       container.setAttribute("aria-busy", String(working));
     };
@@ -822,6 +824,26 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
           timer = setTimeout(() => { reject(new Error("Načítanie stavieb trvá viac ako 30 sekúnd.")); controller.abort(); }, 30000);
         })]);
       } finally { clearTimeout(timer); }
+    }
+    async function reconcilePending(current) {
+      pendingIssues = [];
+      for (const [key, legacy] of [[LEGACY_PENDING, true], [PENDING, false]]) {
+        const record = await storage.get(key);
+        if (!record) continue;
+        const actual = current.find(planet => planet.id === record.id && planet.name === record.name);
+        const fields = legacy ? ["parks", "factories"] : [...KEYS, "factories"];
+        if (actual && fields.every(field => actual[field] === record[field])) {
+          await storage.set(key, null);
+          log(`Dostavby ${record.name}: predchádzajúca stavba overená podľa aktuálneho stavu.`);
+        } else {
+          pendingIssues.push({ key, legacy, record, actual });
+        }
+      }
+      if (!pendingIssues.length) return true;
+      const issue = pendingIssues[0], expected = issue.legacy ? `Parky ${issue.record.parks}, výrobne ${issue.record.factories}` :
+        [...KEYS, "factories"].map(key => `${LABELS[key] || "Výrobne"} ${issue.record[key]}`).join(", ");
+      message(`Neoverená stavba ${issue.record.name} (očakávané: ${expected}). Skontroluj stav planéty v hre. Záznam nemaž, ak stavbu nevieš overiť.`, true);
+      return false;
     }
     const reports = () => planets.map(planet => calculate(planet, config)).filter(report => report.matches && !prefilled.has(report.id));
     function selectionLabel() {
@@ -878,8 +900,9 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
     }
     async function apply(id, name, chosenConfig) {
       if (!canEdit()) throw new Error("Najprv dokonči prebiehajúcu operáciu.");
-      if (await storage.get(PENDING) || await storage.get(LEGACY_PENDING)) throw new Error("Existuje neoverená predchádzajúca stavba; najprv skontroluj stav v hre.");
-      const planet = readPlanets(container.ownerDocument).find(item => item.id === id && item.name === name);
+      const current = readPlanets(container.ownerDocument);
+      if (!await reconcilePending(current)) throw new Error("Predchádzajúca stavba sa nezhoduje s očakávaným stavom. Skontroluj ju alebo potvrď kontrolu po overení v hre.");
+      const planet = current.find(item => item.id === id && item.name === name);
       if (!planet) throw new Error("Planéta už nemá pôvodný názov alebo ju nevlastníš.");
       if (!canEdit()) throw new Error("Začala iná operácia; nič nepredvypĺňam.");
       const report = calculate(planet, chosenConfig), plan = fill(container.ownerDocument, report);
@@ -911,8 +934,10 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
         if (!canEdit()) throw new Error("Najprv dokonči prebiehajúcu operáciu.");
         const doc = await buildings();
         if (stopped) { message("Načítanie zastavené; predchádzajúci prepočet zostal zachovaný."); return; }
-        const next = readPlanets(doc); updateBudget(doc); planets = next; updatedAt = Date.now(); selected.clear(); prefilled.clear();
-        await persist(); message(`Načítaných ${planets.length} planét. Filtrujem podľa nastavení.`);
+        const next = readPlanets(doc), pendingResolved = await reconcilePending(next);
+        updateBudget(doc); planets = next; updatedAt = Date.now(); selected.clear(); prefilled.clear();
+        await persist();
+        if (pendingResolved) message(`Načítaných ${planets.length} planét. Filtrujem podľa nastavení.`);
         log(`Dostavby: načítaných ${planets.length} planét.`);
       } catch (error) { message(error.message, true); log(`Dostavby: ${error.message}`, "error"); }
       finally { working = false; controls(); render(); }
@@ -932,19 +957,7 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
             if (!canEdit()) throw new Error("Najprv dokonči prebiehajúcu operáciu.");
             message(`Overujem ${queued.name} (${completed + 1}/${queue.length})…`);
             const doc = await buildings(), current = readPlanets(doc); updateBudget(doc);
-            const pending = await storage.get(PENDING), legacy = await storage.get(LEGACY_PENDING);
-            if (legacy) {
-              const prior = current.find(p => p.id === legacy.id && p.name === legacy.name);
-              if (!prior || prior.parks !== legacy.parks || prior.factories !== legacy.factories) throw new Error("Neoverená predchádzajúca stavba parkov. Skontroluj ju v hre pred ďalšou stavbou.");
-              await storage.set(LEGACY_PENDING, null);
-              log(`Dostavby ${legacy.name}: predchádzajúca stavba parkov overená.`);
-            }
-            if (pending) {
-              const prior = current.find(p => p.id === pending.id && p.name === pending.name);
-              if (!prior || [...KEYS, "factories"].some(key => prior[key] !== pending[key])) throw new Error(`Neistý výsledok stavby ${pending.name}; skontroluj stav v hre. Neopakujem ju.`);
-              await storage.set(PENDING, null);
-              log(`Dostavby ${pending.name}: predchádzajúca stavba overená.`);
-            }
+            if (!await reconcilePending(current)) throw new Error("Predchádzajúca stavba sa nezhoduje s očakávaným stavom. Skontroluj ju alebo potvrď kontrolu po overení v hre.");
             const planet = current.find(item => item.id === queued.id && item.name === queued.name);
             if (!planet) throw new Error(`${queued.name}: planéta už nemá pôvodný názov alebo ju nevlastníš.`);
             const report = calculate(planet, config);
@@ -1006,12 +1019,38 @@ GM_addStyle("#sgo-addon {\n  all: initial;\n  box-sizing: border-box;\n  --sgo-t
       working = true; controls();
       try {
         const current = readPlanets(container.ownerDocument);
+        await reconcilePending(current);
         if (updatedAt != null) { planets = current; updatedAt = Date.now(); await persist(); }
         const draft = JSON.parse(session.getItem(DRAFT) || "null");
         if (!draft) return;
         session.removeItem(DRAFT);
         if (!Number.isFinite(draft.time) || Date.now() - draft.time >= 600000 || draft.time > Date.now()) throw new Error("Predvyplnenie vypršalo; znovu ho priprav.");
         await apply(draft.id, draft.name, settings(draft.config));
+      } catch (error) { message(error.message, true); log(`Dostavby: ${error.message}`, "error"); }
+      finally { working = false; controls(); render(); }
+    });
+    $("#sgo-parks-clear-pending").addEventListener("click", async () => {
+      if (working || !pendingIssues.length) return;
+      working = true; controls();
+      try {
+        await withLock(async () => {
+          const current = readPlanets(await buildings());
+          if (await reconcilePending(current)) { message("Záznam už bol overený a odstránený."); return; }
+          const names = pendingIssues.map(issue => issue.record.name).join(", ");
+          if (!root.confirm(`Skontroloval si v hre stav ${names}? Vymazanie záznamu pri nedokončenej stavbe môže spôsobiť jej opakovanie. Pokračovať?`)) {
+            message("Záznam zostáva zachovaný; stavbu neopakujem.", true); return;
+          }
+          for (const issue of pendingIssues) {
+            const latest = await storage.get(issue.key);
+            if (!latest || latest.id !== issue.record.id || latest.name !== issue.record.name || latest.time !== issue.record.time) {
+              throw new Error("Záznam sa medzitým zmenil; obnov údaje a skontroluj stav znova.");
+            }
+          }
+          for (const issue of pendingIssues) await storage.set(issue.key, null);
+          pendingIssues = [];
+          message("Záznam odstránený po tvojej kontrole. Obnov údaje a až potom pokračuj.");
+          log(`Dostavby: používateľ potvrdil kontrolu a odstránil neoverený záznam pre ${names}.`, "warn");
+        });
       } catch (error) { message(error.message, true); log(`Dostavby: ${error.message}`, "error"); }
       finally { working = false; controls(); render(); }
     });

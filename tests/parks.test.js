@@ -204,11 +204,64 @@ test("lost response never repeats a potentially applied build; verified state re
   assert.equal(f.saved.get("sgo-dostavby-pending"), null);
 });
 
+test("opening the building page reconciles a previously completed bulk build", async t => {
+  const f = setup(t);
+  const post = f.options.postDocument;
+  const interrupted = K.mount(f.ui, { ...f.options, postDocument: async (url, body) => { await post(url, body); throw new Error("Offline"); } });
+  await interrupted.load(); selectFirst(f.ui); await interrupted.buildSelected();
+  assert.ok(f.saved.get("sgo-dostavby-pending"));
+  const postCount = f.calls.length;
+  globalThis.location.href = "https://game.test/game.php?page=planety";
+  const ui = container(buildings(f.states));
+  const page = K.mount(ui, f.options);
+  await page.draftsReady;
+  assert.equal(f.saved.get("sgo-dostavby-pending"), null);
+  assert.equal(f.calls.length, postCount, "reconciliation never submits another build");
+  assert.equal(ui.querySelector("#sgo-parks-clear-pending").hidden, true);
+  assert.equal(ui.querySelector("#sgo-parks-list").children.length, 1, "other unfinished planets remain available");
+});
+
+test("legacy park journal reconciles automatically on the building page", async t => {
+  const f = setup(t);
+  await f.module.draftsReady;
+  f.saved.set("sgo-parks-pending", { id: "1", name: "Alpha", parks: 50, factories: 600, time: 123 });
+  globalThis.location.href = "https://game.test/game.php?page=planety";
+  const ui = container(buildings(f.states));
+  await K.mount(ui, f.options).draftsReady;
+  assert.equal(f.saved.get("sgo-parks-pending"), null);
+  assert.equal(f.calls.length, 0);
+});
+
+test("mismatched journal stays blocked until explicitly confirmed after checking", async t => {
+  const f = setup(t);
+  await f.module.draftsReady;
+  f.saved.set("sgo-dostavby-pending", {
+    id: "1", name: "Alpha", sdi: 200, bs: 1000, parks: 50, factories: 350, time: 123
+  });
+  globalThis.location.href = "https://game.test/game.php?page=planety";
+  const ui = container(buildings(f.states)), previousConfirm = globalThis.confirm;
+  const confirmations = [];
+  globalThis.confirm = text => { confirmations.push(text); return false; };
+  t.after(() => { if (previousConfirm === undefined) delete globalThis.confirm; else globalThis.confirm = previousConfirm; });
+  const module = K.mount(ui, f.options);
+  await module.draftsReady;
+  assert.match(ui.querySelector("#sgo-parks-status").textContent, /Neoverená stavba Alpha/);
+  assert.equal(ui.querySelector("#sgo-parks-clear-pending").hidden, false);
+  await ui.querySelector("#sgo-parks-clear-pending").listeners.click();
+  assert.ok(f.saved.get("sgo-dostavby-pending"), "cancel preserves the protective journal");
+  assert.match(confirmations[0], /môže spôsobiť jej opakovanie/);
+  globalThis.confirm = () => true;
+  await ui.querySelector("#sgo-parks-clear-pending").listeners.click();
+  assert.equal(f.saved.get("sgo-dostavby-pending"), null);
+  assert.match(ui.querySelector("#sgo-parks-status").textContent, /odstránený po tvojej kontrole/);
+  assert.equal(f.calls.length, 0, "manual journal recovery never submits a build");
+});
+
 test("different actual values after uncertain POST block further submissions", async t => {
   const f = setup(t, { postDocument: async () => { throw new Error("Offline"); } });
   await f.module.load(); selectFirst(f.ui); await f.module.buildSelected();
   await f.module.buildSelected();
-  assert.match(f.ui.querySelector("#sgo-parks-status").textContent, /Neistý výsledok/);
+  assert.match(f.ui.querySelector("#sgo-parks-status").textContent, /nezhoduje s očakávaným stavom/);
 });
 
 test("three enabled targets are added together and budget includes each building", async t => {
