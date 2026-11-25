@@ -27,7 +27,7 @@
       <div class="sgo-rename-tools"><input id="sgo-rename-search" type="search" placeholder="Hľadať planétu" aria-label="Hľadať planétu">
       <button type="button" id="sgo-rename-refresh">Obnoviť</button></div>
       <p id="sgo-rename-status" class="sgo-hint" role="status">Načítaj zoznam planét.</p>
-      <div id="sgo-rename-list" class="sgo-rename-list" role="list"></div>`;
+      <div id="sgo-rename-list" class="sgo-rename-list" role="list" aria-label="Planéty" tabindex="0"></div>`;
     const $ = selector => container.querySelector(selector);
     const url = params => {
       const result = new URL("game.php", root.location.href);

@@ -217,14 +217,24 @@
 #sgo-addon .sgo-war button.sgo-war-rename-button { display: inline-block; margin: 4px 3px; padding: 5px 8px; background: #653721; border-color: #ffb56b; color: #ffe3b4; font-weight: 700; }
 #sgo-addon .sgo-war button.sgo-war-rename-button:hover:not(:disabled) { background: #85492a; }
 #sgo-addon .sgo-war-renamed { display: block; color: #83e0b3; font-size: 10px; overflow-wrap: anywhere; }
-#sgo-addon .sgo-rename-tools { display: flex; gap: 8px; }
-#sgo-addon .sgo-rename-tools input { flex: 1; min-width: 0; }
-#sgo-addon .sgo-rename-list { max-height: 38dvh; overflow: auto; scrollbar-width: thin; scrollbar-color: #3a4d67 transparent; }
-#sgo-addon .sgo-rename-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--sgo-line); }
+#sgo-addon #sgo-rename-feature { padding: 16px 18px 18px; }
+#sgo-addon #sgo-rename-feature .sgo-feature-heading .sgo-hint { margin: 6px 0 14px; }
+#sgo-addon .sgo-rename-tools { display: flex; align-items: stretch; gap: 8px; }
+#sgo-addon .sgo-rename-tools input { flex: 1; min-width: 0; background: #0e1c2c; }
+#sgo-addon .sgo-rename-tools input::placeholder { color: #8d9fb9; opacity: 1; }
+#sgo-addon .sgo-rename-tools button { flex-shrink: 0; padding: 8px 12px; color: #c4d5e9; font-size: 11px; }
+#sgo-addon #sgo-rename-status { margin: 10px 0; padding: 8px 10px; border: 1px solid #65dec32b; border-radius: 8px; background: #65dec30a; color: #b7d9d4; line-height: 1.5; overflow-wrap: anywhere; }
+#sgo-addon #sgo-rename-status.sgo-error { border-color: #ff9a8944; background: #ff9a890d; color: #ffb1a3; }
+#sgo-addon .sgo-rename-list { display: grid; gap: 7px; max-height: 38dvh; overflow: auto; padding: 1px; scrollbar-width: thin; scrollbar-color: #3a4d67 transparent; }
+#sgo-addon .sgo-rename-list:focus-visible { outline: 2px solid var(--sgo-accent); outline-offset: 2px; }
+#sgo-addon .sgo-rename-list > .sgo-hint { margin: 0; padding: 18px 12px; border: 1px dashed #364860; border-radius: 10px; text-align: center; }
+#sgo-addon .sgo-rename-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; padding: 10px 11px; border: 1px solid var(--sgo-line); border-radius: 10px; background: #152136; }
 #sgo-addon .sgo-rename-row > div { min-width: 0; overflow-wrap: anywhere; }
 #sgo-addon .sgo-rename-row strong, #sgo-addon .sgo-rename-row span { display: block; }
-#sgo-addon .sgo-rename-row span { color: var(--sgo-muted); font-size: 11px; }
-#sgo-addon .sgo-rename-row button { flex-shrink: 0; padding: 5px 8px; font-size: 11px; }
+#sgo-addon .sgo-rename-row strong { color: var(--sgo-text); font-size: 12px; line-height: 1.4; }
+#sgo-addon .sgo-rename-row span { margin-top: 3px; color: var(--sgo-muted); font-size: 11px; line-height: 1.4; }
+#sgo-addon .sgo-rename-row button { flex-shrink: 0; padding: 6px 9px; border-color: #65dec355; background: #65dec311; color: var(--sgo-accent); font-size: 11px; }
+#sgo-addon .sgo-rename-row button:hover:not(:disabled) { border-color: #65dec3; background: #65dec325; }
 #sgo-addon .sgo-war-attack-planet { display: block; width: 100%; margin-top: 4px; font-size: 10px; }
 #sgo-addon .sgo-war-spy-row { display: grid; grid-template-columns: 90px minmax(0, 1fr) auto; gap: 6px; padding: 5px 0; border-top: 1px solid #28374e; font-size: 10px; overflow-wrap: anywhere; }
 #sgo-addon .sgo-war-spy-row time { color: var(--sgo-muted); }
