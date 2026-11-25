@@ -6,6 +6,8 @@
   const C = globalThis.SGO;
   const RUN_KEY = "sgo-addon-run";
   const STORE_KEY = "sgo-addon-data";
+  const MAX_LOG_ENTRIES = 500;
+  const MAX_VISIBLE_LOG_ENTRIES = 100;
   const storage = globalThis.SGOStorage.createStorage(globalThis);
   let saved;
   try {
@@ -16,6 +18,8 @@
     return;
   }
   const data = saved || { plans: {}, logs: JSON.parse(sessionStorage.getItem("sgo-addon-log") || "[]") };
+  data.plans ||= {};
+  data.logs = Array.isArray(data.logs) ? data.logs.slice(-MAX_LOG_ENTRIES) : [];
   let run = JSON.parse(sessionStorage.getItem(RUN_KEY) || "null");
   let catalog = data.catalog || [];
   let busy = false;
@@ -23,6 +27,7 @@
   let timer;
   let watchdog;
   let writes = Promise.resolve();
+  let writeTimer = null;
   const root = document.createElement("aside");
   root.id = "sgo-addon";
   root.setAttribute("aria-label", "StarGame pomocnik");
@@ -61,7 +66,7 @@
         <div id="sgo-plans"></div>
       </section>
       <section id="sgo-activity-view" role="tabpanel" aria-labelledby="sgo-activity-tab" class="sgo-view" tabindex="0" hidden>
-        <div class="sgo-log-toolbar"><span>Posledných 500 udalostí</span><button type="button" id="sgo-export">Exportovať log</button></div>
+        <div class="sgo-log-toolbar"><span>Zobrazuje sa max. 100; export až 500 udalostí</span><button type="button" id="sgo-export">Exportovať log</button></div>
         <div class="sgo-log" id="sgo-log" role="log" aria-live="polite"></div>
       </section>
       </section>
@@ -162,6 +167,13 @@
   }
   function persist() {
     sessionStorage.setItem(RUN_KEY, JSON.stringify(run));
+    clearTimeout(writeTimer);
+    writeTimer = setTimeout(() => {
+      writeTimer = null;
+      queueWrite();
+    }, 100);
+  }
+  function queueWrite() {
     const snapshot = JSON.parse(JSON.stringify(data));
     writes = writes.then(() => storage.set(STORE_KEY, snapshot)).catch(error => {
       clearTimeout(timer);
@@ -170,33 +182,52 @@
       status(`Chyba ukladania: ${error.message}. Zastavene.`, "error");
       console.error("SGO storage", error);
     });
+    return writes;
+  }
+  async function flushWrites() {
+    if (writeTimer !== null) {
+      clearTimeout(writeTimer);
+      writeTimer = null;
+      queueWrite();
+    }
+    await writes;
   }
   function log(message, level = "info") {
-    data.logs.push({ time: Date.now(), level, message });
-    data.logs = data.logs.slice(-500);
-    drawLog();
+    const entry = { time: Date.now(), level, message };
+    data.logs.push(entry);
+    if (data.logs.length > MAX_LOG_ENTRIES) data.logs.splice(0, data.logs.length - MAX_LOG_ENTRIES);
+    const container = $("#sgo-log");
+    const wasAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 30;
+    container.append(createLogEntry(entry));
+    while (container.childElementCount > MAX_VISIBLE_LOG_ENTRIES) container.firstElementChild.remove();
+    updateLogSummary();
+    if (!$("#sgo-activity-view").hidden && wasAtBottom) container.scrollTop = container.scrollHeight;
     persist();
   }
-  function drawLog() {
-    const container = $("#sgo-log");
-    container.replaceChildren(...data.logs.map(entry => {
-      const p = document.createElement("p");
-      p.dataset.level = entry.level;
-      const time = document.createElement("time");
-      time.textContent = new Date(entry.time).toLocaleTimeString("sk-SK");
-      const badge = document.createElement("span");
-      badge.className = "sgo-log-badge";
-      badge.textContent = { info: "INFO", warn: "POZOR", error: "CHYBA", success: "VÝSLEDOK" }[entry.level] || entry.level;
-      const message = document.createElement("span");
-      message.className = "sgo-log-message";
-      message.textContent = entry.message;
-      p.append(time, badge, message);
-      return p;
-    }));
+  function createLogEntry(entry) {
+    const p = document.createElement("p");
+    p.dataset.level = entry.level;
+    const time = document.createElement("time");
+    time.textContent = new Date(entry.time).toLocaleTimeString("sk-SK");
+    const badge = document.createElement("span");
+    badge.className = "sgo-log-badge";
+    badge.textContent = { info: "INFO", warn: "POZOR", error: "CHYBA", success: "VÝSLEDOK" }[entry.level] || entry.level;
+    const message = document.createElement("span");
+    message.className = "sgo-log-message";
+    message.textContent = entry.message;
+    p.append(time, badge, message);
+    return p;
+  }
+  function updateLogSummary() {
     $("#sgo-log-count").textContent = data.logs.length;
     $("#sgo-latest").textContent = data.logs.at(-1)?.message || "Žiadne udalosti. Najprv obnov dostupné útoky.";
     $("#sgo-latest").title = $("#sgo-latest").textContent;
-    container.scrollTop = container.scrollHeight;
+  }
+  function drawLog() {
+    const container = $("#sgo-log");
+    container.replaceChildren(...data.logs.slice(-MAX_VISIBLE_LOG_ENTRIES).map(createLogEntry));
+    updateLogSummary();
+    if (!$("#sgo-activity-view").hidden) container.scrollTop = container.scrollHeight;
   }
   function controls() {
     $("#sgo-target-select").disabled = busy || Boolean(run?.active);
@@ -453,7 +484,7 @@
     C.quantities(entry.fields, run.plans[id].units);
     run.preparing = id;
     log(`${run.labels[id]}: zostava ${entry.remaining}/${entry.maximum}. Otvaram aktualny formular.`);
-    await writes;
+    await flushWrites();
     if (run !== activeRun || !run.active) return;
     location.assign(url);
   }
@@ -499,7 +530,7 @@
     }
     run.pending = { id, remaining: entry.remaining, sent: Date.now(), planet: planet.value };
     log(`Odosielam ${run.labels[id]} na ${planet.value}: ${Object.entries(values).map(([k, v]) => `${k}=${v}`).join(", ")}. Limit ${entry.remaining}/${entry.maximum}.`);
-    await writes;
+    await flushWrites();
     if (run !== activeRun || !run.active) return;
     status("Odosielam nativny formular hry...");
     // Native submission preserves the site's tokens, validation and verification.
@@ -601,22 +632,22 @@
   parks = globalThis.SGOParks.mount($("#sgo-parks-feature"), {
     getDocument, postDocument: (url, body, options) => getDocument(url, { ...options, method: "POST", body }),
     storage, log, canEdit: () => !run?.active && !busy, revealGame,
-    navigate: async url => { await writes; location.assign(url); }
+    navigate: async url => { await flushWrites(); location.assign(url); }
   });
   $("#sgo-open-sectors").addEventListener("click", () => showFeature("sectors"));
   $("#sgo-open-war").addEventListener("click", () => showFeature("war"));
   guardian = globalThis.SGOGuardian.mount($("#sgo-guardian-feature"), {
     getDocument, log, storage, rankingContainer: $("#sgo-ranking"), canEdit: () => !run?.active && !busy && !parks?.isWorking,
-    revealGame, navigate: async url => { await writes; location.assign(url); }
+    revealGame, navigate: async url => { await flushWrites(); location.assign(url); }
   });
   sectors = globalThis.SGOSectors.mount($("#sgo-sectors-feature"), {
     getDocument, log, canEdit: () => !run?.active && !busy && !parks?.isWorking, revealGame,
-    navigate: async url => { await writes; location.assign(url); }
+    navigate: async url => { await flushWrites(); location.assign(url); }
   });
   war = globalThis.SGOWar.mount($("#sgo-war-feature"), {
     getDocument, postDocument: (url, body) => getDocument(url, { method: "POST", body }),
     storage, log, revealGame, canEdit: () => !run?.active && !busy && !parks?.isWorking,
-    navigate: async url => { await writes; location.assign(url); }
+    navigate: async url => { await flushWrites(); location.assign(url); }
   });
   $("#sgo-export").addEventListener("click", () => {
     const blob = new Blob([data.logs.map(e => `${new Date(e.time).toISOString()} [${e.level}] ${e.message}`).join("\n")], { type: "text/plain;charset=utf-8" });
