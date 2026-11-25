@@ -217,6 +217,14 @@
 #sgo-addon .sgo-war button.sgo-war-rename-button { display: inline-block; margin: 4px 3px; padding: 5px 8px; background: #653721; border-color: #ffb56b; color: #ffe3b4; font-weight: 700; }
 #sgo-addon .sgo-war button.sgo-war-rename-button:hover:not(:disabled) { background: #85492a; }
 #sgo-addon .sgo-war-renamed { display: block; color: #83e0b3; font-size: 10px; overflow-wrap: anywhere; }
+#sgo-addon .sgo-rename-tools { display: flex; gap: 8px; }
+#sgo-addon .sgo-rename-tools input { flex: 1; min-width: 0; }
+#sgo-addon .sgo-rename-list { max-height: 38dvh; overflow: auto; scrollbar-width: thin; scrollbar-color: #3a4d67 transparent; }
+#sgo-addon .sgo-rename-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--sgo-line); }
+#sgo-addon .sgo-rename-row > div { min-width: 0; overflow-wrap: anywhere; }
+#sgo-addon .sgo-rename-row strong, #sgo-addon .sgo-rename-row span { display: block; }
+#sgo-addon .sgo-rename-row span { color: var(--sgo-muted); font-size: 11px; }
+#sgo-addon .sgo-rename-row button { flex-shrink: 0; padding: 5px 8px; font-size: 11px; }
 #sgo-addon .sgo-war-attack-planet { display: block; width: 100%; margin-top: 4px; font-size: 10px; }
 #sgo-addon .sgo-war-spy-row { display: grid; grid-template-columns: 90px minmax(0, 1fr) auto; gap: 6px; padding: 5px 0; border-top: 1px solid #28374e; font-size: 10px; overflow-wrap: anywhere; }
 #sgo-addon .sgo-war-spy-row time { color: var(--sgo-muted); }

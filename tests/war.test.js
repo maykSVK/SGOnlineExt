@@ -484,6 +484,34 @@ test("failed defense settings restore prevents refresh with misleading default t
   assert.equal(container.querySelector("#sgo-war-status").dataset.state, "error");
 });
 
+test("war overview synchronizes externally completed renames without fetching", async t => {
+  const oldLocation = globalThis.location;
+  globalThis.location = { href: "https://game.test/game.php?page=vesmir" };
+  t.after(() => { if (oldLocation === undefined) delete globalThis.location; else globalThis.location = oldLocation; });
+  const saved = new Map([
+    ["sgo-war-snapshot", {
+      ownerName: "mayk", army: null, armyError: "Nedostupná armáda",
+      planets: [{ id: "2", name: "ORIGINAL", cities: 20, maxCities: null, cityDeficit: null, sdi: 0, bs: 0 }],
+      spies: [], attacks: [], newSpyIds: [], lastUpdated: Date.now()
+    }]
+  ]);
+  const storage = { get: async key => saved.get(key), set: async (key, value) => saved.set(key, value) };
+  const container = warContainer();
+  const war = W.mount(container, { storage, getDocument: async () => assert.fail("must not fetch"), log() {} });
+  await Promise.all([war.ready, war.draftsReady]);
+  saved.set("sgo-war-renames", [
+    { owner: "mayk", planetId: "2", oldName: "ORIGINAL", newName: "AAAA-1234-56", attackIds: [], state: "done", time: 1 },
+    { owner: "mayk", planetId: "2", oldName: "AAAA-1234-56", newName: "BBBB-1234-56", attackIds: [], state: "done", time: 2 },
+    { owner: "other", planetId: "2", oldName: "BBBB-1234-56", newName: "CCCC-1234-56", attackIds: [], state: "done", time: 3 }
+  ]);
+  await war.syncRenames();
+  assert.equal(container.querySelector("#sgo-war-planets").children[0].children[0].textContent, "BBBB-1234-56");
+  const restored = warContainer();
+  const next = W.mount(restored, { storage, getDocument: async () => assert.fail("must not fetch"), log() {} });
+  await Promise.all([next.ready, next.draftsReady]);
+  assert.equal(restored.querySelector("#sgo-war-planets").children[0].children[0].textContent, "BBBB-1234-56");
+});
+
 test("direct rename is verified, persisted across navigation and re-enabled only for new attacks", async t => {
   const oldLocation = globalThis.location;
   globalThis.location = { href: "https://game.test/game.php?page=vesmir" };

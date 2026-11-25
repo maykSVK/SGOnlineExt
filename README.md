@@ -138,6 +138,14 @@ hodnota zobrazi ako nezname a addon nevypocitava ani nepredvyplna ich deficit.
 Sekcia nevybera ani nespusta utoky na inych hracov. Premenovanie odosle iba
 po kliknuti na **Premenovat**; armada a stavby zostavaju rucne potvrdzovane.
 
+#### Premenovanie planet
+
+Sekcia **Premenovanie planet** po otvoreni nacita vlastne planety z hernej
+spravy planet. Vyhladavanie okamzite filtruje podla lubovolnej casti nazvu.
+Pri kazdej planete vidiš navrhnuty nahodny nazov; **Premenovat** zmenu ihned
+odosle a overi. Pouziva rovnaku kontrolu vlastnictva a historiu ako sekcia
+Vojna. Pri neistom vysledku sa akcia neopakuje; **Obnovit** overi stav v hre.
+
 #### TOP 3 celkovo
 
 Kompaktne dlazdice funkcii su v hlavnom prehlade vedla seba. Mensia hlavicka

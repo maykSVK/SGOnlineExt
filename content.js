@@ -47,6 +47,7 @@
         <button type="button" class="sgo-feature-card" id="sgo-open-sectors" title="Náskok pred súpermi a BBCode hlásenie"><span class="sgo-feature-icon">03</span><span><strong>Naše sektory</strong></span></button>
         <button type="button" class="sgo-feature-card" id="sgo-open-war" title="Ručný prehľad vlastnej armády, obrany a prijatých špionáží"><span class="sgo-feature-icon">04</span><span><strong>Vojna</strong></span></button>
         <button type="button" class="sgo-feature-card" id="sgo-open-parks" title="Doplnenie SDI, BS a parkov"><span class="sgo-feature-icon">05</span><span><strong>Dostavby</strong></span></button>
+        <button type="button" class="sgo-feature-card" id="sgo-open-rename" title="Vyhľadanie a premenovanie vlastných planét"><span class="sgo-feature-icon">06</span><span><strong>Premenovanie planét</strong></span></button>
         </div>
         <section id="sgo-ranking" aria-label="TOP 3 hráčov celkovo"></section>
       </section>
@@ -74,6 +75,7 @@
       <section id="sgo-sectors-feature" hidden></section>
       <section id="sgo-war-feature" hidden></section>
       <section id="sgo-parks-feature" hidden></section>
+      <section id="sgo-rename-feature" hidden></section>
       <footer class="sgo-footer"><span class="sgo-footer-dot" aria-hidden="true"></span><span id="sgo-latest">Všetko pod kontrolou. Čakám na nastavenie.</span></footer>
     </div>`;
   document.body.append(root);
@@ -134,20 +136,24 @@
   let sectors;
   let war;
   let guardian;
+  let rename;
   function showFeature(feature, save = true) {
-    const selected = ["attacks", "population", "sectors", "war", "parks"].includes(feature) ? feature : "home";
+    const selected = ["attacks", "population", "sectors", "war", "parks", "rename"].includes(feature) ? feature : "home";
     $("#sgo-home").hidden = selected !== "home";
     $("#sgo-attacks-feature").hidden = selected !== "attacks";
     $("#sgo-population-feature").hidden = selected !== "population";
     $("#sgo-parks-feature").hidden = selected !== "parks";
     $("#sgo-sectors-feature").hidden = selected !== "sectors";
     $("#sgo-war-feature").hidden = selected !== "war";
+    $("#sgo-rename-feature").hidden = selected !== "rename";
     $("#sgo-back").hidden = selected === "home";
-    $("#sgo-feature-name").textContent = { home: "Prehľad funkcií", attacks: "Útok na RR", population: "Ideálne zaľudnenie", sectors: "Naše sektory", war: "Vojna", parks: "Dostavby" }[selected];
+    $("#sgo-feature-name").textContent = { home: "Prehľad funkcií", attacks: "Útok na RR", population: "Ideálne zaľudnenie", sectors: "Naše sektory", war: "Vojna", parks: "Dostavby", rename: "Premenovanie planét" }[selected];
     if (selected === "home") guardian?.render();
     if (selected === "attacks") loadTargets();
     if (selected === "population") population?.refresh();
     if (selected === "sectors") sectors?.refresh();
+    if (selected === "war") war?.syncRenames();
+    if (selected === "rename") rename?.refresh();
     if (save) { data.feature = selected; persist(); }
   }
   function status(text, state = run?.active ? "running" : busy ? "loading" : "idle") {
@@ -581,7 +587,7 @@
   $("#sgo-load").addEventListener("click", discover);
   $("#sgo-start").addEventListener("click", () => {
     try {
-      if (parks?.isWorking) throw new Error("Najprv dokonči alebo zastav operáciu parkov.");
+      if (parks?.isWorking || rename?.isWorking || war?.isWorking) throw new Error("Najprv dokonči prebiehajúcu operáciu.");
       const requested = catalog.filter(e => data.plans[e.id]?.enabled);
       if (!requested.length) throw new Error("Vyber aspon jeden typ utoku.");
       const depleted = requested.filter(e => e.remaining === 0 || e.status.kind === "exhausted");
@@ -627,27 +633,33 @@
   $("#sgo-back").addEventListener("click", () => showFeature("home"));
   $("#sgo-open-attacks").addEventListener("click", () => showFeature("attacks"));
   $("#sgo-open-population").addEventListener("click", () => showFeature("population"));
-  population = globalThis.SGOPopulation.mount($("#sgo-population-feature"), { getDocument, log, canEdit: () => !run?.active && !busy && !parks?.isWorking, revealGame });
+  population = globalThis.SGOPopulation.mount($("#sgo-population-feature"), { getDocument, log, canEdit: () => !run?.active && !busy && !parks?.isWorking && !rename?.isWorking, revealGame });
   $("#sgo-open-parks").addEventListener("click", () => showFeature("parks"));
   parks = globalThis.SGOParks.mount($("#sgo-parks-feature"), {
     getDocument, postDocument: (url, body, options) => getDocument(url, { ...options, method: "POST", body }),
-    storage, log, canEdit: () => !run?.active && !busy, revealGame,
+    storage, log, canEdit: () => !run?.active && !busy && !rename?.isWorking, revealGame,
     navigate: async url => { await flushWrites(); location.assign(url); }
   });
   $("#sgo-open-sectors").addEventListener("click", () => showFeature("sectors"));
   $("#sgo-open-war").addEventListener("click", () => showFeature("war"));
+  $("#sgo-open-rename").addEventListener("click", () => showFeature("rename"));
   guardian = globalThis.SGOGuardian.mount($("#sgo-guardian-feature"), {
-    getDocument, log, storage, rankingContainer: $("#sgo-ranking"), canEdit: () => !run?.active && !busy && !parks?.isWorking,
+    getDocument, log, storage, rankingContainer: $("#sgo-ranking"), canEdit: () => !run?.active && !busy && !parks?.isWorking && !rename?.isWorking,
     revealGame, navigate: async url => { await flushWrites(); location.assign(url); }
   });
   sectors = globalThis.SGOSectors.mount($("#sgo-sectors-feature"), {
-    getDocument, log, canEdit: () => !run?.active && !busy && !parks?.isWorking, revealGame,
+    getDocument, log, canEdit: () => !run?.active && !busy && !parks?.isWorking && !rename?.isWorking, revealGame,
     navigate: async url => { await flushWrites(); location.assign(url); }
   });
   war = globalThis.SGOWar.mount($("#sgo-war-feature"), {
     getDocument, postDocument: (url, body) => getDocument(url, { method: "POST", body }),
-    storage, log, revealGame, canEdit: () => !run?.active && !busy && !parks?.isWorking,
+    storage, log, revealGame, canEdit: () => !run?.active && !busy && !parks?.isWorking && !rename?.isWorking,
     navigate: async url => { await flushWrites(); location.assign(url); }
+  });
+  rename = globalThis.SGORename.mount($("#sgo-rename-feature"), {
+    getDocument, postDocument: (url, body) => getDocument(url, { method: "POST", body }),
+    storage, log, canEdit: () => !run?.active && !busy && !parks?.isWorking && !war?.isWorking,
+    onRenamed: () => war.syncRenames()
   });
   $("#sgo-export").addEventListener("click", () => {
     const blob = new Blob([data.logs.map(e => `${new Date(e.time).toISOString()} [${e.level}] ${e.message}`).join("\n")], { type: "text/plain;charset=utf-8" });

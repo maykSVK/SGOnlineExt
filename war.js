@@ -934,11 +934,30 @@
     $("#sgo-war-refresh").addEventListener("click", refresh);
     render();
     const draftsReady = ready.then(applyPendingDrafts);
-    return { refresh, render, ready, draftsReady };
+    async function syncRenames() {
+      await ready;
+      if (checking || renaming || savingSettings) return;
+      try {
+        renameHistory = readRenameHistory(await storage.get(RENAMES_KEY));
+        for (const record of renameHistory.filter(item => item.owner === ownerName && item.state === "done")) {
+          planets = planets.map(planet => planet.id === record.planetId && planet.name === record.oldName
+            ? { ...planet, name: record.newName } : planet);
+        }
+        renameSuggestions.clear();
+        render();
+      } catch (error) {
+        historyReady = false;
+        status(`Načítanie premenovaní zlyhalo: ${error.message}`, true);
+        log(`Vojna: načítanie premenovaní zlyhalo: ${error.message}`, "error");
+      }
+    }
+    return { refresh, render, ready, draftsReady, syncRenames,
+      get isWorking() { return checking || renaming || savingSettings; } };
   }
 
   const api = { ARMY_TARGET, DEFAULT_DEFENSE_TARGETS, defenseTargets, readOwner, attackFilter, spyFilter, loadAttacks, loadSpies, randomPlanetName, spiedPlanets,
-    renamePayload, readArmy, readPlanets, readAttacks, readSpies, recentSpies, applyArmyDraft, applyPlanetDraft, mount };
+    RENAMES_KEY, renameForm, renamePayload, readRenameHistory, withRenameLock,
+    readArmy, readPlanets, readAttacks, readSpies, recentSpies, applyArmyDraft, applyPlanetDraft, mount };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.SGOWar = api;
 })(globalThis);
