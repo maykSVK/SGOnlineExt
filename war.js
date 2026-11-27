@@ -955,7 +955,7 @@
       get isWorking() { return checking || renaming || savingSettings; } };
   }
 
-  const api = { ARMY_TARGET, DEFAULT_DEFENSE_TARGETS, defenseTargets, readOwner, attackFilter, spyFilter, loadAttacks, loadSpies, randomPlanetName, spiedPlanets,
+  const api = { ARMY_TARGET, DEFAULT_DEFENSE_TARGETS, defenseTargets, readOwner, attackFilter, spyFilter, loadAttacks, loadSpies, randomPlanetName, spiedPlanets, gameTimestamp,
     RENAMES_KEY, renameForm, renamePayload, readRenameHistory, withRenameLock,
     readArmy, readPlanets, readAttacks, readSpies, recentSpies, applyArmyDraft, applyPlanetDraft, mount };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

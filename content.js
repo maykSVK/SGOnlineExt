@@ -73,7 +73,14 @@
       </section>
       <section id="sgo-population-feature" hidden></section>
       <section id="sgo-sectors-feature" hidden></section>
-      <section id="sgo-war-feature" hidden></section>
+      <section id="sgo-war-feature" hidden>
+        <div class="sgo-war-tabs" role="tablist" aria-label="Sekcie vojny">
+          <button type="button" id="sgo-war-tab-defense" role="tab" aria-selected="true" aria-controls="sgo-war-defense-panel">Moja obrana</button>
+          <button type="button" id="sgo-war-tab-intel" role="tab" aria-selected="false" aria-controls="sgo-war-intel-panel" tabindex="-1">Útočný prieskum</button>
+        </div>
+        <section id="sgo-war-defense-panel" role="tabpanel" aria-labelledby="sgo-war-tab-defense"></section>
+        <section id="sgo-war-intel-panel" role="tabpanel" aria-labelledby="sgo-war-tab-intel" hidden></section>
+      </section>
       <section id="sgo-parks-feature" hidden></section>
       <section id="sgo-rename-feature" hidden></section>
       <footer class="sgo-footer"><span class="sgo-footer-dot" aria-hidden="true"></span><span id="sgo-latest">Všetko pod kontrolou. Čakám na nastavenie.</span></footer>
@@ -135,6 +142,7 @@
   let parks;
   let sectors;
   let war;
+  let intel;
   let guardian;
   let rename;
   function showFeature(feature, save = true) {
@@ -387,7 +395,7 @@
     finally { targetsLoading = false; }
   }
   async function discover() {
-    if (busy || run?.active || parks?.isWorking) return;
+    if (busy || run?.active || parks?.isWorking || intel?.isWorking) return;
     const ownOperation = ++operation;
     busy = true; controls(); status("Načítavam jednotky a limity zo stránky...");
     try {
@@ -587,7 +595,7 @@
   $("#sgo-load").addEventListener("click", discover);
   $("#sgo-start").addEventListener("click", () => {
     try {
-      if (parks?.isWorking || rename?.isWorking || war?.isWorking) throw new Error("Najprv dokonči prebiehajúcu operáciu.");
+      if (parks?.isWorking || rename?.isWorking || war?.isWorking || intel?.isWorking) throw new Error("Najprv dokonči prebiehajúcu operáciu.");
       const requested = catalog.filter(e => data.plans[e.id]?.enabled);
       if (!requested.length) throw new Error("Vyber aspon jeden typ utoku.");
       const depleted = requested.filter(e => e.remaining === 0 || e.status.kind === "exhausted");
@@ -633,34 +641,58 @@
   $("#sgo-back").addEventListener("click", () => showFeature("home"));
   $("#sgo-open-attacks").addEventListener("click", () => showFeature("attacks"));
   $("#sgo-open-population").addEventListener("click", () => showFeature("population"));
-  population = globalThis.SGOPopulation.mount($("#sgo-population-feature"), { getDocument, log, canEdit: () => !run?.active && !busy && !parks?.isWorking && !rename?.isWorking, revealGame });
+  population = globalThis.SGOPopulation.mount($("#sgo-population-feature"), { getDocument, log, canEdit: () => !run?.active && !busy && !parks?.isWorking && !rename?.isWorking && !intel?.isWorking, revealGame });
   $("#sgo-open-parks").addEventListener("click", () => showFeature("parks"));
   parks = globalThis.SGOParks.mount($("#sgo-parks-feature"), {
     getDocument, postDocument: (url, body, options) => getDocument(url, { ...options, method: "POST", body }),
-    storage, log, canEdit: () => !run?.active && !busy && !rename?.isWorking, revealGame,
+    storage, log, canEdit: () => !run?.active && !busy && !rename?.isWorking && !intel?.isWorking, revealGame,
     navigate: async url => { await flushWrites(); location.assign(url); }
   });
   $("#sgo-open-sectors").addEventListener("click", () => showFeature("sectors"));
   $("#sgo-open-war").addEventListener("click", () => showFeature("war"));
   $("#sgo-open-rename").addEventListener("click", () => showFeature("rename"));
   guardian = globalThis.SGOGuardian.mount($("#sgo-guardian-feature"), {
-    getDocument, log, storage, rankingContainer: $("#sgo-ranking"), canEdit: () => !run?.active && !busy && !parks?.isWorking && !rename?.isWorking,
+    getDocument, log, storage, rankingContainer: $("#sgo-ranking"), canEdit: () => !run?.active && !busy && !parks?.isWorking && !rename?.isWorking && !intel?.isWorking,
     revealGame, navigate: async url => { await flushWrites(); location.assign(url); }
   });
   sectors = globalThis.SGOSectors.mount($("#sgo-sectors-feature"), {
-    getDocument, log, canEdit: () => !run?.active && !busy && !parks?.isWorking && !rename?.isWorking, revealGame,
+    getDocument, log, canEdit: () => !run?.active && !busy && !parks?.isWorking && !rename?.isWorking && !intel?.isWorking, revealGame,
     navigate: async url => { await flushWrites(); location.assign(url); }
   });
-  war = globalThis.SGOWar.mount($("#sgo-war-feature"), {
+  war = globalThis.SGOWar.mount($("#sgo-war-defense-panel"), {
     getDocument, postDocument: (url, body) => getDocument(url, { method: "POST", body }),
-    storage, log, revealGame, canEdit: () => !run?.active && !busy && !parks?.isWorking && !rename?.isWorking,
+    storage, log, revealGame, canEdit: () => !run?.active && !busy && !parks?.isWorking && !rename?.isWorking && !intel?.isWorking,
     navigate: async url => { await flushWrites(); location.assign(url); }
   });
   rename = globalThis.SGORename.mount($("#sgo-rename-feature"), {
     getDocument, postDocument: (url, body) => getDocument(url, { method: "POST", body }),
-    storage, log, canEdit: () => !run?.active && !busy && !parks?.isWorking && !war?.isWorking,
+    storage, log, canEdit: () => !run?.active && !busy && !parks?.isWorking && !war?.isWorking && !intel?.isWorking,
     onRenamed: () => war.syncRenames()
   });
+  intel = globalThis.SGOWarIntel.mount($("#sgo-war-intel-panel"), {
+    getDocument, postDocument: (url, body) => getDocument(url, { method: "POST", body }),
+    storage, log, canEdit: () => !run?.active && !busy && !parks?.isWorking && !rename?.isWorking && !war?.isWorking,
+    revealGame, navigate: async url => { await flushWrites(); location.assign(url); }
+  });
+  function showWarTab(selected) {
+    for (const name of ["defense", "intel"]) {
+      const active = name === selected;
+      $(`#sgo-war-tab-${name}`).setAttribute("aria-selected", String(active));
+      $(`#sgo-war-tab-${name}`).tabIndex = active ? 0 : -1;
+      $(`#sgo-war-${name}-panel`).hidden = !active;
+    }
+  }
+  for (const name of ["defense", "intel"]) {
+    const tab = $(`#sgo-war-tab-${name}`);
+    tab.addEventListener("click", () => showWarTab(name));
+    tab.addEventListener("keydown", event => {
+      if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+      event.preventDefault();
+      const next = event.key === "Home" ? "defense" : event.key === "End" ? "intel" : name === "defense" ? "intel" : "defense";
+      showWarTab(next);
+      $(`#sgo-war-tab-${next}`).focus();
+    });
+  }
   $("#sgo-export").addEventListener("click", () => {
     const blob = new Blob([data.logs.map(e => `${new Date(e.time).toISOString()} [${e.level}] ${e.message}`).join("\n")], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);

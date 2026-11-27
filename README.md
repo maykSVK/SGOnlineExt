@@ -90,7 +90,24 @@ zobrazuju aj najcastejsie tazene cisla zo zachytenych zrebovani.
 
 #### Vojna
 
-Sekcia **Vojna** nacita udaje iba po rucnom kliknuti na **Obnovit**. Zobrazi
+Vojna ma dve zalozky: **Moja obrana** a **Utocny prieskum**. V prieskume
+zadaj presne meno hraca a klikni na **Nacitat**. Vyber dostupnu planetu a
+pozadovanu informaciu; tlacidlo **Odoslat spionaz** ihned odosle jeden utok
+s poctom sond podla tabulky (napr. 900 na SDI, 1000 na BS, 1400 na
+univerzaly). Uspech nie je zaruceny a sondy mozu padnut. Cooldown ani limit
+addon neobchadza a neuspesny utok automaticky neopakuje.
+
+Zistenia z vlastnych spionazi na aktualnej stranke Rozviedky a z novych utokov
+cez addon sa ukladaju lokalne spolu s hracom, planetou a casom. Stare hodnoty
+mozu byt neaktualne; neznama hodnota nie je nula. Pri neistom vysledku sa
+dalsie odoslanie zablokuje az do rucnej kontroly Rozviedky a potvrdenia.
+Prehlad ukazuje aj aktualne vlastne jednotky a posledne reporty s vybranym
+hracom v oboch smeroch (len aktualna stranka Rozviedky). Nedava vypocet
+zaruceneho uspechu: presny vzorec a bonusy supera nie su potvrdene.
+V casti **Priprava utoku** je mozne otvorit nativny formular hry pre zvoleny
+typ utoku a hraca; addon pri tom neutoci ani nepredvyplna jednotky alebo planetu.
+
+Zalozka **Moja obrana** nacita udaje iba po rucnom kliknuti na **Obnovit**. Zobrazi
 posledny ulozeny prehlad aj po navigacii alebo refreshi stranky, bez poziadaviek
 do hry. Pri obnove zo storage je oznaceny cas nacitania a upozornenie na
 neaktualnost. Neuspesne obnovenie ponecha predchadzajuce data.

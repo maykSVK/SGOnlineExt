@@ -137,6 +137,24 @@
 #sgo-addon #sgo-guardian-feature { padding: 0 0 6px; margin-bottom: 8px; border-bottom: 1px solid var(--sgo-line); }
 #sgo-addon .sgo-watch-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; }
 #sgo-addon .sgo-war { padding: 14px 18px 18px; }
+#sgo-addon .sgo-war-tabs { display: flex; gap: 6px; padding: 12px 18px 0; }
+#sgo-addon .sgo-war-tabs button { flex: 1; padding: 7px 8px; font-size: 11px; color: var(--sgo-muted); }
+#sgo-addon .sgo-war-tabs button[aria-selected=true] { color: var(--sgo-accent); border-color: #65dec366; background: #65dec312; }
+#sgo-addon .sgo-war-intel { padding: 14px 18px 18px; }
+#sgo-addon .sgo-war-intel .sgo-feature-heading .sgo-hint { margin: 6px 0 12px; }
+#sgo-addon .sgo-intel-search label, #sgo-addon .sgo-intel-label { display: block; color: #b6c8df; font-size: 11px; }
+#sgo-addon .sgo-intel-search > div { display: flex; gap: 7px; margin-top: 4px; }
+#sgo-addon .sgo-intel-search input { flex: 1; min-width: 0; background: #0e1c2c; }
+#sgo-addon .sgo-intel-search button, #sgo-addon .sgo-war-intel button { font-size: 11px; }
+#sgo-addon .sgo-intel-label { margin-top: 9px; }
+#sgo-addon .sgo-intel-status { margin: 10px 0; color: #b6c8df; font-size: 11px; overflow-wrap: anywhere; }
+#sgo-addon .sgo-intel-status.sgo-error { color: #ffb1a3; }
+#sgo-addon .sgo-war-intel button.sgo-intel-send { width: 100%; background: #65dec31a; color: var(--sgo-accent); border-color: #65dec366; }
+#sgo-addon .sgo-war-intel .sgo-war-card p { overflow-wrap: anywhere; }
+#sgo-addon .sgo-intel-finding, #sgo-addon .sgo-intel-report { display: grid; gap: 3px; padding: 8px 0; border-top: 1px solid var(--sgo-line); font-size: 11px; overflow-wrap: anywhere; }
+#sgo-addon .sgo-intel-finding span, #sgo-addon .sgo-intel-report small { color: var(--sgo-muted); font-size: 10px; }
+#sgo-addon #sgo-intel-reports { max-height: 32dvh; overflow: auto; scrollbar-width: thin; }
+#sgo-addon #sgo-intel-pending button { margin: 3px 4px 3px 0; }
 #sgo-addon .sgo-war > .sgo-note { margin: 0 0 8px; }
 #sgo-addon .sgo-war-status { margin: 0 0 9px; color: #b6c8df; font-size: 11px; }
 #sgo-addon .sgo-war-status[data-state=error] { color: #ffa695; }

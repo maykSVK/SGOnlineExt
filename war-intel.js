@@ -1,0 +1,369 @@
+(function (root) {
+  "use strict";
+  const C = typeof module !== "undefined" && module.exports ? require("./core.js") : root.SGO;
+  const W = typeof module !== "undefined" && module.exports ? require("./war.js") : root.SGOWar;
+  const KEY = "sgo-war-intelligence";
+  const FIELDS = [
+    ["people", "Ľudia", 100], ["cities", "Mestá", 300], ["type", "Typ planéty", 500],
+    ["barracks", "Kasárne", 600], ["factories", "Výrobne", 700], ["labs", "Laboratóriá", 800],
+    ["sdi", "SDI", 900], ["bs", "BS", 1000], ["parks", "Parky", 1100], ["naq", "Naqiton", 1200],
+    ["infantry", "Pechota", 1300], ["uni", "Univerzály", 1400], ["orbit", "Orbity", 1500],
+    ["mercenaries", "Žoldnieri", 1600], ["nation", "Národnosť", 1700], ["policy", "Druhá politika", 1800]
+  ];
+  const clean = value => String(value || "").replace(/\s+/g, " ").trim();
+  const fieldFor = id => FIELDS.find(field => field[0] === id);
+
+  function readState(value) {
+    if (value == null) return { pending: null, reports: [] };
+    if (!value || !Array.isArray(value.reports) || value.reports.length > 300 ||
+      !(value.pending === null || (value.pending && ["owner", "target", "planet", "field"].every(k => typeof value.pending[k] === "string" && value.pending[k]) &&
+        fieldFor(value.pending.field) && Number.isFinite(value.pending.time))) ||
+      !value.reports.every(r => r && ["owner", "target", "planet", "field", "outcome", "label", "value"].every(k => typeof r[k] === "string") &&
+        r.owner && r.target && r.planet && fieldFor(r.field) && ["success", "failure"].includes(r.outcome) &&
+        Number.isFinite(r.time) && Number.isSafeInteger(r.losses) && r.losses >= 0)) {
+      throw new Error("Uložené údaje prieskumu sú neplatné; odoslanie nie je bezpečné.");
+    }
+    return { pending: value.pending && { ...value.pending }, reports: value.reports.map(r => ({ ...r })) };
+  }
+
+  function spyForm(doc, url, target, planet, field) {
+    const info = fieldFor(field);
+    if (!info) throw new Error("Vyber platnú informáciu na zistenie.");
+    const entry = C.attackPage(doc, "7", url, target);
+    if (!entry.available) {
+      throw new Error(entry.status.kind === "cooldown" ? `Cooldown: ${entry.status.message}` :
+        `Špionáž nie je dostupná: ${entry.reason.slice(0, 250)}`);
+    }
+    if (entry.remaining === null || entry.remaining <= 0) throw new Error("Nie je dostupný špionážny útok alebo sa nedá overiť limit.");
+    if (!entry.planets.some(item => item.value === planet)) throw new Error("Planéta nie je v aktuálnom zozname cieľa.");
+    const unit = entry.fields.find(item => item.name === "pocet_druzic");
+    if (!unit || unit.available < info[2]) throw new Error(`Chýbajú sondy: potrebných ${info[2]}, dostupných ${unit?.available ?? "?"}.`);
+    const form = doc.querySelector("#formular");
+    if (form.method.toLowerCase() !== "post") throw new Error("Nerozpoznaný spôsob odoslania špionáže.");
+    const action = new URL(form.getAttribute("action") || url, url);
+    const expected = new URL(url);
+    if (action.origin !== expected.origin || action.pathname !== expected.pathname ||
+      action.searchParams.get("page") !== "jednotky" || action.searchParams.get("utok") !== "7" ||
+      action.searchParams.get("cil") !== target) throw new Error("Nerozpoznaná adresa formulára špionáže.");
+    const body = new URLSearchParams();
+    for (const element of form.elements) {
+      if (element.name && !element.disabled && element.type === "hidden") body.append(element.name, element.value);
+    }
+    body.set("planeta2", planet);
+    body.set("pocet_druzic", String(info[2]));
+    body.set("zautocit", form.elements.namedItem("zautocit").value);
+    return { action: action.href, body, entry };
+  }
+
+  function readResult(doc, request) {
+    const outcome = C.normalize(clean(doc.querySelector("#datapl h2")?.textContent));
+    if (!/^(vitezstvi|porazka|prohra)/.test(outcome)) throw new Error("Hra nevrátila rozpoznaný výsledok špionáže.");
+    const result = doc.querySelector("#datapl");
+    if (!clean(result.textContent).includes(request.planet) ||
+      clean(doc.querySelector("#obranj > .n")?.textContent) !== request.target) {
+      throw new Error("Výsledok nepotvrdzuje vybraného hráča a planétu.");
+    }
+    const unit = [...doc.querySelectorAll("#nasej tr")].find(row => C.normalize(row.textContent).includes("sonda"));
+    const sent = C.integer(unit?.querySelector(".g")?.textContent || "");
+    const losses = C.integer(unit?.querySelector(".w")?.textContent || "");
+    if (sent !== fieldFor(request.field)[2] || losses === null || losses > sent) {
+      throw new Error("Počet vyslaných sond alebo straty sa nepodarilo overiť.");
+    }
+    const success = outcome.startsWith("vitezstvi");
+    const row = doc.querySelector("#obranj tr");
+    const label = clean(row?.querySelector("strong")?.textContent);
+    const value = clean(row?.querySelector(".w")?.textContent);
+    if (success && (!label || !value || value === "???")) throw new Error("Hra nepotvrdila zistenú hodnotu.");
+    return { ...request, outcome: success ? "success" : "failure", label: success ? label : "", value: success ? value : "", losses };
+  }
+
+  function readRecent(doc, target) {
+    return [...doc.querySelectorAll(".recon-report")].filter(report => {
+      const link = report.querySelector(".recon-report-target a[href]");
+      if (!link) return false;
+      return new URL(link.getAttribute("href"), "https://stargame-online.cz/game.php").searchParams.get("hledat") === target;
+    }).map(report => ({
+      meta: clean(report.querySelector(".recon-report-meta")?.textContent),
+      direction: clean(report.querySelector(".recon-report-target")?.textContent),
+      result: clean(report.querySelector(".summary")?.textContent),
+      rows: [...report.querySelectorAll("table.stats tr")].slice(1).map(row => clean(row.textContent))
+    }));
+  }
+
+  function readSpyReports(doc, owner, target) {
+    const reports = [];
+    for (const element of doc.querySelectorAll(".recon-report")) {
+      const link = element.querySelector(".recon-report-target a[href]");
+      if (!link || link.getAttribute("data-utocnik") !== owner ||
+        new URL(link.getAttribute("href"), "https://stargame-online.cz/game.php").searchParams.get("hledat") !== target) continue;
+      const summary = element.querySelector(".summary");
+      if (!/spionazni utok/.test(C.normalize(summary?.textContent || "")) ||
+        !/zjistili jsme informace/.test(C.normalize(summary?.textContent || ""))) continue;
+      const planet = clean(summary.textContent).match(/„([^“]+)“/)?.[1];
+      const date = clean(element.querySelector(".recon-report-meta")?.textContent)
+        .match(/#(\d+)\s*»\s*(\d{2}):(\d{2}):(\d{2}),\s*(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+      const rows = element.querySelectorAll("table.stats tr");
+      if (!planet || !date || rows.length < 5) continue;
+      const names = rows[1].querySelectorAll(".nj");
+      const before = rows[3].querySelectorAll(".zj");
+      const after = rows[4].querySelectorAll(".zj");
+      const count = C.integer(clean(before[0]?.textContent));
+      const field = FIELDS.find(item => item[2] === count || (item[0] === "people" && count === 200) || (item[0] === "cities" && count === 400));
+      const losses = C.integer(clean(after[0]?.textContent));
+      const label = clean(names[1]?.textContent);
+      const value = clean(after[1]?.textContent);
+      if (!field || losses === null || losses > count || !label || !value || value === "???") continue;
+      const time = W.gameTimestamp(Number(date[7]), Number(date[6]), Number(date[5]), Number(date[2]), Number(date[3]), Number(date[4]));
+      reports.push({ owner, target, planet, field: field[0], time, outcome: "success", label, value, losses, reportId: date[1] });
+    }
+    return reports;
+  }
+
+  function readUnits(doc) {
+    return [...doc.querySelectorAll(".sb")].filter(el => /pěchota|univerzál|orbit|žoldnéř/i.test(el.querySelector(".n")?.textContent || ""))
+      .map(el => {
+        const stat = title => {
+          const icon = el.querySelector(`img[alt="${title}"]`);
+          if (!icon) return "";
+          let text = "";
+          for (let node = icon.nextSibling; node && node.nodeName !== "BR"; node = node.nextSibling) text += node.textContent;
+          return clean(text);
+        };
+        const name = clean(el.querySelector(".n")?.textContent);
+        const attack = stat("Útok");
+        const defense = stat("Obrana");
+        const amount = clean(el.textContent).match(/Máme:\s*([\d\s]+?)(?:\s*\+|\s*ks)/)?.[1];
+        if (!attack && !defense) return `${name} · ${clean(el.textContent).replace(name, "").trim()}`;
+        return [name, attack && `Útok ${attack}`, defense && `Obrana ${defense}`, amount && `Máme ${clean(amount)}`].filter(Boolean).join(" · ");
+      }).slice(0, 4);
+  }
+
+  function mount(container, { getDocument, postDocument, storage, log, canEdit, navigate, revealGame }) {
+    container.innerHTML = `<div class="sgo-war-intel">
+      <div class="sgo-feature-heading"><span class="sgo-eyebrow">VOJNOVÝ PREHĽAD</span><h3>Útočný prieskum</h3>
+        <p class="sgo-hint">Vyber hráča, planétu a informáciu. Jedno kliknutie odošle jednu špionáž; sondy môžu padnúť.</p></div>
+      <div class="sgo-intel-search"><label for="sgo-intel-target">Hráč</label><div><input id="sgo-intel-target" type="text" placeholder="Presné meno hráča" autocomplete="off"><button type="button" id="sgo-intel-load">Načítať</button></div></div>
+      <p class="sgo-intel-status" id="sgo-intel-status" role="status">Zadaj meno hráča a načítaj jeho planéty.</p>
+      <section class="sgo-war-card"><strong>Špionáž planéty</strong>
+        <label class="sgo-intel-label">Planéta<select id="sgo-intel-planet" aria-label="Planéta"></select></label>
+        <label class="sgo-intel-label">Čo zistiť<select id="sgo-intel-field" aria-label="Informácia"></select></label>
+        <p class="sgo-note" id="sgo-intel-cost"></p>
+        <button type="button" class="sgo-intel-send" id="sgo-intel-send">Odoslať špionáž</button>
+        <div id="sgo-intel-pending" hidden><p class="sgo-error" id="sgo-intel-pending-message"></p>
+          <button type="button" id="sgo-intel-recon">Otvoriť Rozviedku</button>
+          <button type="button" id="sgo-intel-clear">Skontroloval som výsledok</button></div>
+      </section>
+      <section class="sgo-war-card"><strong>Zistenia pre planétu</strong><p class="sgo-note">Vlastné špionáže z aktuálnej stránky Rozviedky a odoslania z doplnku. Staré údaje môžu byť neaktuálne; neznáme nie je nula.</p><div id="sgo-intel-findings"></div></section>
+      <section class="sgo-war-card"><strong>Moje jednotky</strong><p class="sgo-note">Hodnoty zo stránky Jednotky. Nejde o potvrdený výpočet výsledku boja.</p><div id="sgo-intel-units"></div></section>
+      <section class="sgo-war-card"><strong>Príprava útoku</strong><p class="sgo-note">Otvorí herný formulár pre vybraného hráča. Planétu a jednotky skontroluj a útok odošli ručne v hre.</p>
+        <label class="sgo-intel-label">Typ útoku<select id="sgo-intel-attack-type" aria-label="Typ útoku">
+          <option value="1">Dobývací</option><option value="2">Partizánsky</option><option value="5">Univerzálny</option><option value="4">Orbitálny</option><option value="8">ZHN</option><option value="6">Otrokársky</option><option value="3">Zlodejský</option>
+        </select></label><p class="sgo-note">Dostupnosť, limity a možný odpor ukazuje herný formulár.</p>
+        <button type="button" id="sgo-intel-open-attack">Otvoriť formulár útoku</button>
+      </section>
+      <section class="sgo-war-card"><strong>Posledné reporty s hráčom</strong><p class="sgo-note">Len reporty z aktuálnej stránky Rozviedky, v oboch smeroch; ??? je neznáma hodnota.</p><div id="sgo-intel-reports"></div></section>
+      <p class="sgo-note">Zatiaľ nevypočítavame potrebný počet jednotiek: bonusy súpera a presný bojový vzorec nie sú potvrdené.</p>
+    </div>`;
+    const $ = selector => container.querySelector(selector);
+    const url = params => { const result = new URL("game.php", root.location.href); result.search = new URLSearchParams(params); return result.href; };
+    const spyUrl = target => url({ page: "jednotky", utok: "7", cil: target });
+    const reconUrl = () => url({ page: "jednotky", akce: "rozvedka" });
+    let owner = "", target = "", planets = [], state = { pending: null, reports: [] }, busy = false, ready = false;
+    let recent = [], units = [];
+    const select = $("#sgo-intel-field");
+    for (const [id, label, count] of FIELDS) {
+      const option = container.ownerDocument.createElement("option");
+      option.value = id; option.textContent = `${label} · ${count} sond`; select.append(option);
+    }
+    const status = (text, error = false) => {
+      $("#sgo-intel-status").textContent = text;
+      $("#sgo-intel-status").classList.toggle("sgo-error", error);
+    };
+    function render() {
+      const info = fieldFor(select.value);
+      $("#sgo-intel-cost").textContent = info ? `${info[2]} sond · úspech nie je zaručený; neúspešný pokus môže sondy zničiť.` : "Vyber informáciu.";
+      $("#sgo-intel-send").disabled = busy || !ready || !target || !$("#sgo-intel-planet").value || !info || Boolean(state.pending);
+      $("#sgo-intel-load").disabled = busy;
+      $("#sgo-intel-target").disabled = busy;
+      $("#sgo-intel-planet").disabled = busy;
+      $("#sgo-intel-field").disabled = busy;
+      $("#sgo-intel-open-attack").disabled = busy || !target;
+      $("#sgo-intel-pending").hidden = !state.pending;
+      if (state.pending) {
+        const pending = state.pending;
+        $("#sgo-intel-pending-message").textContent = `Neistý výsledok: ${pending.owner} → ${pending.target}, ${pending.planet}, ${fieldFor(pending.field)[1]} · ${new Date(pending.time).toLocaleString("sk-SK")}. Skontroluj Rozviedku; útok sa sám neopakuje.`;
+      }
+      const findings = $("#sgo-intel-findings");
+      findings.replaceChildren();
+      const latest = new Map();
+      for (const report of [...state.reports].sort((a, b) => a.time - b.time)) {
+        if (report.owner === owner && report.target === target && report.planet === $("#sgo-intel-planet").value && report.outcome === "success") latest.set(report.field, report);
+      }
+      if (!latest.size) {
+        const note = container.ownerDocument.createElement("p"); note.className = "sgo-note"; note.textContent = "Zatiaľ nemáme uložené úspešné zistenia pre túto planétu."; findings.append(note);
+      }
+      for (const report of latest.values()) {
+        const line = container.ownerDocument.createElement("div"); line.className = "sgo-intel-finding";
+        const title = container.ownerDocument.createElement("strong"); title.textContent = `${fieldFor(report.field)[1]} · ${report.label}: ${report.value}`;
+        const date = container.ownerDocument.createElement("span"); date.textContent = new Date(report.time).toLocaleString("sk-SK");
+        line.append(title, date); findings.append(line);
+      }
+      const unitList = $("#sgo-intel-units"); unitList.replaceChildren();
+      for (const text of units) { const item = container.ownerDocument.createElement("p"); item.textContent = text; unitList.append(item); }
+      if (!units.length) { const item = container.ownerDocument.createElement("p"); item.className = "sgo-note"; item.textContent = "Načítaj hráča pre aktuálne hodnoty."; unitList.append(item); }
+      const list = $("#sgo-intel-reports"); list.replaceChildren();
+      for (const report of recent) {
+        const item = container.ownerDocument.createElement("div"); item.className = "sgo-intel-report";
+        const heading = container.ownerDocument.createElement("strong"); heading.textContent = `${report.meta} · ${report.direction}`;
+        const result = container.ownerDocument.createElement("span"); result.textContent = report.result;
+        const detail = container.ownerDocument.createElement("small"); detail.textContent = report.rows.join(" · ");
+        item.append(heading, result, detail); list.append(item);
+      }
+      if (!recent.length) { const item = container.ownerDocument.createElement("p"); item.className = "sgo-note"; item.textContent = "Na aktuálnej stránke Rozviedky nie sú reporty pre tohto hráča."; list.append(item); }
+    }
+    async function load() {
+      if (busy) return;
+      await initialized;
+      if (busy || !ready) return;
+      const name = clean($("#sgo-intel-target").value);
+      if (!name) { status("Zadaj presné meno hráča.", true); return; }
+      if (!canEdit()) { status("Najprv počkaj na dokončenie prebiehajúcej operácie.", true); return; }
+      busy = true; render(); status("Načítavam hráča a prehľad…");
+      try {
+        const currentOwner = W.readOwner(await getDocument(url({ page: "prehled" })));
+        const doc = await getDocument(spyUrl(name));
+        const entry = C.attackPage(doc, "7", spyUrl(name), name);
+        if (entry.available && entry.target !== name) throw new Error("Hra nepotvrdila vybraného hráča.");
+        const reportDoc = await getDocument(reconUrl());
+        const unitDoc = await getDocument(url({ page: "jednotky", akce: "jednotky" }));
+        const nextUnits = readUnits(unitDoc);
+        if (!nextUnits.length) throw new Error("Nepodarilo sa prečítať vlastné jednotky.");
+        let saved;
+        const imported = readSpyReports(reportDoc, currentOwner, name);
+        await W.withRenameLock(async () => {
+          saved = readState(await storage.get(KEY));
+          const known = new Set(saved.reports.filter(item => item.reportId).map(item => item.reportId));
+          const additions = imported.filter(item => !known.has(item.reportId) &&
+            !saved.reports.some(existing => existing.owner === item.owner && existing.target === item.target &&
+              existing.planet === item.planet && existing.field === item.field && existing.value === item.value &&
+              Math.abs(existing.time - item.time) < 60000));
+          if (additions.length) {
+            saved = { ...saved, reports: [...saved.reports, ...additions].sort((a, b) => a.time - b.time).slice(-300) };
+            await storage.set(KEY, saved);
+          }
+        });
+        owner = currentOwner; target = name; planets = entry.planets; state = saved;
+        recent = readRecent(reportDoc, target); units = nextUnits;
+        const planet = $("#sgo-intel-planet"); planet.replaceChildren();
+        for (const item of planets) {
+          const option = container.ownerDocument.createElement("option"); option.value = item.value; option.textContent = item.label; planet.append(option);
+        }
+        status(entry.available
+          ? `${target} · ${planets.length} planét · sondy ${entry.fields.find(f => f.name === "pocet_druzic").available} · špionáže ${entry.remaining ?? "?"}/${entry.maximum ?? "?"}.`
+          : `Prehľad načítaný, ale špionáž teraz nie je dostupná: ${entry.status.kind === "cooldown" ? entry.status.message : entry.reason.slice(0, 250)}`, !entry.available);
+      } catch (error) {
+        target = ""; planets = []; recent = []; units = [];
+        $("#sgo-intel-planet").replaceChildren();
+        status(`Načítanie zlyhalo: ${error.message}`, true); log(`Vojnový prieskum: ${error.message}`, "error");
+      } finally { busy = false; render(); }
+    }
+    async function send() {
+      if (busy || !ready || !target || state.pending) return;
+      const request = { owner, target, planet: $("#sgo-intel-planet").value, field: select.value, time: Date.now() };
+      if (!request.planet || !fieldFor(request.field)) { status("Vyber planétu a informáciu.", true); return; }
+      if (!canEdit()) { status("Najprv počkaj na dokončenie prebiehajúcej operácie.", true); return; }
+      busy = true; render();
+      let sent = false;
+      try {
+        await W.withRenameLock(async () => {
+          const saved = readState(await storage.get(KEY));
+          state = saved;
+          if (state.pending) throw new Error("Predchádzajúca špionáž má neistý výsledok; skontroluj Rozviedku.");
+          const actualOwner = W.readOwner(await getDocument(url({ page: "prehled" })));
+          if (actualOwner !== owner) throw new Error("Prihlásený hráč sa zmenil; načítaj cieľ znova.");
+          const address = spyUrl(request.target);
+          const payload = spyForm(await getDocument(address), address, request.target, request.planet, request.field);
+          if (!canEdit()) throw new Error("Začala iná operácia; špionáž nebola odoslaná.");
+          const next = { ...state, pending: request };
+          await storage.set(KEY, next);
+          state = next;
+          status(`Odosielam ${fieldFor(request.field)[2]} sond na ${request.planet}…`);
+          log(`Vojnový prieskum: odosielam ${fieldFor(request.field)[2]} sond na ${request.target}/${request.planet} · ${fieldFor(request.field)[1]}.`);
+          sent = true;
+          const response = await postDocument(payload.action, payload.body);
+          const responseStatus = C.response(response);
+          if (responseStatus.kind === "cooldown" || responseStatus.kind === "exhausted") {
+            await storage.set(KEY, { ...state, pending: null });
+            state = { ...state, pending: null };
+            throw new Error(responseStatus.message);
+          }
+          const report = readResult(response, request);
+          const done = { pending: null, reports: [...state.reports, report].slice(-300) };
+          await storage.set(KEY, done);
+          state = done;
+          const text = report.outcome === "success" ? `${report.label}: ${report.value}` : "Špionáž neuspela";
+          status(`${text} · straty ${report.losses} sond. Údaj platí v čase útoku.`);
+          log(`Vojnový prieskum ${request.target}/${request.planet}: ${text}; straty ${report.losses} sond.`);
+        });
+      } catch (error) {
+        status(`${error.message}${sent && state.pending ? " Výsledok je neistý; skontroluj Rozviedku." : ""}`, true);
+        log(`Vojnový prieskum: ${error.message}`, "error");
+      } finally { busy = false; render(); }
+    }
+    async function clearPending() {
+      if (busy || !state.pending || !root.confirm("Skontroloval si výsledok v Rozviedke? Po potvrdení bude možné odoslať ďalšiu špionáž.")) return;
+      const checked = { ...state.pending };
+      busy = true; render();
+      try {
+        await W.withRenameLock(async () => {
+          const saved = readState(await storage.get(KEY));
+          if (!saved.pending) { state = saved; return; }
+          if (["owner", "target", "planet", "field", "time"].some(key => saved.pending[key] !== checked[key])) {
+            state = saved;
+            throw new Error("Čakajúci útok sa medzičasom zmenil; skontroluj nový výsledok.");
+          }
+          const next = { ...saved, pending: null };
+          await storage.set(KEY, next); state = next;
+        });
+        status("Neistý výsledok bol ručne označený ako skontrolovaný; údaje z reportu sa automaticky nedoplnili.");
+        log("Vojnový prieskum: používateľ ručne potvrdil kontrolu neistého výsledku.");
+      } catch (error) { status(`Kontrola zlyhala: ${error.message}`, true); log(`Vojnový prieskum: ${error.message}`, "error"); }
+      finally { busy = false; render(); }
+    }
+    $("#sgo-intel-load").addEventListener("click", load);
+    $("#sgo-intel-send").addEventListener("click", send);
+    $("#sgo-intel-clear").addEventListener("click", clearPending);
+    $("#sgo-intel-recon").addEventListener("click", async () => {
+      try { revealGame(); await navigate(reconUrl()); }
+      catch (error) { status(`Rozviedku sa nepodarilo otvoriť: ${error.message}`, true); log(`Vojnový prieskum: ${error.message}`, "error"); }
+    });
+    $("#sgo-intel-open-attack").addEventListener("click", async () => {
+      if (busy || !target || !canEdit()) { status("Najprv načítaj hráča a dokonči prebiehajúcu operáciu.", true); return; }
+      const type = $("#sgo-intel-attack-type").value;
+      if (!["1", "2", "3", "4", "5", "6", "8"].includes(type)) { status("Vyber platný typ útoku.", true); return; }
+      try {
+        log(`Vojnový prieskum: otváram herný formulár útoku ${type} na ${target}; nič neodosielam.`);
+        revealGame(); await navigate(url({ page: "jednotky", utok: type, cil: target }));
+      } catch (error) { status(`Formulár sa nepodarilo otvoriť: ${error.message}`, true); log(`Vojnový prieskum: ${error.message}`, "error"); }
+    });
+    $("#sgo-intel-target").addEventListener("input", () => {
+      if (clean($("#sgo-intel-target").value) !== target) {
+        target = ""; planets = []; recent = [];
+        $("#sgo-intel-planet").replaceChildren();
+        status("Zadaj presné meno hráča a načítaj jeho planéty.");
+      }
+      render();
+    });
+    $("#sgo-intel-field").addEventListener("change", render);
+    $("#sgo-intel-planet").addEventListener("change", render);
+    const initialized = (async () => {
+      try { state = readState(await storage.get(KEY)); ready = true; }
+      catch (error) { status(`Načítanie prieskumu zlyhalo: ${error.message}`, true); log(`Vojnový prieskum: ${error.message}`, "error"); }
+      render();
+    })();
+    return { load, send, initialized, get isWorking() { return busy; } };
+  }
+  const api = { KEY, FIELDS, readState, spyForm, readResult, readRecent, readSpyReports, readUnits, mount };
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+  else root.SGOWarIntel = api;
+})(globalThis);
