@@ -149,8 +149,14 @@ class Element {
 }
 function fixture(t, saved = new Map(), owner = "mayk") {
   const old = globalThis.location;
+  const oldSession = globalThis.sessionStorage;
+  const session = new Map();
+  globalThis.sessionStorage = { setItem: (key, value) => session.set(key, value), getItem: key => session.get(key) || null, removeItem: key => session.delete(key) };
   globalThis.location = { href: "https://game.test/game.php" };
-  t.after(() => { if (old === undefined) delete globalThis.location; else globalThis.location = old; });
+  t.after(() => {
+    if (old === undefined) delete globalThis.location; else globalThis.location = old;
+    if (oldSession === undefined) delete globalThis.sessionStorage; else globalThis.sessionStorage = oldSession;
+  });
   const doc = { createElement: () => new Element(doc) };
   const container = new Element(doc);
   const elements = new Map();
@@ -181,7 +187,7 @@ function fixture(t, saved = new Map(), owner = "mayk") {
         body: { cloneNode: () => ({ querySelectorAll: () => [], textContent: "" }) },
         querySelectorAll: () => [], querySelector: () => null
       };
-      return spyDoc();
+      return spyDoc({ target: params.get("cil") || "Jared", options: state.options || ["Planet"] });
     },
     postDocument: async (url, body) => {
       state.posts++;
@@ -197,7 +203,7 @@ function fixture(t, saved = new Map(), owner = "mayk") {
   });
   const get = name => container.querySelector(`#sgo-intel-${name}`);
   get("attack-type").value = "1";
-  return { api, state, get };
+  return { api, state, get, session };
 }
 
 test("successful spy saves journal and displays a verified zero", async t => {
@@ -226,14 +232,16 @@ test("a successful planet-type spy saves and displays its text without leaving t
   assert.equal(state.saved.get(I.KEY).pending, null);
   assert.equal(state.saved.get(I.KEY).reports[0].value, "Vrak lodi");
   assert.match(get("status").textContent, /Typ planety: Vrak lodi/);
-  const finding = get("findings").children[0];
+  const overview = get("planet-overview").children[0];
   assert.equal(state.saved.get(I.KEY).reports[0].planetSprite, 16);
-  assert.equal(finding.children[0].style.backgroundPosition, "0 -1200px");
-  assert.equal(finding.children[0].attributes["aria-label"], "Typ planéty: Vrak lodi");
-  assert.match(finding.children[1].children[0].textContent, /Vrak lodi/);
+  assert.equal(overview.children[0].style.backgroundPosition, "0 -1200px");
+  assert.equal(overview.children[0].attributes["aria-label"], "Typ planéty: Vrak lodi");
+  assert.equal(overview.children[1].children[1].textContent, "Planet");
+  assert.equal(overview.children[1].children[2].textContent, "Hráč: Jared");
+  assert.equal(overview.children[1].children[3].textContent, "Typ: Vrak lodi");
   const next = fixture(t, state.saved);
   await next.api.initialized;
-  assert.equal(next.get("findings").children[0].children[0].style.backgroundPosition, "0 -1200px");
+  assert.equal(next.get("planet-overview").children[0].children[0].style.backgroundPosition, "0 -1200px");
 });
 
 test("loading an existing report adds its image to a previously saved finding", async t => {
@@ -248,8 +256,49 @@ test("loading an existing report adds its image to a previously saved finding", 
   await api.load();
   assert.equal(state.saved.get(I.KEY).reports.length, 1);
   assert.equal(state.saved.get(I.KEY).reports[0].planetSprite, 16);
-  assert.equal(get("findings").children[0].children[0].style.backgroundPosition, "0 -1200px");
+  assert.equal(get("planet-overview").children[0].children[0].style.backgroundPosition, "0 -1200px");
   assert.equal(state.posts, 0);
+});
+
+test("planet overview follows selected planet and player without mixing saved findings", async t => {
+  const reports = [
+    { ...request, field: "type", outcome: "success", label: "Typ planety", value: "Vrak lodi", losses: 150, planetSprite: 16 },
+    { ...request, planet: "Other", field: "type", outcome: "success", label: "Typ planety", value: "Púšť", losses: 150, planetSprite: 2 },
+    { ...request, owner: "other", field: "type", outcome: "success", label: "Typ planety", value: "Cudzí", losses: 150, planetSprite: 3 },
+    { ...request, target: "OtherPlayer", field: "type", outcome: "success", label: "Typ planety", value: "Les", losses: 150, planetSprite: 4 }
+  ];
+  const { api, state, get } = fixture(t, new Map([[I.KEY, { pending: null, reports }]]));
+  state.options = ["Planet", "Other", "Unknown"];
+  await api.initialized;
+  assert.equal(get("planet-overview").children.length, 0);
+  get("target").value = "Jared"; await api.load();
+  const overview = () => get("planet-overview").children[0];
+  assert.equal(overview().children[1].children[3].textContent, "Typ: Vrak lodi");
+  get("planet").value = "Other"; get("planet").listeners.change();
+  assert.equal(overview().children[1].children[1].textContent, "Other");
+  assert.equal(overview().children[1].children[3].textContent, "Typ: Púšť");
+  assert.equal(overview().children[0].style.backgroundPosition, "0 -80px");
+  get("planet").value = "Unknown"; get("planet").listeners.change();
+  assert.equal(overview().children[0].textContent, "?");
+  assert.equal(overview().children[1].children[3].textContent, "Typ planéty zatiaľ neznámy");
+  get("target").value = "OtherPlayer"; get("target").listeners.input();
+  assert.equal(get("planet-overview").children.length, 0);
+  await api.load();
+  assert.equal(overview().children[1].children[2].textContent, "Hráč: OtherPlayer");
+  assert.equal(overview().children[1].children[3].textContent, "Typ: Les");
+  assert.equal(overview().children[0].style.backgroundPosition, "0 -240px");
+  assert.equal(state.posts, 0);
+});
+
+test("old type findings with no saved image show the value and recovery guidance", async t => {
+  const old = { ...request, field: "type", outcome: "success", label: "Typ planety", value: "Vrak lodi", losses: 150 };
+  const { api, get } = fixture(t, new Map([[I.KEY, { pending: null, reports: [old] }]]));
+  await api.initialized;
+  get("target").value = "Jared"; await api.load();
+  const overview = get("planet-overview").children[0];
+  assert.equal(overview.children[0].textContent, "?");
+  assert.equal(overview.children[1].children[3].textContent, "Typ: Vrak lodi");
+  assert.match(overview.children[1].children[5].textContent, /Obrázok nie je uložený/);
 });
 
 test("lost response persists a pending journal and prevents another POST", async t => {
@@ -287,15 +336,50 @@ test("journal must persist before POST and failed result writes remain pending",
 });
 
 test("attack preparation opens the chosen native form without sending an attack", async t => {
-  const { api, state, get } = fixture(t);
+  const { api, state, get, session } = fixture(t);
   await api.initialized;
   get("target").value = "Jared";
   await api.load();
   get("attack-type").value = "2";
-  await get("open-attack").listeners.click();
+  await get("prepare-planet").listeners.click();
   const destination = new URL(state.destination);
   assert.equal(destination.searchParams.get("cil"), "Jared");
   assert.equal(destination.searchParams.get("utok"), "2");
+  assert.equal(destination.hash, "#sgo-war-attack");
+  assert.deepEqual({ ...JSON.parse(session.get(I.ATTACK_DRAFT_KEY)), createdAt: 0 },
+    { owner: "mayk", target: "Jared", planet: "Planet", type: "2", createdAt: 0 });
+  assert.equal(state.posts, 0);
+});
+
+test("native attack draft selects only a verified planet and never changes units", () => {
+  const draft = { owner: "mayk", target: "Jared", planet: "Planet", type: "2", createdAt: Date.now() };
+  const address = "https://game.test/game.php?page=jednotky&utok=2&cil=Jared#sgo-war-attack";
+  const events = [];
+  const selector = { value: "Default", options: [{ value: "Default" }, { value: "Planet" }], dispatchEvent: event => events.push(event.type) };
+  const form = { method: "post", getAttribute: () => "?page=jednotky&utok=2&cil=Jared", querySelector: () => selector };
+  const doc = { querySelector: s => s === "#formular" ? form : s === "#nepritele" ? { textContent: "Jared" } : null };
+  I.applyAttackDraft(doc, address, draft, "Default");
+  assert.equal(selector.value, "Planet");
+  assert.deepEqual(events, ["input", "change"]);
+  selector.value = "Default";
+  assert.throws(() => I.applyAttackDraft(doc, address, draft, "UserSelection"), /medzitým zmenil/);
+  assert.throws(() => I.applyAttackDraft(doc, address, { ...draft, planet: "Missing" }, "Default"), /nie je v aktuálnom/);
+  assert.throws(() => I.applyAttackDraft(doc, address, { ...draft, createdAt: Date.now() - 600000 }, "Default"), /vypršalo/);
+  assert.throws(() => I.applyAttackDraft(doc, address, { ...draft, type: "1" }, "Default"), /nepatrí/);
+  form.getAttribute = () => "https://other.test/game.php?page=jednotky&utok=2&cil=Jared";
+  assert.throws(() => I.applyAttackDraft(doc, address, draft, "Default"), /nepotvrdzuje/);
+  assert.equal(selector.value, "Default");
+});
+
+test("attack preparation rejects a changed account without navigating", async t => {
+  const { api, state, get, session } = fixture(t);
+  await api.initialized;
+  get("target").value = "Jared"; await api.load();
+  state.owner = "other";
+  await get("prepare-planet").listeners.click();
+  assert.match(get("status").textContent, /Prihlásený hráč sa zmenil/);
+  assert.equal(state.destination, undefined);
+  assert.equal(session.has(I.ATTACK_DRAFT_KEY), false);
   assert.equal(state.posts, 0);
 });
 

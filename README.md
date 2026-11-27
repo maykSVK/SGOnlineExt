@@ -105,7 +105,9 @@ Ak bol vysledok uspesny, po kontrole nacitaj hraca znova: doplnok vie importovat
 zistenie z aktualnej stranky Rozviedky bez opakovania utoku. Nasledne potvrdenim
 **Skontroloval som vysledok** uvolnis blokovany dennik.
 Pri zisteni typu planety sa z herneho reportu uklada aj obrazok typu, ak je
-dostupny; zobrazuje sa aj po navigacii. Starsie zistenia bez obrazka ho mozu
+dostupny; v karte zisteni sa zobrazi spolu s nazvom vybranej planety a menom
+hraca aj po navigacii. Kym typ alebo obrazok nie je znamy, karta to oznaci.
+Starsie zistenia bez obrazka ho mozu
 doplnit pri nacitani hraca, ak je povodny report este na aktualnej stranke
 Rozviedky. Bez dostupneho obrazka zostava zobrazeny iba text.
 Prehlad ukazuje aj aktualne vlastne jednotky a posledne reporty s vybranym
@@ -118,8 +120,11 @@ je mozne hraca nacitat rucne. Zobrazeny cas upozornuje, ze ide o ulozeny,
 potencialne neaktualny stav. Aktualne udaje nacita tlacidlo **Nacitat**.
 Zistenia ziskane este pred touto zmenou zostavaju v existujucom denniku a
 zobrazia sa po opatovnom nacitani hraca a vybere planety.
-V casti **Priprava utoku** je mozne otvorit nativny formular hry pre zvoleny
-typ utoku a hraca; addon pri tom neutoci ani nepredvyplna jednotky alebo planetu.
+V karte planety vyber typ utoku a klikni **Pripravit utok na planetu**.
+Doplnok otvori herny formular pre hraca a po overeni uctu, ciela a dostupnosti
+predvyplni vybranu planetu. Jednotky nepredvyplna a utok neodosiela; vsetko
+skontroluj a odosli rucne. Navrh plati 10 minut a iba v tej istej karte.
+Ak sa formular alebo planeta neda overit, doplnok upozorni a nic nevyplni.
 
 Zalozka **Moja obrana** nacita udaje iba po rucnom kliknuti na **Obnovit**. Zobrazi
 posledny ulozeny prehlad aj po navigacii alebo refreshi stranky, bez poziadaviek
