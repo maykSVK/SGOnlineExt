@@ -303,6 +303,9 @@
 #sgo-addon .sgo-watch-row[data-status=action] :is(.sgo-watch-detail, > span) { color: #ff8e83; }
 #sgo-addon .sgo-watch-row[data-status=ok]::before { background: #80dc9c; }
 #sgo-addon .sgo-watch-row[data-status=action]::before { background: #ff8e83; }
+#sgo-addon .sgo-watch-row[data-key=nn] { flex-wrap: wrap; }
+#sgo-addon .sgo-watch-row[data-key=nn] strong { width: auto; }
+#sgo-addon .sgo-watch-row[data-key=nn] .sgo-watch-detail { white-space: normal; overflow: visible; text-overflow: clip; flex-basis: 130px; }
 
 
 
@@ -317,14 +320,29 @@
 #sgo-addon #sgo-nn-start { padding: 2px 7px; font-size: 11px; border-color: #ff8e8388; color: #ffb1a3; white-space: nowrap; }
 #sgo-addon #sgo-nn-stop { padding: 2px 7px; font-size: 11px; white-space: nowrap; }
 #sgo-addon #sgo-nn-stop:not(:disabled) { border-color: #ff8e8388; color: #ffb1a3; background: #ff9a8918; }
-#sgo-addon .sgo-nn-settings { margin: 8px 0; padding: 8px; border: 1px solid #3b5064; border-radius: 8px; background: #112233; font-size: 11px; }
-#sgo-addon .sgo-nn-settings summary { cursor: pointer; color: #a4ead8; font-weight: 700; }
-#sgo-addon .sgo-nn-interval, #sgo-addon .sgo-nn-manual, #sgo-addon .sgo-nn-entry { display: flex; flex-wrap: wrap; align-items: end; gap: 6px; margin-top: 7px; }
-#sgo-addon .sgo-nn-settings label { display: grid; gap: 3px; }
-#sgo-addon .sgo-nn-interval input { width: 65px; }
-#sgo-addon .sgo-nn-entry { padding: 7px; border: 1px solid #334b60; border-radius: 6px; }
-#sgo-addon .sgo-nn-entry strong { width: 100%; }
-#sgo-addon .sgo-nn-settings button, #sgo-addon .sgo-nn-settings input { font-size: 11px; }
+#sgo-addon .sgo-nn-settings { margin: 8px 0; border: 1px solid #3b5064; border-radius: 10px; background: #112233; font-size: 11px; }
+#sgo-addon .sgo-nn-settings summary { padding: 10px 12px; cursor: pointer; color: #a4ead8; font-weight: 700; }
+#sgo-addon .sgo-nn-settings[open] summary { border-bottom: 1px solid #334b60; }
+#sgo-addon .sgo-nn-content { display: grid; gap: 8px; padding: 10px; }
+#sgo-addon .sgo-nn-card { min-width: 0; padding: 10px; border: 1px solid #334b60; border-radius: 9px; background: #0e1d2c; }
+#sgo-addon .sgo-nn-card h4 { margin: 0 0 6px; color: #e6edf7; font-size: 12px; line-height: 1.3; }
+#sgo-addon .sgo-nn-overview { border-left: 3px solid #65dec3; }
+#sgo-addon .sgo-nn-overview p { margin: 4px 0; color: #c8d8e9; overflow-wrap: anywhere; }
+#sgo-addon .sgo-nn-help { margin: 4px 0 8px; color: var(--sgo-muted); font-size: 10px; line-height: 1.45; }
+#sgo-addon .sgo-nn-settings label { display: grid; gap: 4px; min-width: 0; color: #b7c8d9; }
+#sgo-addon .sgo-nn-source { margin-top: 9px; }
+#sgo-addon .sgo-nn-settings select { width: 100%; min-width: 0; font-size: 11px; }
+#sgo-addon .sgo-nn-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: end; }
+#sgo-addon #sgo-guardian-feature .sgo-nn-settings input:not([type=checkbox]) { width: 100%; min-width: 0; margin: 0; font-size: 11px; }
+#sgo-addon .sgo-nn-settings label.sgo-nn-day { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; cursor: pointer; }
+#sgo-addon #sgo-guardian-feature .sgo-nn-day input { width: auto; margin: 0; }
+#sgo-addon .sgo-nn-add-fields .sgo-nn-day { align-self: center; }
+#sgo-addon .sgo-nn-buttons { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+#sgo-addon .sgo-nn-settings button { padding: 6px 9px; font-size: 11px; }
+#sgo-addon :is(#sgo-nn-save-interval, #sgo-nn-save-window, #sgo-nn-add) { border-color: #65dec355; color: #a4ead8; }
+#sgo-addon .sgo-nn-entry { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 7px; padding: 8px; border: 1px solid #334b60; border-radius: 7px; background: #142638; }
+#sgo-addon .sgo-nn-entry strong { flex-basis: 100%; color: #e6edf7; }
+#sgo-addon #sgo-guardian-feature .sgo-nn-entry input { flex: 1 1 105px; width: auto; }
 #sgo-addon .sgo-watch-settings { font-size: 11px; color: var(--sgo-muted); }
 #sgo-addon :is(.sgo-watch-row, .sgo-watch-settings summary):focus-visible { outline: 2px solid var(--sgo-accent); outline-offset: 3px; }
 #sgo-addon #sgo-guardian-status { margin: 3px 0; font-size: 10px; }

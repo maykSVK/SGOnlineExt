@@ -81,15 +81,20 @@ nacitaniach skutocnej tabulky obchodu; skryta tabulka sa ignoruje. Pri zmene
 planety alebo typu sa overovanie zacina znova. Ani tri kontroly nezarucuju,
 ze nejde o falosnu ponuku. Po potvrdeni ulozi cas prveho zachytenia a vykresli
 mimo panela cervene upozornenie **MAME NN!**, ktore zmizne kliknutim kamkolvek.
-V **Evidencii NN** vidno samostatne hlasenie z posty a lokalny odhad dalsieho
-okna z posledneho platneho vlastneho zaznamu. Predvoleny interval 40–60 minut
+V **Evidencii NN** su oddelene karty pre porovnanie posty a vlastneho odhadu,
+interval, vlastne okno, rucny zaznam a historiu. Lokalny odhad dalsieho okna
+vychadza z posledneho platneho vlastneho zaznamu. Predvoleny interval 40–60 minut
 je odhad, da sa upravit a prepocita vsetky vlastne zaznamy. Cas NN mozno zadat
 rucne alebo upravit, zaznam oznacit za falosny, obnovit alebo vymazat; falosne
 zaznamy sa do odhadu nezapocitavaju. Vlastne ocakavane okno mozno nastavit aj
 priamo; ma prednost pred vypoctom zo zaznamov az do jeho rucneho zrusenia,
 aj ked uz uplynulo. Evidencia sa uklada lokalne, neposiela
-postu a nesynchronizuje sa s inymi zariadeniami. Zadany cas pouziva casove
-pasmo prehliadaca, odhadovane okno cas hry Europe/Prague. Na riadku NN ma
+postu a nesynchronizuje sa s inymi zariadeniami. Rucne sa zadava iba cas:
+novy zaznam a zaciatok vlastneho okna patria dnesku, mozno zvolit aj vcera.
+Koniec okna skor ako zaciatok znamena nasledujuci den. Uprava stareho zaznamu
+zachova jeho povodny den. Datum zostava v historii a presne datumy okna v
+popise pri prejdeni mysou. Zadany cas pouziva casove pasmo prehliadaca,
+odhadovane okno cas hry Europe/Prague. Na riadku NN ma
 predvolene vlastny odhad prednost, no zdroj mozno prepnut na postu alebo
 vlastne udaje; postu aj jej povodne okno vidno stale v evidencii.
 Aktualizacia je blokovana pocas utokov.

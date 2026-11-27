@@ -172,13 +172,22 @@
     if (!latest && !history.window) return null;
     const start = history.window ? history.window.start : latest.at + history.min * 60000;
     const end = history.window ? history.window.end : latest.at + history.max * 60000;
-    const format = time => new Intl.DateTimeFormat("sk-SK", {
-      timeZone: "Europe/Prague", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit"
+    const format = time => new Intl.DateTimeFormat("sv-SE", {
+      timeZone: "Europe/Prague", hour: "2-digit", minute: "2-digit", hourCycle: "h23"
     }).format(new Date(time));
-    const label = `${format(start)} – ${format(end)}`;
+    const today = gameDay(now);
+    const startDay = gameDay(start);
+    const nextDay = new Date(`${today}T12:00:00Z`);
+    nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+    const tomorrow = nextDay.toISOString().slice(0, 10);
+    nextDay.setUTCDate(nextDay.getUTCDate() - 2);
+    const yesterday = nextDay.toISOString().slice(0, 10);
+    const dayLabel = startDay === today ? "" : startDay === tomorrow ? "zajtra " :
+      startDay === yesterday ? "včera " : "iný deň ";
+    const label = `${dayLabel}${format(start)}–${format(end)}${gameDay(end) !== startDay ? " (+1 deň)" : ""}`;
     return { status: now < start ? "ok" : now <= end ? "action" : "unknown",
       text: `${now < start ? "Čakáme" : now <= end ? "Okno" : "Okno uplynulo"} ${label}`,
-      latest, manualWindow: Boolean(history.window) };
+      label, start, end, latest, manualWindow: Boolean(history.window) };
   }
   function readNNHistory(value) {
     if (value == null) return { min: 40, max: 60, entries: [] };
@@ -196,7 +205,24 @@
   }
   function localInputTime(time) {
     const date = new Date(time);
-    return new Date(time - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    return new Date(time - date.getTimezoneOffset() * 60000).toISOString().slice(11, 16);
+  }
+  function timeOnDay(value, reference, offset = 0) {
+    const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value);
+    if (!match) return null;
+    const day = new Date(reference);
+    day.setHours(12, 0, 0, 0);
+    day.setDate(day.getDate() + offset);
+    const expectedDay = day.getDate();
+    day.setHours(Number(match[1]), Number(match[2]), 0, 0);
+    if (day.getDate() !== expectedDay || day.getHours() !== Number(match[1]) || day.getMinutes() !== Number(match[2])) return null;
+    return day.getTime();
+  }
+  function manualNNWindow(startValue, endValue, now = Date.now(), offset = 0) {
+    const start = timeOnDay(startValue, now, offset);
+    if (start === null) return null;
+    const end = timeOnDay(endValue, now, offset + (endValue < startValue ? 1 : 0));
+    return end === null ? null : { start, end };
   }
   function nnWatchDelay(mode = "human", random = Math.random) {
     const [min, max] = mode === "confirm" ? [250, 650] : [3500, 9500];
@@ -267,32 +293,55 @@
       </div>
       <p class="sgo-note" id="sgo-guardian-status" role="status">Iba ručná kontrola · bez herných akcií.</p>
       <details class="sgo-nn-settings"><summary>Evidencia NN</summary>
-        <p class="sgo-note" id="sgo-nn-mail"></p>
-        <p class="sgo-note" id="sgo-nn-local"></p>
-        <label class="sgo-nn-source">Riadok NN zobrazuje
-          <select id="sgo-nn-source">
-            <option value="auto">Automaticky: vlastné, inak pošta</option>
-            <option value="local">Vlastné zistenie alebo okno</option>
-            <option value="mail">Hlásenie z pošty</option>
-          </select>
-        </label>
-        <div class="sgo-nn-interval">
-          <label>Od (min)<input id="sgo-nn-min" type="number" min="0" max="1440" step="1"></label>
-          <label>Do (min)<input id="sgo-nn-max" type="number" min="0" max="1440" step="1"></label>
-          <button type="button" id="sgo-nn-save-interval">Uložiť interval</button>
+        <div class="sgo-nn-content">
+          <section class="sgo-nn-card sgo-nn-overview" aria-label="Prehľad odhadov">
+            <h4>Prehľad odhadov</h4>
+            <p id="sgo-nn-mail"></p>
+            <p id="sgo-nn-local"></p>
+            <label class="sgo-nn-source">Na hlavnom riadku zobraziť
+              <select id="sgo-nn-source">
+                <option value="auto">Automaticky: vlastné, inak pošta</option>
+                <option value="local">Vlastné zistenie alebo okno</option>
+                <option value="mail">Hlásenie z pošty</option>
+              </select>
+            </label>
+          </section>
+          <section class="sgo-nn-card" aria-label="Interval odhadu">
+            <h4>Interval odhadu</h4>
+            <p class="sgo-nn-help">Čas po poslednom platnom NN. Odhad nie je potvrdenie dostupnosti.</p>
+            <div class="sgo-nn-fields">
+              <label>Od (min)<input id="sgo-nn-min" type="number" min="0" max="1440" step="1"></label>
+              <label>Do (min)<input id="sgo-nn-max" type="number" min="0" max="1440" step="1"></label>
+            </div>
+            <div class="sgo-nn-buttons"><button type="button" id="sgo-nn-save-interval">Uložiť interval</button></div>
+          </section>
+          <section class="sgo-nn-card" aria-label="Vlastné okno">
+            <h4>Vlastné okno</h4>
+            <p class="sgo-nn-help">Má prednosť pred odhadom zo záznamov. Koniec pred začiatkom znamená nasledujúci deň.</p>
+            <div class="sgo-nn-fields">
+              <label>Od<input id="sgo-nn-window-start" type="time"></label>
+              <label>Do<input id="sgo-nn-window-end" type="time"></label>
+            </div>
+            <label class="sgo-nn-day"><input id="sgo-nn-window-yesterday" type="checkbox"> Začiatok včera</label>
+            <div class="sgo-nn-buttons">
+              <button type="button" id="sgo-nn-save-window">Nastaviť okno</button>
+              <button type="button" id="sgo-nn-clear-window">Zrušiť okno</button>
+            </div>
+          </section>
+          <section class="sgo-nn-card" aria-label="Pridať NN">
+            <h4>Pridať NN</h4>
+            <div class="sgo-nn-fields sgo-nn-add-fields">
+              <label>Čas NN<input id="sgo-nn-time" type="time"></label>
+              <label class="sgo-nn-day"><input id="sgo-nn-yesterday" type="checkbox"> Včera</label>
+            </div>
+            <div class="sgo-nn-buttons"><button type="button" id="sgo-nn-add">Pridať vlastné NN</button></div>
+          </section>
+          <p class="sgo-nn-help">Zadávaš čas prehliadača; okno sa zobrazuje v čase hry (Praha). Nový záznam alebo okno platí dnes, prípadne včera podľa voľby.</p>
+          <section class="sgo-nn-card" aria-label="História NN">
+            <h4>História NN</h4>
+            <div id="sgo-nn-history"></div>
+          </section>
         </div>
-        <p class="sgo-note">Odhad od času NN, nie potvrdenie dostupnosti. Časy zadávaj v časovom pásme prehliadača; okná sa zobrazujú v čase hry (Praha).</p>
-        <div class="sgo-nn-manual">
-          <label>Vlastné okno od<input id="sgo-nn-window-start" type="datetime-local"></label>
-          <label>do<input id="sgo-nn-window-end" type="datetime-local"></label>
-          <button type="button" id="sgo-nn-save-window">Nastaviť okno</button>
-          <button type="button" id="sgo-nn-clear-window">Zrušiť vlastné okno</button>
-        </div>
-        <div class="sgo-nn-manual">
-          <label>Čas NN<input id="sgo-nn-time" type="datetime-local"></label>
-          <button type="button" id="sgo-nn-add">Pridať vlastné NN</button>
-        </div>
-        <div id="sgo-nn-history"></div>
       </details>
       <details class="sgo-watch-settings"><summary>História a Gist</summary>
         <p class="sgo-note" id="sgo-lottery-history"></p>
@@ -332,12 +381,13 @@
         const useLocal = key === "nn" && (nnHistory.source === "local" || (nnHistory.source !== "mail" && local));
         const view = useLocal ? (local || { status: "unknown", text: "Chýba vlastné NN" }) : displayState(key, state[key]);
         const row = document.createElement("a");
-        row.className = "sgo-watch-row"; row.href = key === "nn" ? nnDestination : routes[key]; row.dataset.status = view.status;
+        row.className = "sgo-watch-row"; row.href = key === "nn" ? nnDestination : routes[key]; row.dataset.status = view.status; row.dataset.key = key;
         const label = document.createElement("strong"); label.textContent = title;
         const detail = document.createElement("span"); detail.className = "sgo-watch-detail"; detail.textContent = `${key === "nn" ? (useLocal ? "Vlastné · " : "Pošta · ") : ""}${view.text}`;
         const stampTime = useLocal ? view.latest?.at : state[key]?.time;
         const stamp = stampTime ? new Date(stampTime).toLocaleString("sk-SK") : "Zatiaľ nekontrolované";
-        row.title = `${view.latest || view.manualWindow ? "Vlastný odhad · " : ""}${view.text} · ${stamp}${!view.latest && !view.manualWindow && state[key]?.error ? ` · ${state[key].error}` : ""}`;
+        const windowDates = view.start != null ? ` · ${new Date(view.start).toLocaleString("sk-SK", { timeZone: "Europe/Prague" })} – ${new Date(view.end).toLocaleString("sk-SK", { timeZone: "Europe/Prague" })} (čas hry)` : "";
+        row.title = `${view.latest || view.manualWindow ? "Vlastný odhad · " : ""}${view.text}${windowDates} · ${stamp}${!view.latest && !view.manualWindow && state[key]?.error ? ` · ${state[key].error}` : ""}`;
         row.append(label, detail);
         if (key === "casino" && casinoActions) row.append(casinoActions);
         if (key === "nn" && nnActions) row.append(nnActions);
@@ -355,17 +405,22 @@
       const local = localNNState(nnHistory);
       $("#sgo-nn-mail").textContent = `Pošta: ${displayState("nn", state.nn).text}${state.nn?.date ? ` · ${state.nn.date} ${state.nn.start}–${state.nn.end}` : ""}`;
       $("#sgo-nn-local").textContent = local ? `Vlastný odhad: ${local.text} · ${local.manualWindow ? "ručne nastavené okno" : `NN ${new Date(local.latest.at).toLocaleString("sk-SK")} (${local.latest.source === "watch" ? "sledovanie" : "ručne"})`}` : "Vlastný odhad: zatiaľ nemáš platné zistenie.";
+      $("#sgo-nn-local").title = local ? `${new Date(local.start).toLocaleString("sk-SK", { timeZone: "Europe/Prague" })} – ${new Date(local.end).toLocaleString("sk-SK", { timeZone: "Europe/Prague" })} (čas hry)` : "";
       const nnList = $("#sgo-nn-history");
       nnList.replaceChildren();
+      if (!nnHistory.entries.length) {
+        const empty = document.createElement("p"); empty.className = "sgo-nn-help"; empty.textContent = "Zatiaľ nemáš žiadne záznamy.";
+        nnList.append(empty);
+      }
       for (const entry of [...nnHistory.entries].sort((a, b) => b.at - a.at)) {
         const item = document.createElement("div"); item.className = "sgo-nn-entry";
         const label = document.createElement("strong");
-        label.textContent = `${entry.falseAlarm ? "Falošné" : "Platné"} · ${entry.source === "watch" ? "sledovanie" : "ručne"}`;
-        const time = document.createElement("input"); time.type = "datetime-local";
+        label.textContent = `${entry.falseAlarm ? "Falošné" : "Platné"} · ${entry.source === "watch" ? "sledovanie" : "ručne"} · ${new Date(entry.at).toLocaleDateString("sk-SK")}`;
+        const time = document.createElement("input"); time.type = "time";
         time.value = localInputTime(entry.at);
         time.setAttribute("aria-label", "Čas zaznamenaného NN");
         const save = document.createElement("button"); save.type = "button"; save.textContent = "Upraviť čas";
-        save.addEventListener("click", () => updateNNEntry(entry.id, { at: parseNNTime(time.value) }));
+        save.addEventListener("click", () => updateNNEntry(entry.id, { at: parseNNTime(time.value, entry.at) }));
         const toggle = document.createElement("button"); toggle.type = "button";
         toggle.textContent = entry.falseAlarm ? "Obnoviť" : "Falošné NN";
         toggle.addEventListener("click", () => updateNNEntry(entry.id, { falseAlarm: !entry.falseAlarm }));
@@ -429,6 +484,10 @@
         $("#sgo-nn-source").value = nnHistory.source || "auto";
         $("#sgo-nn-window-start").value = nnHistory.window ? localInputTime(nnHistory.window.start) : "";
         $("#sgo-nn-window-end").value = nnHistory.window ? localInputTime(nnHistory.window.end) : "";
+        if (nnHistory.window) {
+          const yesterday = new Date(); yesterday.setHours(12, 0, 0, 0); yesterday.setDate(yesterday.getDate() - 1);
+          $("#sgo-nn-window-yesterday").checked = new Date(nnHistory.window.start).toDateString() === yesterday.toDateString();
+        }
         $("#sgo-gist-id").value = config.id || "";
         $("#sgo-gist-token").value = config.token || "";
         $("#sgo-casino-pure-random").checked = Boolean(config.pureRandom);
@@ -440,9 +499,9 @@
     }
     render();
     const ready = restore();
-    function parseNNTime(value) {
-      const time = value ? new Date(value).getTime() : NaN;
-      return Number.isFinite(time) && time <= Date.now() ? time : null;
+    function parseNNTime(value, reference = Date.now(), offset = 0) {
+      const time = timeOnDay(value, reference, offset);
+      return time !== null && time <= Date.now() ? time : null;
     }
     async function saveNNHistory(next, message) {
       if (nnSaving) throw new Error("Počkaj na uloženie evidencie NN.");
@@ -497,11 +556,12 @@
       try {
         await ready;
         if (!restored) throw new Error("Evidenciu NN sa nepodarilo načítať.");
-        const at = parseNNTime($("#sgo-nn-time").value);
+        const at = parseNNTime($("#sgo-nn-time").value, Date.now(), $("#sgo-nn-yesterday").checked ? -1 : 0);
         if (at === null) throw new Error("Zadaj platný čas NN, ktorý nie je v budúcnosti.");
         const entry = { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, at, source: "manual", falseAlarm: false };
         await saveNNHistory({ ...nnHistory, entries: [...nnHistory.entries, entry] }, "Vlastné NN uložené.");
         $("#sgo-nn-time").value = "";
+        $("#sgo-nn-yesterday").checked = false;
       } catch (error) {
         $("#sgo-guardian-status").textContent = `NN: ${error.message}`;
         log(`NN: ${error.message}`, "error");
@@ -513,10 +573,9 @@
         if (!restored) throw new Error("Evidenciu NN sa nepodarilo načítať.");
         const startValue = $("#sgo-nn-window-start").value;
         const endValue = $("#sgo-nn-window-end").value;
-        const start = startValue ? new Date(startValue).getTime() : NaN;
-        const end = endValue ? new Date(endValue).getTime() : NaN;
-        if (!Number.isFinite(start) || !Number.isFinite(end) || start > end) throw new Error("Zadaj platný začiatok a koniec vlastného okna.");
-        await saveNNHistory({ ...nnHistory, window: { start, end } }, "Vlastné okno NN uložené; má prednosť pred odhadom zo záznamov.");
+        const window = manualNNWindow(startValue, endValue, Date.now(), $("#sgo-nn-window-yesterday").checked ? -1 : 0);
+        if (!window) throw new Error("Zadaj platný začiatok a koniec vlastného okna.");
+        await saveNNHistory({ ...nnHistory, window }, "Vlastné okno NN uložené; má prednosť pred odhadom zo záznamov.");
       } catch (error) {
         $("#sgo-guardian-status").textContent = `NN: ${error.message}`;
         log(`NN: ${error.message}`, "error");
@@ -529,6 +588,7 @@
         await saveNNHistory({ ...nnHistory, window: null }, "Vlastné okno zrušené; používa sa odhad zo záznamov.");
         $("#sgo-nn-window-start").value = "";
         $("#sgo-nn-window-end").value = "";
+        $("#sgo-nn-window-yesterday").checked = false;
       } catch (error) {
         $("#sgo-guardian-status").textContent = `NN: ${error.message}`;
         log(`NN: ${error.message}`, "error");
@@ -775,7 +835,7 @@
   }
   const api = {
     pageText, readBonus, readCasino, readNN, readRanking, readTarget, readRunner,
-    isPlanetMarket, readMarketOffers, localNNState, readNNHistory, nnWatchDelay, showNNAlert, displayState, mount
+    isPlanetMarket, readMarketOffers, localNNState, readNNHistory, timeOnDay, manualNNWindow, nnWatchDelay, showNNAlert, displayState, mount
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.SGOGuardian = api;

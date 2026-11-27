@@ -84,7 +84,10 @@ test("local NN estimate uses last valid event and configurable elapsed minutes a
   assert.equal(G.localNNState(history, at + 40 * 60000).status, "action");
   assert.equal(G.localNNState(history, at + 61 * 60000).status, "unknown");
   assert.equal(G.localNNState(history, at + 40 * 60000).latest.id, "1");
-  assert.match(G.localNNState(history, at).text, /4\. 11\./);
+  assert.equal(G.localNNState(history, at).text, "Čakáme zajtra 00:25–00:45");
+  assert.equal(G.localNNState(history, at + 40 * 60000).text, "Okno 00:25–00:45");
+  const acrossMidnight = { ...history, window: { start: at, end: at + 30 * 60000 } };
+  assert.equal(G.localNNState(acrossMidnight, at).text, "Okno 23:45–00:15 (+1 deň)");
   assert.equal(G.localNNState({ ...history, min: 10, max: 20 }, at + 15 * 60000).status, "action");
   assert.equal(G.localNNState({ ...history, entries: [history.entries[1]] }, at + 15 * 60000), null);
   const override = { ...history, window: { start: at + 10 * 60000, end: at + 20 * 60000 } };
@@ -93,6 +96,23 @@ test("local NN estimate uses last valid event and configurable elapsed minutes a
   assert.equal(G.localNNState({ ...override, entries: [] }, at + 15 * 60000).status, "action");
   assert.throws(() => G.readNNHistory({ min: 60, max: 40, entries: [] }), /poškodená/);
   assert.throws(() => G.readNNHistory({ ...history, window: { start: at + 1, end: at } }), /poškodená/);
+});
+
+test("NN time-only inputs use the selected day, preserve history dates and handle midnight", () => {
+  const reference = new Date(2026, 10, 4, 12, 0).getTime();
+  assert.equal(G.timeOnDay("09:15", reference), new Date(2026, 10, 4, 9, 15).getTime());
+  assert.equal(G.timeOnDay("23:45", reference, -1), new Date(2026, 10, 3, 23, 45).getTime());
+  assert.equal(G.timeOnDay("24:15", reference), null);
+  assert.equal(G.timeOnDay("", reference), null);
+  assert.deepEqual(G.manualNNWindow("23:40", "00:20", reference), {
+    start: new Date(2026, 10, 4, 23, 40).getTime(),
+    end: new Date(2026, 10, 5, 0, 20).getTime()
+  });
+  assert.deepEqual(G.manualNNWindow("23:40", "00:20", reference, -1), {
+    start: new Date(2026, 10, 3, 23, 40).getTime(),
+    end: new Date(2026, 10, 4, 0, 20).getTime()
+  });
+  assert.equal(G.manualNNWindow("10:00", "", reference), null);
 });
 
 function targetDoc(name, power, attackLinks = []) {
@@ -493,6 +513,7 @@ test("NN watch ignores initial and fake offers, confirms after 3 consecutive ref
   assert.equal(store["sgo-nn-history"].entries[0].source, "watch");
   assert.equal(store["sgo-nn-history"].entries[0].at, detectedAt, "Detection uses the first matching observation");
   const entry = container.querySelector("#sgo-nn-history").children[0];
+  assert.equal(entry.children[1].type, "time");
   await entry.children[3].listeners.click();
   assert.equal(store["sgo-nn-history"].entries[0].falseAlarm, true);
   assert.equal(G.localNNState(store["sgo-nn-history"]), null);
@@ -508,8 +529,9 @@ test("NN watch ignores initial and fake offers, confirms after 3 consecutive ref
   assert.equal(store["sgo-nn-history"].min, 15, "Invalid interval does not change saved history");
   assert.match(container.querySelector("#sgo-guardian-status").textContent, /interval/i);
   const past = new Date(Date.now() - 3 * 3600000);
-  const localPast = new Date(past.getTime() - past.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  const localPast = new Date(past.getTime() - past.getTimezoneOffset() * 60000).toISOString().slice(11, 16);
   container.querySelector("#sgo-nn-time").value = localPast;
+  container.querySelector("#sgo-nn-yesterday").checked = past.toDateString() !== new Date().toDateString();
   failNNWrite = true;
   await container.querySelector("#sgo-nn-add").listeners.click();
   assert.equal(store["sgo-nn-history"].entries.length, 1, "Failed write does not create an entry");
@@ -521,15 +543,16 @@ test("NN watch ignores initial and fake offers, confirms after 3 consecutive ref
   const manual = container.querySelector("#sgo-nn-history").children[1];
   manual.children[1].value = localPast;
   await manual.children[2].listeners.click();
-  assert.equal(store["sgo-nn-history"].entries[1].at, new Date(localPast).getTime());
+  assert.equal(store["sgo-nn-history"].entries[1].at, G.timeOnDay(localPast, past.getTime()));
+  manual.children[1].value = "00:01";
+  await manual.children[2].listeners.click();
+  assert.equal(store["sgo-nn-history"].entries[1].at, G.timeOnDay("00:01", past.getTime()), "Editing retains the original date");
   await container.querySelector("#sgo-nn-history").children[1].children[4].listeners.click();
   assert.equal(store["sgo-nn-history"].entries.length, 1);
-  const future = new Date(Date.now() + 3600000);
-  const localFuture = new Date(future.getTime() - future.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-  container.querySelector("#sgo-nn-window-start").value = localPast;
-  container.querySelector("#sgo-nn-window-end").value = localFuture;
+  container.querySelector("#sgo-nn-window-start").value = "10:00";
+  container.querySelector("#sgo-nn-window-end").value = "10:30";
   await container.querySelector("#sgo-nn-save-window").listeners.click();
-  assert.equal(store["sgo-nn-history"].window.start, new Date(localPast).getTime());
+  assert.equal(store["sgo-nn-history"].window.start, G.timeOnDay("10:00", Date.now()));
   assert.match(container.querySelector("#sgo-nn-local").textContent, /ručne nastavené okno/);
   await container.querySelector("#sgo-nn-clear-window").listeners.click();
   assert.equal(store["sgo-nn-history"].window, null);
