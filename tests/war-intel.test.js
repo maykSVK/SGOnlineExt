@@ -141,11 +141,12 @@ test("a matching archived report enriches an old finding without duplicating it"
 });
 
 class Element {
-  constructor(doc) { this.ownerDocument = doc; this.children = []; this.listeners = {}; this.value = ""; this.classList = { toggle() {} }; this.style = {}; this.attributes = {}; }
+  constructor(doc) { this.ownerDocument = doc; this.children = []; this.listeners = {}; this.value = ""; this.classList = { toggle() {} }; this.style = {}; this.attributes = {}; this.dataset = {}; }
   append(...children) { this.children.push(...children); if (!this.value && children[0]?.value) this.value = children[0].value; }
   replaceChildren(...children) { this.children = []; this.value = ""; this.append(...children); }
   addEventListener(name, fn) { this.listeners[name] = fn; }
   setAttribute(name, value) { this.attributes[name] = value; }
+  scrollIntoView() { this.scrolled = true; }
 }
 function fixture(t, saved = new Map(), owner = "mayk") {
   const old = globalThis.location;
@@ -217,6 +218,24 @@ test("successful spy saves journal and displays a verified zero", async t => {
   assert.equal(state.saved.get(I.KEY).pending, null);
   assert.equal(state.saved.get(I.KEY).reports[0].value, "0");
   assert.match(get("status").textContent, /Univerzál: 0/);
+  assert.equal(get("result").dataset.outcome, "success");
+  assert.match(get("result").textContent, /Špionáž uspela.*Univerzál: 0.*140 sond/);
+});
+
+test("failed espionage is prominently marked without claiming a finding", async t => {
+  const { api, state, get } = fixture(t);
+  await api.initialized;
+  get("target").value = "Jared"; await api.load();
+  get("field").value = "uni";
+  state.result = { victory: false, losses: 475 };
+  await api.send();
+  assert.equal(state.posts, 1);
+  assert.equal(get("result").hidden, false);
+  assert.equal(get("result").dataset.outcome, "failure");
+  assert.equal(get("result").textContent, "Špionáž neuspela · straty 475 sond.");
+  assert.doesNotMatch(get("status").textContent, /Údaj platí/);
+  get("planet").value = "Other"; get("planet").listeners.change();
+  assert.equal(get("result").hidden, true);
 });
 
 test("a successful planet-type spy saves and displays its text without leaving the journal pending", async t => {
@@ -288,6 +307,35 @@ test("planet overview follows selected planet and player without mixing saved fi
   assert.equal(overview().children[1].children[3].textContent, "Typ: Les");
   assert.equal(overview().children[0].style.backgroundPosition, "0 -240px");
   assert.equal(state.posts, 0);
+});
+
+test("known type overview shows latest verified findings for the selected player and permits safe selection", async t => {
+  const entry = (planet, time, value, extra = {}) => ({ ...request, planet, time, field: "type", outcome: "success", label: "Typ planety", value, losses: 150, ...extra });
+  const reports = [entry("Planet", 100, "Starý", { planetSprite: 2 }), entry("Planet", 200, "Vrak lodi", { planetSprite: 16 }),
+    entry("Other", 100, "Púšť"), entry("Lost", 300, "Les"), entry("Planet", 400, "", { outcome: "failure" }),
+    entry("Other", 500, "Cudzí", { owner: "other" }), entry("Other", 600, "Iný hráč", { target: "Someone" })];
+  const { api, state, get } = fixture(t, new Map([[I.KEY, { pending: null, reports }]]));
+  state.options = ["Planet", "Other"];
+  await api.initialized;
+  get("target").value = "Jared"; await api.load();
+  const rows = get("types").children;
+  assert.equal(rows.length, 3);
+  const lost = rows.find(row => row.children[1].children[0].textContent === "Lost");
+  assert.equal(lost.children[2].textContent, "Nie je v načítanom zozname");
+  const planet = rows.find(row => row.children[1].children[0].textContent === "Planet");
+  assert.equal(planet.children[1].children[1].textContent, "Vrak lodi");
+  assert.equal(planet.children[0].style.backgroundPosition, "0 -600px");
+  assert.match(planet.children[1].children[2].textContent, /Zistené:/);
+  const other = rows.find(row => row.children[1].children[0].textContent === "Other");
+  assert.equal(other.children[1].children[1].textContent, "Púšť");
+  other.children[2].listeners.click();
+  assert.equal(get("planet").value, "Other");
+  await api.flush();
+  assert.equal(state.saved.get(I.SNAPSHOT_KEY).planet, "Other");
+  assert.equal(get("planet-overview").scrolled, true);
+  assert.equal(state.posts, 0);
+  const next = fixture(t, state.saved); await next.api.initialized;
+  assert.equal(next.get("types").children.length, 3);
 });
 
 test("old type findings with no saved image show the value and recovery guidance", async t => {

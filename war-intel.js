@@ -202,6 +202,16 @@
     return { reports: reports.sort((a, b) => a.time - b.time).slice(-300), changed };
   }
 
+  function knownPlanetTypes(reports, owner, target) {
+    const latest = new Map();
+    for (const report of reports) {
+      if (report.owner !== owner || report.target !== target || report.field !== "type" || report.outcome !== "success") continue;
+      const previous = latest.get(report.planet);
+      if (!previous || report.time > previous.time) latest.set(report.planet, report);
+    }
+    return [...latest.values()].sort((a, b) => a.planet.localeCompare(b.planet, "sk"));
+  }
+
   function readUnits(doc) {
     return [...doc.querySelectorAll(".sb")].filter(el => /pěchota|univerzál|orbit|žoldnéř/i.test(el.querySelector(".n")?.textContent || ""))
       .map(el => {
@@ -232,6 +242,7 @@
         <label class="sgo-intel-label">Čo zistiť<select id="sgo-intel-field" aria-label="Informácia"></select></label>
         <p class="sgo-note" id="sgo-intel-cost"></p>
         <button type="button" class="sgo-intel-send" id="sgo-intel-send">Odoslať špionáž</button>
+        <div id="sgo-intel-result" class="sgo-intel-result" role="status" hidden></div>
         <div id="sgo-intel-pending" hidden><p class="sgo-error" id="sgo-intel-pending-message"></p>
           <button type="button" id="sgo-intel-recon">Otvoriť Rozviedku</button>
           <button type="button" id="sgo-intel-clear">Skontroloval som výsledok</button></div>
@@ -245,6 +256,10 @@
           <p class="sgo-note">Otvorí formulár s vybranou planétou. Jednotky a odoslanie sú na tebe.</p>
         </div>
         <p class="sgo-note">Vlastné špionáže z aktuálnej stránky Rozviedky a odoslania z doplnku. Staré údaje môžu byť neaktuálne; neznáme nie je nula.</p><div id="sgo-intel-findings"></div></section>
+      <section class="sgo-war-card sgo-war-card-types"><strong>Zistené typy planét</strong>
+        <p class="sgo-note">Posledné uložené vlastné zistenie pre každú planétu vybraného hráča. Údaje sú historické; pri načítaní sa doplnia vlastné reporty z aktuálnej stránky Rozviedky.</p>
+        <div id="sgo-intel-types"></div>
+      </section>
       <section class="sgo-war-card"><strong>Moje jednotky</strong><p class="sgo-note">Hodnoty zo stránky Jednotky. Nejde o potvrdený výpočet výsledku boja.</p><div id="sgo-intel-units"></div></section>
       <section class="sgo-war-card"><strong>Posledné reporty s hráčom</strong><p class="sgo-note">Len reporty z aktuálnej stránky Rozviedky, v oboch smeroch; ??? je neznáma hodnota.</p><div id="sgo-intel-reports"></div></section>
       <p class="sgo-note">Zatiaľ nevypočítavame potrebný počet jednotiek: bonusy súpera a presný bojový vzorec nie sú potvrdené.</p>
@@ -255,6 +270,7 @@
     const reconUrl = () => url({ page: "jednotky", akce: "rozvedka" });
     let owner = "", target = "", planets = [], state = { pending: null, reports: [] }, busy = false, ready = false;
     let recent = [], units = [], snapshot = null, snapshotWrites = Promise.resolve();
+    let spyResult = null;
     const select = $("#sgo-intel-field");
     for (const [id, label, count] of FIELDS) {
       const option = container.ownerDocument.createElement("option");
@@ -291,6 +307,14 @@
       $("#sgo-intel-planet-attack").hidden = !target || !$("#sgo-intel-planet").value;
       $("#sgo-intel-prepare-planet").disabled = busy || !ready || !target || !$("#sgo-intel-planet").value;
       $("#sgo-intel-pending").hidden = !state.pending;
+      const result = $("#sgo-intel-result");
+      result.hidden = !spyResult || spyResult.owner !== owner || spyResult.target !== target || spyResult.planet !== $("#sgo-intel-planet").value;
+      if (!result.hidden) {
+        result.dataset.outcome = spyResult.outcome;
+        result.textContent = spyResult.outcome === "success"
+          ? `Špionáž uspela · ${spyResult.label}: ${spyResult.value} · straty ${spyResult.losses} sond. Údaj platí v čase útoku.`
+          : `Špionáž neuspela · straty ${spyResult.losses} sond.`;
+      }
       if (state.pending) {
         const pending = state.pending;
         $("#sgo-intel-pending-message").textContent = `Neistý výsledok: ${pending.owner} → ${pending.target}, ${pending.planet}, ${fieldFor(pending.field)[1]} · ${new Date(pending.time).toLocaleString("sk-SK")}. Skontroluj Rozviedku; útok sa sám neopakuje.`;
@@ -345,6 +369,45 @@
         const title = container.ownerDocument.createElement("strong"); title.textContent = `${fieldFor(report.field)[1]} · ${report.label}: ${report.value}`;
         const date = container.ownerDocument.createElement("span"); date.textContent = new Date(report.time).toLocaleString("sk-SK");
         content.append(title, date); line.append(content); findings.append(line);
+      }
+      const types = $("#sgo-intel-types"); types.replaceChildren();
+      const known = owner && target ? knownPlanetTypes(state.reports, owner, target) : [];
+      if (!known.length) {
+        const note = container.ownerDocument.createElement("p"); note.className = "sgo-note";
+        note.textContent = target ? "Pre tohto hráča zatiaľ nemáme uložené typy planét." : "Najprv načítaj hráča.";
+        types.append(note);
+      }
+      for (const report of known) {
+        const row = container.ownerDocument.createElement("div"); row.className = "sgo-intel-type-row";
+        const image = container.ownerDocument.createElement("span");
+        if (validPlanetSprite(report.planetSprite)) {
+          image.className = "sgo-intel-type-image";
+          image.style.backgroundPosition = `0 -${(report.planetSprite - 1) * 40}px`;
+          image.setAttribute("role", "img"); image.setAttribute("aria-label", `Typ planéty: ${report.value}`);
+        } else {
+          image.className = "sgo-intel-type-placeholder"; image.textContent = "?"; image.setAttribute("aria-hidden", "true");
+        }
+        const text = container.ownerDocument.createElement("div"); text.className = "sgo-intel-type-details";
+        const name = container.ownerDocument.createElement("strong"); name.textContent = report.planet;
+        const type = container.ownerDocument.createElement("span"); type.textContent = report.value;
+        const date = container.ownerDocument.createElement("small"); date.textContent = `Zistené: ${new Date(report.time).toLocaleString("sk-SK")}`;
+        text.append(name, type, date); row.append(image, text);
+        if (planets.some(item => item.value === report.planet)) {
+          const button = container.ownerDocument.createElement("button"); button.type = "button";
+          button.textContent = "Vybrať"; button.disabled = busy; button.setAttribute("aria-label", `Vybrať planétu ${report.planet}`);
+          button.addEventListener("click", () => {
+            if (busy) return;
+            $("#sgo-intel-planet").value = report.planet;
+            saveSelection(); render();
+            $("#sgo-intel-planet-overview").scrollIntoView({ behavior: "smooth", block: "nearest" });
+          });
+          row.append(button);
+        } else {
+          const unavailable = container.ownerDocument.createElement("small");
+          unavailable.className = "sgo-intel-type-unavailable"; unavailable.textContent = "Nie je v načítanom zozname";
+          row.append(unavailable);
+        }
+        types.append(row);
       }
       const unitList = $("#sgo-intel-units"); unitList.replaceChildren();
       for (const text of units) { const item = container.ownerDocument.createElement("p"); item.textContent = text; unitList.append(item); }
@@ -412,7 +475,7 @@
       const request = { owner, target, planet: $("#sgo-intel-planet").value, field: select.value, time: Date.now() };
       if (!request.planet || !fieldFor(request.field)) { status("Vyber planétu a informáciu.", true); return; }
       if (!canEdit()) { status("Najprv počkaj na dokončenie prebiehajúcej operácie.", true); return; }
-      busy = true; render();
+      spyResult = null; busy = true; render();
       let sent = false;
       try {
         await W.withRenameLock(async () => {
@@ -441,8 +504,9 @@
           const done = { pending: null, reports: [...state.reports, report].slice(-300) };
           await storage.set(KEY, done);
           state = done;
+          spyResult = report;
           const text = report.outcome === "success" ? `${report.label}: ${report.value}` : "Špionáž neuspela";
-          status(`${text} · straty ${report.losses} sond. Údaj platí v čase útoku.`);
+          status(`${text} · straty ${report.losses} sond.${report.outcome === "success" ? " Údaj platí v čase útoku." : ""}`);
           log(`Vojnový prieskum ${request.target}/${request.planet}: ${text}; straty ${report.losses} sond.`);
         });
       } catch (error) {
@@ -564,7 +628,7 @@
     })();
     return { load, send, initialized, draftReady, flush: () => snapshotWrites, get isWorking() { return busy; } };
   }
-  const api = { KEY, SNAPSHOT_KEY, ATTACK_DRAFT_KEY, FIELDS, readState, readSnapshot, applyAttackDraft, spyForm, readResult, readRecent, readSpyReports, readUnits, mergeReports, mount };
+  const api = { KEY, SNAPSHOT_KEY, ATTACK_DRAFT_KEY, FIELDS, readState, readSnapshot, applyAttackDraft, spyForm, readResult, readRecent, readSpyReports, readUnits, mergeReports, knownPlanetTypes, mount };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.SGOWarIntel = api;
 })(globalThis);

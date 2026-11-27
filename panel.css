@@ -155,6 +155,8 @@
 #sgo-addon .sgo-intel-status.sgo-error { color: #ffb1a3; }
 #sgo-addon .sgo-war-intel button.sgo-intel-send { width: 100%; margin-top: 8px; padding: 10px; background: #65dec3; color: #102a29; border-color: #65dec3; }
 #sgo-addon .sgo-war-intel button.sgo-intel-send:hover:not(:disabled) { background: #8aeed8; }
+#sgo-addon .sgo-intel-result { margin-top: 10px; padding: 12px 13px; border: 1px solid #68cda7; border-left-width: 4px; border-radius: 9px; background: #173c36; color: #c1ffdf; font-size: 13px; font-weight: 700; line-height: 1.5; overflow-wrap: anywhere; }
+#sgo-addon .sgo-intel-result[data-outcome=failure] { border-color: #ff8478; background: #49232c; color: #ffe0db; }
 #sgo-addon .sgo-war-intel .sgo-war-card p { overflow-wrap: anywhere; }
 #sgo-addon .sgo-intel-finding, #sgo-addon .sgo-intel-report { display: grid; gap: 3px; margin-top: 7px; padding: 9px 10px; border: 1px solid #334b60; border-radius: 8px; background: #0e1d2c; font-size: 11px; overflow-wrap: anywhere; }
 #sgo-addon .sgo-intel-finding strong { color: #a4ead8; }
@@ -171,6 +173,17 @@
 #sgo-addon #sgo-intel-planet-attack { padding: 2px 0 10px; }
 #sgo-addon #sgo-intel-prepare-planet { width: 100%; margin-top: 9px; color: #ffe3b4; border-color: #b68b53; background: #4a3524; }
 #sgo-addon #sgo-intel-prepare-planet:hover:not(:disabled) { background: #65492e; }
+#sgo-addon .sgo-war-card-types { border-color: #735f84; box-shadow: inset 3px 0 #c6a5e8, 0 4px 12px #0002; }
+#sgo-addon #sgo-intel-types { max-height: 340px; overflow-y: auto; scrollbar-width: thin; }
+#sgo-addon .sgo-intel-type-row { display: flex; align-items: center; gap: 10px; margin-top: 7px; padding: 8px; border: 1px solid #344d61; border-radius: 9px; background: #0e1d2c; }
+#sgo-addon .sgo-intel-type-image { width: 40px; height: 40px; flex: 0 0 40px; background: url("https://stargame-online.cz/img/_new_sprite/planety_spr.png") no-repeat; background-size: 40px 1600px; }
+#sgo-addon .sgo-intel-type-placeholder { display: grid; place-items: center; width: 40px; height: 40px; flex: 0 0 40px; border: 1px dashed #476277; border-radius: 50%; color: #86a1b3; }
+#sgo-addon .sgo-intel-type-details { display: grid; flex: 1; min-width: 0; gap: 1px; overflow-wrap: anywhere; font-size: 11px; }
+#sgo-addon .sgo-intel-type-details strong { color: #f0f7ff; }
+#sgo-addon .sgo-intel-type-details span { color: #a4ead8; }
+#sgo-addon .sgo-intel-type-details small, #sgo-addon .sgo-intel-type-unavailable { color: var(--sgo-muted); font-size: 10px; }
+#sgo-addon .sgo-intel-type-unavailable { max-width: 76px; text-align: right; }
+#sgo-addon .sgo-intel-type-row button { padding: 6px 8px; }
 #sgo-addon #sgo-intel-units p:not(.sgo-note) { margin-top: 7px; padding: 8px 10px; border-radius: 8px; background: #0e1d2c; color: #c8d8e9; }
 #sgo-addon .sgo-intel-finding span, #sgo-addon .sgo-intel-report small { color: var(--sgo-muted); font-size: 10px; }
 #sgo-addon #sgo-intel-reports { max-height: 32dvh; overflow: auto; scrollbar-width: thin; }

@@ -96,6 +96,8 @@ pozadovanu informaciu; tlacidlo **Odoslat spionaz** ihned odosle jeden utok
 s poctom sond podla tabulky (napr. 900 na SDI, 1000 na BS, 1400 na
 univerzaly). Uspech nie je zaruceny a sondy mozu padnut. Cooldown ani limit
 addon neobchadza a neuspesny utok automaticky neopakuje.
+Vysledok odoslanej spionaze sa zvyrazni priamo pod tlacidlom: uspech zelenou,
+neuspech cervenou, spolu so stratami sond.
 
 Zistenia z vlastnych spionazi na aktualnej stranke Rozviedky a z novych utokov
 cez addon sa ukladaju lokalne spolu s hracom, planetou a casom. Stare hodnoty
@@ -110,6 +112,12 @@ hraca aj po navigacii. Kym typ alebo obrazok nie je znamy, karta to oznaci.
 Starsie zistenia bez obrazka ho mozu
 doplnit pri nacitani hraca, ak je povodny report este na aktualnej stranke
 Rozviedky. Bez dostupneho obrazka zostava zobrazeny iba text.
+Karta **Zistene typy planet** zobrazuje pre vybraneho hraca posledne ulozene
+vlastne zistenie kazdej planety s casom a dostupnym obrazkom. Vybrat mozno
+planetu z aktualne nacitaneho zoznamu; ostatne zostavaju oznacene ako historicke.
+Pri nacitani hraca sa importuju overene vlastne uspesne spionaze z aktualnej
+stranky Rozviedky, nie automaticky vsetky starsie stranky ani utoky spoluhracov.
+Viditelnost a format reportov spoluhracov neboli overene.
 Prehlad ukazuje aj aktualne vlastne jednotky a posledne reporty s vybranym
 hracom v oboch smeroch (len aktualna stranka Rozviedky). Nedava vypocet
 zaruceneho uspechu: presny vzorec a bonusy supera nie su potvrdene.
