@@ -15,6 +15,8 @@
   const BET_KEY = "sgo-casino-bet";
   const NN_WATCH_KEY = "sgo-nn-watch";
   const NN_HISTORY_KEY = "sgo-nn-history";
+  const NN_MINUTES_START = 40;
+  const NN_MINUTES_END = 60;
   const targets = { vala: "Vala Mal Doran", odyssean: "Odyssean" };
   function readRanking(doc) {
     const table = doc.querySelector("table.serazeniHracuAll");
@@ -170,8 +172,8 @@
     const latest = history.entries.filter(entry => !entry.falseAlarm && entry.at <= now)
       .sort((a, b) => b.at - a.at)[0];
     if (!latest && !history.window) return null;
-    const start = history.window ? history.window.start : latest.at + history.min * 60000;
-    const end = history.window ? history.window.end : latest.at + history.max * 60000;
+    const start = history.window ? history.window.start : latest.at + NN_MINUTES_START * 60000;
+    const end = history.window ? history.window.end : latest.at + NN_MINUTES_END * 60000;
     const format = time => new Intl.DateTimeFormat("sv-SE", {
       timeZone: "Europe/Prague", hour: "2-digit", minute: "2-digit", hourCycle: "h23"
     }).format(new Date(time));
@@ -190,11 +192,10 @@
       label, start, end, latest, manualWindow: Boolean(history.window) };
   }
   function readNNHistory(value) {
-    if (value == null) return { min: 40, max: 60, entries: [] };
-    if (!Number.isInteger(value.min) || !Number.isInteger(value.max) || value.min < 0 ||
-        value.max < value.min || value.max > 1440 || !Array.isArray(value.entries) ||
+    if (value == null) return { entries: [] };
+    if (!Array.isArray(value.entries) ||
         value.entries.some(entry => !entry || typeof entry.id !== "string" || !entry.id ||
-          !Number.isFinite(entry.at) || !Number.isFinite(new Date(entry.at + value.max * 60000).getTime()) ||
+          !Number.isFinite(entry.at) || !Number.isFinite(new Date(entry.at + NN_MINUTES_END * 60000).getTime()) ||
           !["watch", "manual"].includes(entry.source) || typeof entry.falseAlarm !== "boolean") ||
         new Set(value.entries.map(entry => entry.id)).size !== value.entries.length ||
         (value.source != null && !["auto", "mail", "local"].includes(value.source)) ||
@@ -298,6 +299,7 @@
             <h4>Prehľad odhadov</h4>
             <p id="sgo-nn-mail"></p>
             <p id="sgo-nn-local"></p>
+            <p class="sgo-nn-help">Ďalšie okno je 40–60 minút po platnom NN; čas zistenia môže byť nepresný.</p>
             <label class="sgo-nn-source">Na hlavnom riadku zobraziť
               <select id="sgo-nn-source">
                 <option value="auto">Automaticky: vlastné, inak pošta</option>
@@ -305,15 +307,6 @@
                 <option value="mail">Hlásenie z pošty</option>
               </select>
             </label>
-          </section>
-          <section class="sgo-nn-card" aria-label="Interval odhadu">
-            <h4>Interval odhadu</h4>
-            <p class="sgo-nn-help">Čas po poslednom platnom NN. Odhad nie je potvrdenie dostupnosti.</p>
-            <div class="sgo-nn-fields">
-              <label>Od (min)<input id="sgo-nn-min" type="number" min="0" max="1440" step="1"></label>
-              <label>Do (min)<input id="sgo-nn-max" type="number" min="0" max="1440" step="1"></label>
-            </div>
-            <div class="sgo-nn-buttons"><button type="button" id="sgo-nn-save-interval">Uložiť interval</button></div>
           </section>
           <section class="sgo-nn-card" aria-label="Vlastné okno">
             <h4>Vlastné okno</h4>
@@ -361,7 +354,7 @@
     let state = {};
     let history = [];
     let config = {};
-    let nnHistory = { min: 40, max: 60, entries: [] };
+    let nnHistory = { entries: [] };
     let nnSaving = false;
     let restored = false;
     let nnTimer = null;
@@ -479,8 +472,6 @@
         history = L.merge(await storage.get("sgo-lottery-history") || []);
         config = await storage.get("sgo-gist-config") || {};
         nnHistory = readNNHistory(await storage.get(NN_HISTORY_KEY));
-        $("#sgo-nn-min").value = String(nnHistory.min);
-        $("#sgo-nn-max").value = String(nnHistory.max);
         $("#sgo-nn-source").value = nnHistory.source || "auto";
         $("#sgo-nn-window-start").value = nnHistory.window ? localInputTime(nnHistory.window.start) : "";
         $("#sgo-nn-window-end").value = nnHistory.window ? localInputTime(nnHistory.window.end) : "";
@@ -528,19 +519,6 @@
         log(`NN: ${error.message}`, "error");
       }
     }
-    $("#sgo-nn-save-interval").addEventListener("click", async () => {
-      try {
-        await ready;
-        if (!restored) throw new Error("Evidenciu NN sa nepodarilo načítať.");
-        const min = C.integer($("#sgo-nn-min").value);
-        const max = C.integer($("#sgo-nn-max").value);
-        if (min === null || max === null || min < 0 || max < min || max > 1440) throw new Error("Zadaj interval od 0 do 1440 minút; začiatok nesmie byť po konci.");
-        await saveNNHistory({ ...nnHistory, min, max }, "Interval odhadu NN uložený.");
-      } catch (error) {
-        $("#sgo-guardian-status").textContent = `NN: ${error.message}`;
-        log(`NN: ${error.message}`, "error");
-      }
-    });
     $("#sgo-nn-source").addEventListener("change", async () => {
       try {
         await ready;

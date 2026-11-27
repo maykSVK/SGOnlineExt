@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         StarGame pomocnik
 // @namespace    https://github.com/maykSVK/SGOnlineExt
-// @version      0.6.8
+// @version      0.6.9
 // @description  StarGame helper for army, planet readiness and other game features.
 // @homepageURL  https://github.com/maykSVK/SGOnlineExt
 // @match        https://stargame-online.cz/www/game.php*

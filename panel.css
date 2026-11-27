@@ -339,7 +339,7 @@
 #sgo-addon .sgo-nn-add-fields .sgo-nn-day { align-self: center; }
 #sgo-addon .sgo-nn-buttons { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
 #sgo-addon .sgo-nn-settings button { padding: 6px 9px; font-size: 11px; }
-#sgo-addon :is(#sgo-nn-save-interval, #sgo-nn-save-window, #sgo-nn-add) { border-color: #65dec355; color: #a4ead8; }
+#sgo-addon :is(#sgo-nn-save-window, #sgo-nn-add) { border-color: #65dec355; color: #a4ead8; }
 #sgo-addon .sgo-nn-entry { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 7px; padding: 8px; border: 1px solid #334b60; border-radius: 7px; background: #142638; }
 #sgo-addon .sgo-nn-entry strong { flex-basis: 100%; color: #e6edf7; }
 #sgo-addon #sgo-guardian-feature .sgo-nn-entry input { flex: 1 1 105px; width: auto; }

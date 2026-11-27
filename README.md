@@ -82,9 +82,9 @@ planety alebo typu sa overovanie zacina znova. Ani tri kontroly nezarucuju,
 ze nejde o falosnu ponuku. Po potvrdeni ulozi cas prveho zachytenia a vykresli
 mimo panela cervene upozornenie **MAME NN!**, ktore zmizne kliknutim kamkolvek.
 V **Evidencii NN** su oddelene karty pre porovnanie posty a vlastneho odhadu,
-interval, vlastne okno, rucny zaznam a historiu. Lokalny odhad dalsieho okna
-vychadza z posledneho platneho vlastneho zaznamu. Predvoleny interval 40–60 minut
-je odhad, da sa upravit a prepocita vsetky vlastne zaznamy. Cas NN mozno zadat
+vlastne okno, rucny zaznam a historiu. Dalsie okno sa pocita pevne 40–60 minut
+od posledneho platneho vlastneho zaznamu; cas zistenia moze byt nepresny.
+Starsie nastavene intervaly sa ignoruju. Cas NN mozno zadat
 rucne alebo upravit, zaznam oznacit za falosny, obnovit alebo vymazat; falosne
 zaznamy sa do odhadu nezapocitavaju. Vlastne ocakavane okno mozno nastavit aj
 priamo; ma prednost pred vypoctom zo zaznamov az do jeho rucneho zrusenia,

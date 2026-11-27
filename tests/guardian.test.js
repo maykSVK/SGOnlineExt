@@ -74,7 +74,7 @@ test("NN market reads actual table with planet types and ignores non-NN offers",
   assert.throws(() => G.readMarketOffers({ querySelector: () => null }), /Nenašiel/);
   assert.deepEqual(G.readMarketOffers({ querySelector: s => s === ".contentStranky" ? { textContent: "Bohužel v obchodě nikdo nenabízí planety ke koupi." } : null }), []);
 });
-test("local NN estimate uses last valid event and configurable elapsed minutes across midnight", () => {
+test("local NN estimate uses fixed 40–60 minute interval and last valid event across midnight", () => {
   const at = Date.parse("2026-11-03T22:45:00Z");
   const history = { min: 40, max: 60, entries: [
     { id: "1", at, source: "manual", falseAlarm: false },
@@ -88,13 +88,17 @@ test("local NN estimate uses last valid event and configurable elapsed minutes a
   assert.equal(G.localNNState(history, at + 40 * 60000).text, "Okno 00:25–00:45");
   const acrossMidnight = { ...history, window: { start: at, end: at + 30 * 60000 } };
   assert.equal(G.localNNState(acrossMidnight, at).text, "Okno 23:45–00:15 (+1 deň)");
-  assert.equal(G.localNNState({ ...history, min: 10, max: 20 }, at + 15 * 60000).status, "action");
+  const legacy = { ...history, min: 10, max: 20 };
+  assert.equal(G.localNNState(legacy, at + 15 * 60000).status, "ok");
+  assert.equal(G.localNNState(G.readNNHistory(legacy), at + 40 * 60000).status, "action");
+  assert.equal(G.localNNState({ entries: [history.entries[0]] }, at + 60 * 60000).status, "action");
+  assert.deepEqual(G.readNNHistory(null), { entries: [] });
   assert.equal(G.localNNState({ ...history, entries: [history.entries[1]] }, at + 15 * 60000), null);
   const override = { ...history, window: { start: at + 10 * 60000, end: at + 20 * 60000 } };
   assert.equal(G.localNNState(override, at + 15 * 60000).status, "action");
   assert.equal(G.localNNState(override, at + 15 * 60000).manualWindow, true);
   assert.equal(G.localNNState({ ...override, entries: [] }, at + 15 * 60000).status, "action");
-  assert.throws(() => G.readNNHistory({ min: 60, max: 40, entries: [] }), /poškodená/);
+  assert.throws(() => G.readNNHistory({ entries: null }), /poškodená/);
   assert.throws(() => G.readNNHistory({ ...history, window: { start: at + 1, end: at } }), /poškodená/);
 });
 
@@ -444,7 +448,8 @@ test("NN watch ignores initial and fake offers, confirms after 3 consecutive ref
   const store = {
     "sgo-guardian": { nn: { status: "unknown", text: "NN", date: pragueDay, start: "00:00", end: "23:59", time: Date.now() } },
     "sgo-lottery-history": [],
-    "sgo-gist-config": {}
+    "sgo-gist-config": {},
+    "sgo-nn-history": { min: 15, max: 30, entries: [] }
   };
 
   const delays = [];
@@ -519,15 +524,10 @@ test("NN watch ignores initial and fake offers, confirms after 3 consecutive ref
   assert.equal(G.localNNState(store["sgo-nn-history"]), null);
   await container.querySelector("#sgo-nn-history").children[0].children[3].listeners.click();
   assert.equal(store["sgo-nn-history"].entries[0].falseAlarm, false);
-  container.querySelector("#sgo-nn-min").value = "15";
-  container.querySelector("#sgo-nn-max").value = "30";
-  await container.querySelector("#sgo-nn-save-interval").listeners.click();
-  assert.equal(store["sgo-nn-history"].min, 15);
-  assert.equal(store["sgo-nn-history"].max, 30);
-  container.querySelector("#sgo-nn-min").value = "31";
-  await container.querySelector("#sgo-nn-save-interval").listeners.click();
-  assert.equal(store["sgo-nn-history"].min, 15, "Invalid interval does not change saved history");
-  assert.match(container.querySelector("#sgo-guardian-status").textContent, /interval/i);
+  const detected = store["sgo-nn-history"].entries[0].at;
+  assert.equal(G.localNNState(store["sgo-nn-history"], detected + 15 * 60000).status, "ok", "Old interval is ignored");
+  assert.equal(G.localNNState(store["sgo-nn-history"], detected + 40 * 60000).status, "action");
+  assert.doesNotMatch(container.innerHTML, /sgo-nn-(min|max|save-interval)/);
   const past = new Date(Date.now() - 3 * 3600000);
   const localPast = new Date(past.getTime() - past.getTimezoneOffset() * 60000).toISOString().slice(11, 16);
   container.querySelector("#sgo-nn-time").value = localPast;
@@ -588,7 +588,6 @@ test("NN watch ignores initial and fake offers, confirms after 3 consecutive ref
   });
   await new Promise(r => setTimeout(r, 0));
   assert.equal(secondContainer.querySelector("#sgo-nn-source").value, "local");
-  assert.equal(secondContainer.querySelector("#sgo-nn-min").value, "15");
   assert.equal(secondContainer.querySelector("#sgo-nn-history").children.length, 1, "History survives a new mount");
   await secondContainer.querySelector("#sgo-nn-start").listeners.click();
   offers.push({ planet: "NEXT-4444-44", type: "Asteroid" });
