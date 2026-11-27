@@ -101,6 +101,13 @@ Zistenia z vlastnych spionazi na aktualnej stranke Rozviedky a z novych utokov
 cez addon sa ukladaju lokalne spolu s hracom, planetou a casom. Stare hodnoty
 mozu byt neaktualne; neznama hodnota nie je nula. Pri neistom vysledku sa
 dalsie odoslanie zablokuje az do rucnej kontroly Rozviedky a potvrdenia.
+Ak bol vysledok uspesny, po kontrole nacitaj hraca znova: doplnok vie importovat
+zistenie z aktualnej stranky Rozviedky bez opakovania utoku. Nasledne potvrdenim
+**Skontroloval som vysledok** uvolnis blokovany dennik.
+Pri zisteni typu planety sa z herneho reportu uklada aj obrazok typu, ak je
+dostupny; zobrazuje sa aj po navigacii. Starsie zistenia bez obrazka ho mozu
+doplnit pri nacitani hraca, ak je povodny report este na aktualnej stranke
+Rozviedky. Bez dostupneho obrazka zostava zobrazeny iba text.
 Prehlad ukazuje aj aktualne vlastne jednotky a posledne reporty s vybranym
 hracom v oboch smeroch (len aktualna stranka Rozviedky). Nedava vypocet
 zaruceneho uspechu: presny vzorec a bonusy supera nie su potvrdene.

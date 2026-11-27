@@ -158,6 +158,9 @@
 #sgo-addon .sgo-war-intel .sgo-war-card p { overflow-wrap: anywhere; }
 #sgo-addon .sgo-intel-finding, #sgo-addon .sgo-intel-report { display: grid; gap: 3px; margin-top: 7px; padding: 9px 10px; border: 1px solid #334b60; border-radius: 8px; background: #0e1d2c; font-size: 11px; overflow-wrap: anywhere; }
 #sgo-addon .sgo-intel-finding strong { color: #a4ead8; }
+#sgo-addon .sgo-intel-finding-content { display: grid; gap: 3px; min-width: 0; align-content: center; }
+#sgo-addon .sgo-intel-finding-planet { grid-template-columns: 80px minmax(0, 1fr); align-items: center; gap: 12px; }
+#sgo-addon .sgo-intel-planet-image { display: block; width: 80px; height: 80px; flex: none; background: url("https://stargame-online.cz/img/_new_sprite/planety_spr.png") no-repeat; background-size: 80px 3200px; }
 #sgo-addon #sgo-intel-units p:not(.sgo-note) { margin-top: 7px; padding: 8px 10px; border-radius: 8px; background: #0e1d2c; color: #c8d8e9; }
 #sgo-addon .sgo-intel-finding span, #sgo-addon .sgo-intel-report small { color: var(--sgo-muted); font-size: 10px; }
 #sgo-addon #sgo-intel-reports { max-height: 32dvh; overflow: auto; scrollbar-width: thin; }

@@ -13,6 +13,15 @@
   ];
   const clean = value => String(value || "").replace(/\s+/g, " ").trim();
   const fieldFor = id => FIELDS.find(field => field[0] === id);
+  const validPlanetSprite = value => Number.isInteger(value) && value >= 1 && value <= 40;
+
+  function planetSprite(image) {
+    const matches = String(image?.getAttribute("class") || "").split(/\s+/)
+      .map(name => /^pln-80-(\d+)$/.exec(name)).filter(Boolean);
+    if (matches.length !== 1) return null;
+    const sprite = Number(matches[0][1]);
+    return validPlanetSprite(sprite) ? sprite : null;
+  }
 
   function readState(value) {
     if (value == null) return { pending: null, reports: [] };
@@ -21,7 +30,8 @@
         fieldFor(value.pending.field) && Number.isFinite(value.pending.time))) ||
       !value.reports.every(r => r && ["owner", "target", "planet", "field", "outcome", "label", "value"].every(k => typeof r[k] === "string") &&
         r.owner && r.target && r.planet && fieldFor(r.field) && ["success", "failure"].includes(r.outcome) &&
-        Number.isFinite(r.time) && Number.isSafeInteger(r.losses) && r.losses >= 0)) {
+        Number.isFinite(r.time) && Number.isSafeInteger(r.losses) && r.losses >= 0 &&
+        (r.planetSprite === undefined || (r.field === "type" && r.outcome === "success" && validPlanetSprite(r.planetSprite))))) {
       throw new Error("Uložené údaje prieskumu sú neplatné; odoslanie nie je bezpečné.");
     }
 
@@ -90,9 +100,13 @@
     const success = outcome.startsWith("vitezstvi");
     const row = doc.querySelector("#obranj tr");
     const label = clean(row?.querySelector("strong")?.textContent);
-    const value = clean(row?.querySelector(".w")?.textContent);
+    const green = row ? [...row.querySelectorAll(".g")] : [];
+    const value = clean(row?.querySelector(".w")?.textContent ||
+      (green.length === 2 && C.normalize(clean(green[0].textContent)) === "zjisteno" ? green[1].textContent : ""));
     if (success && (!label || !value || value === "???")) throw new Error("Hra nepotvrdila zistenú hodnotu.");
-    return { ...request, outcome: success ? "success" : "failure", label: success ? label : "", value: success ? value : "", losses };
+    const sprite = success && request.field === "type" ? planetSprite(row?.querySelector("img")) : null;
+    return { ...request, outcome: success ? "success" : "failure", label: success ? label : "", value: success ? value : "", losses,
+      ...(sprite === null ? {} : { planetSprite: sprite }) };
   }
 
   function readRecent(doc, target) {
@@ -132,9 +146,28 @@
       const value = clean(after[1]?.textContent);
       if (!field || losses === null || losses > count || !label || !value || value === "???") continue;
       const time = W.gameTimestamp(Number(date[7]), Number(date[6]), Number(date[5]), Number(date[2]), Number(date[3]), Number(date[4]));
-      reports.push({ owner, target, planet, field: field[0], time, outcome: "success", label, value, losses, reportId: date[1] });
+      const sprite = field[0] === "type" ? planetSprite(rows[0].querySelectorAll("td")[2]?.querySelector("img")) : null;
+      reports.push({ owner, target, planet, field: field[0], time, outcome: "success", label, value, losses, reportId: date[1],
+        ...(sprite === null ? {} : { planetSprite: sprite }) });
     }
     return reports;
+  }
+
+  function mergeReports(saved, imported) {
+    const reports = saved.map(report => ({ ...report }));
+    let changed = false;
+    for (const item of imported) {
+      const existing = reports.find(report => report.reportId === item.reportId ||
+        (report.owner === item.owner && report.target === item.target && report.planet === item.planet &&
+          report.field === item.field && report.value === item.value && Math.abs(report.time - item.time) < 60000));
+      if (!existing) { reports.push(item); changed = true; }
+      else if (item.planetSprite !== undefined && existing.planetSprite === undefined &&
+        existing.owner === item.owner && existing.target === item.target && existing.planet === item.planet &&
+        existing.field === item.field && existing.value === item.value && existing.outcome === "success") {
+        existing.planetSprite = item.planetSprite; changed = true;
+      }
+    }
+    return { reports: reports.sort((a, b) => a.time - b.time).slice(-300), changed };
   }
 
   function readUnits(doc) {
@@ -238,9 +271,18 @@
       }
       for (const report of latest.values()) {
         const line = container.ownerDocument.createElement("div"); line.className = "sgo-intel-finding";
+        if (validPlanetSprite(report.planetSprite)) {
+          line.className += " sgo-intel-finding-planet";
+          const image = container.ownerDocument.createElement("span");
+          image.className = "sgo-intel-planet-image";
+          image.style.backgroundPosition = `0 -${(report.planetSprite - 1) * 80}px`;
+          image.setAttribute("role", "img"); image.setAttribute("aria-label", `Typ planéty: ${report.value}`);
+          line.append(image);
+        }
+        const content = container.ownerDocument.createElement("div"); content.className = "sgo-intel-finding-content";
         const title = container.ownerDocument.createElement("strong"); title.textContent = `${fieldFor(report.field)[1]} · ${report.label}: ${report.value}`;
         const date = container.ownerDocument.createElement("span"); date.textContent = new Date(report.time).toLocaleString("sk-SK");
-        line.append(title, date); findings.append(line);
+        content.append(title, date); line.append(content); findings.append(line);
       }
       const unitList = $("#sgo-intel-units"); unitList.replaceChildren();
       for (const text of units) { const item = container.ownerDocument.createElement("p"); item.textContent = text; unitList.append(item); }
@@ -276,13 +318,9 @@
         const imported = readSpyReports(reportDoc, currentOwner, name);
         await W.withRenameLock(async () => {
           saved = readState(await storage.get(KEY));
-          const known = new Set(saved.reports.filter(item => item.reportId).map(item => item.reportId));
-          const additions = imported.filter(item => !known.has(item.reportId) &&
-            !saved.reports.some(existing => existing.owner === item.owner && existing.target === item.target &&
-              existing.planet === item.planet && existing.field === item.field && existing.value === item.value &&
-              Math.abs(existing.time - item.time) < 60000));
-          if (additions.length) {
-            saved = { ...saved, reports: [...saved.reports, ...additions].sort((a, b) => a.time - b.time).slice(-300) };
+          const merged = mergeReports(saved.reports, imported);
+          if (merged.changed) {
+            saved = { ...saved, reports: merged.reports };
             await storage.set(KEY, saved);
           }
         });
@@ -431,7 +469,7 @@
     })();
     return { load, send, initialized, flush: () => snapshotWrites, get isWorking() { return busy; } };
   }
-  const api = { KEY, SNAPSHOT_KEY, FIELDS, readState, readSnapshot, spyForm, readResult, readRecent, readSpyReports, readUnits, mount };
+  const api = { KEY, SNAPSHOT_KEY, FIELDS, readState, readSnapshot, spyForm, readResult, readRecent, readSpyReports, readUnits, mergeReports, mount };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.SGOWarIntel = api;
 })(globalThis);

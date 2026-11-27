@@ -21,9 +21,13 @@ function spyDoc({ target = "Jared", count = "24", available = "10 000", action =
     querySelector: selector => selector === "#formular" ? form : selector === "#nepritele" ? { textContent: target } : null
   };
 }
-function resultDoc({ victory = true, planet = "Planet", target = "Jared", sent = 1400, losses = 140, label = "Univerzál", value = "0" } = {}) {
+function resultDoc({ victory = true, planet = "Planet", target = "Jared", sent = 1400, losses = 140, label = "Univerzál", value = "0", green = null, imageClass = "" } = {}) {
   const unit = { textContent: "Sonda", querySelector: s => ({ textContent: s === ".g" ? String(sent) : String(losses) }) };
-  const row = { querySelector: s => ({ textContent: s === "strong" ? label : value }) };
+  const row = {
+    querySelector: s => s === "strong" ? { textContent: label } : s === ".w" && !green ? { textContent: value } :
+      s === "img" && imageClass ? { getAttribute: () => imageClass } : null,
+    querySelectorAll: s => s === ".g" ? (green || []).map(textContent => ({ textContent })) : []
+  };
   const box = { textContent: planet, querySelector: () => ({ textContent: victory ? "Vítězství!" : "Porážka!" }) };
   return { querySelector: selector => ({
     "#datapl h2": { textContent: victory ? "Vítězství!" : "Porážka!" },
@@ -61,6 +65,15 @@ test("spy results distinguish zero from failure and check target, planet and los
   assert.throws(() => I.readResult(resultDoc({ value: "???" }), request), /hodnotu/);
 });
 
+test("successful text findings use the value after the verified green discovery marker", () => {
+  const type = { ...request, field: "type" };
+  const doc = resultDoc({ sent: 500, losses: 150, label: "Typ planety", green: ["Zjištěno", "Vrak lodi"] });
+  assert.deepEqual(I.readResult(doc, type), { ...type, outcome: "success", label: "Typ planety", value: "Vrak lodi", losses: 150 });
+  for (const green of [["Vrak lodi"], ["Iné", "Vrak lodi"], ["Zjištěno", "???"], ["Zjištěno", ""]]) {
+    assert.throws(() => I.readResult(resultDoc({ sent: 500, green }), type), /hodnotu/);
+  }
+});
+
 test("journal rejects malformed and unknown data rather than enabling a retry", () => {
   assert.deepEqual(I.readState(null), { pending: null, reports: [] });
   assert.throws(() => I.readState({ pending: {}, reports: [] }), /neplatné/);
@@ -68,9 +81,11 @@ test("journal rejects malformed and unknown data rather than enabling a retry", 
   assert.throws(() => I.readState({ pending: null, reports: [{ ...request, outcome: "success" }] }), /neplatné/);
 });
 
-function archivedSpy({ owner = "mayk", target = "Jared", sent = 1400, outcome = "Zjistili jsme informace", value = "0" } = {}) {
+function archivedSpy({ owner = "mayk", target = "Jared", sent = 1400, outcome = "Zjistili jsme informace", label = "Univerzál", value = "0", imageClass = "" } = {}) {
   const cells = values => ({ querySelectorAll: () => values.map(textContent => ({ textContent })) });
-  const rows = [cells([]), cells(["Družice", "Univerzál"]), cells([]), cells([String(sent), "Zjištěno"]), cells(["140", value])];
+  const image = { getAttribute: () => imageClass };
+  const first = { querySelectorAll: () => [{}, {}, { querySelector: () => imageClass ? image : null }] };
+  const rows = [first, cells(["Družice", label]), cells([]), cells([String(sent), "Zjištěno"]), cells(["140", value])];
   const link = { getAttribute: name => name === "data-utocnik" ? owner : `?page=vesmir&hledat=${target}` };
   const summary = { textContent: `Špionažní útok ${outcome} na planetě „Planet“` };
   return {
@@ -91,13 +106,46 @@ test("imports only verified outgoing spy findings from the report page", () => {
   assert.equal(reports[0].planet, "Planet");
   assert.equal(reports[0].value, "0");
   assert.equal(reports[0].reportId, "123");
+  const planet = I.readSpyReports({ querySelectorAll: () => [archivedSpy({ sent: 500, label: "Typ planety", value: "Vrak lodi" })] }, "mayk", "Jared");
+  assert.equal(planet[0].field, "type");
+  assert.equal(planet[0].value, "Vrak lodi");
+});
+
+test("planet sprites come only from the verified type result or report", () => {
+  const type = { ...request, field: "type" };
+  const options = { sent: 500, green: ["Zjištěno", "Vrak lodi"], imageClass: "pln pln-80 pln-80-16" };
+  const report = I.readResult(resultDoc(options), type);
+  assert.equal(report.planetSprite, 16);
+  const imported = I.readSpyReports({ querySelectorAll: () => [archivedSpy({
+    sent: 500, label: "Typ planety", value: "Vrak lodi", imageClass: options.imageClass
+  })] }, "mayk", "Jared")[0];
+  assert.equal(imported.planetSprite, 16);
+  for (const imageClass of ["pln-80-0", "pln-80-41", "pln-80-16 pln-80-17", "other"]) {
+    assert.equal(I.readResult(resultDoc({ ...options, imageClass }), type).planetSprite, undefined);
+  }
+  assert.equal(I.readResult(resultDoc({ ...options, victory: false }), type).planetSprite, undefined);
+  assert.equal(I.readResult(resultDoc({ imageClass: options.imageClass }), request).planetSprite, undefined);
+  assert.throws(() => I.readState({ pending: null, reports: [{ ...report, planetSprite: 999 }] }), /neplatné/);
+});
+
+test("a matching archived report enriches an old finding without duplicating it", () => {
+  const old = { ...request, field: "type", outcome: "success", label: "Typ planety", value: "Vrak lodi", losses: 150 };
+  const incoming = { ...old, time: old.time + 1000, reportId: "123", planetSprite: 16 };
+  const merged = I.mergeReports([old], [incoming]);
+  assert.equal(merged.changed, true);
+  assert.equal(merged.reports.length, 1);
+  assert.equal(merged.reports[0].planetSprite, 16);
+  assert.equal(old.planetSprite, undefined);
+  assert.equal(I.mergeReports(merged.reports, [incoming]).changed, false);
+  assert.equal(I.mergeReports([{ ...old, value: "Iný typ", reportId: "123" }], [incoming]).reports[0].planetSprite, undefined);
 });
 
 class Element {
-  constructor(doc) { this.ownerDocument = doc; this.children = []; this.listeners = {}; this.value = ""; this.classList = { toggle() {} }; }
+  constructor(doc) { this.ownerDocument = doc; this.children = []; this.listeners = {}; this.value = ""; this.classList = { toggle() {} }; this.style = {}; this.attributes = {}; }
   append(...children) { this.children.push(...children); if (!this.value && children[0]?.value) this.value = children[0].value; }
   replaceChildren(...children) { this.children = []; this.value = ""; this.append(...children); }
   addEventListener(name, fn) { this.listeners[name] = fn; }
+  setAttribute(name, value) { this.attributes[name] = value; }
 }
 function fixture(t, saved = new Map(), owner = "mayk") {
   const old = globalThis.location;
@@ -127,7 +175,7 @@ function fixture(t, saved = new Map(), owner = "mayk") {
         if (state.failOwner) throw new Error("Offline");
         return { querySelector: () => ({ getAttribute: () => `?page=vesmir&hledat=${state.owner}` }) };
       }
-      if (params.get("akce") === "rozvedka") return { querySelectorAll: () => [] };
+      if (params.get("akce") === "rozvedka") return { querySelectorAll: () => state.archived || [] };
       if (params.get("akce") === "jednotky") return { querySelectorAll: () => [unit] };
       if (state.unavailable) return {
         body: { cloneNode: () => ({ querySelectorAll: () => [], textContent: "" }) },
@@ -137,10 +185,10 @@ function fixture(t, saved = new Map(), owner = "mayk") {
     },
     postDocument: async (url, body) => {
       state.posts++;
-      assert.equal(state.saved.get(I.KEY).pending.field, "uni");
-      assert.equal(body.get("pocet_druzic"), "1400");
+      assert.equal(state.saved.get(I.KEY).pending.field, state.field || "uni");
+      assert.equal(body.get("pocet_druzic"), state.probes || "1400");
       if (state.mode === "lost") throw new Error("Offline");
-      const doc = resultDoc();
+      const doc = resultDoc(state.result);
       doc.URL = "https://game.test/game.php";
       doc.body = { cloneNode: () => ({ querySelectorAll: () => [], textContent: "" }) };
       return doc;
@@ -163,6 +211,45 @@ test("successful spy saves journal and displays a verified zero", async t => {
   assert.equal(state.saved.get(I.KEY).pending, null);
   assert.equal(state.saved.get(I.KEY).reports[0].value, "0");
   assert.match(get("status").textContent, /Univerzál: 0/);
+});
+
+test("a successful planet-type spy saves and displays its text without leaving the journal pending", async t => {
+  const { api, state, get } = fixture(t);
+  await api.initialized;
+  get("target").value = "Jared";
+  await api.load();
+  get("field").value = "type";
+  state.field = "type"; state.probes = "500";
+  state.result = { sent: 500, losses: 150, label: "Typ planety", green: ["Zjištěno", "Vrak lodi"], imageClass: "pln pln-80 pln-80-16" };
+  await api.send();
+  assert.equal(state.posts, 1);
+  assert.equal(state.saved.get(I.KEY).pending, null);
+  assert.equal(state.saved.get(I.KEY).reports[0].value, "Vrak lodi");
+  assert.match(get("status").textContent, /Typ planety: Vrak lodi/);
+  const finding = get("findings").children[0];
+  assert.equal(state.saved.get(I.KEY).reports[0].planetSprite, 16);
+  assert.equal(finding.children[0].style.backgroundPosition, "0 -1200px");
+  assert.equal(finding.children[0].attributes["aria-label"], "Typ planéty: Vrak lodi");
+  assert.match(finding.children[1].children[0].textContent, /Vrak lodi/);
+  const next = fixture(t, state.saved);
+  await next.api.initialized;
+  assert.equal(next.get("findings").children[0].children[0].style.backgroundPosition, "0 -1200px");
+});
+
+test("loading an existing report adds its image to a previously saved finding", async t => {
+  const { api, state, get } = fixture(t);
+  await api.initialized;
+  const archived = archivedSpy({ sent: 500, label: "Typ planety", value: "Vrak lodi", imageClass: "pln pln-80 pln-80-16" });
+  const imported = I.readSpyReports({ querySelectorAll: () => [archived] }, "mayk", "Jared")[0];
+  const { planetSprite, ...old } = imported;
+  state.saved.set(I.KEY, { pending: null, reports: [old] });
+  state.archived = [archived];
+  get("target").value = "Jared";
+  await api.load();
+  assert.equal(state.saved.get(I.KEY).reports.length, 1);
+  assert.equal(state.saved.get(I.KEY).reports[0].planetSprite, 16);
+  assert.equal(get("findings").children[0].children[0].style.backgroundPosition, "0 -1200px");
+  assert.equal(state.posts, 0);
 });
 
 test("lost response persists a pending journal and prevents another POST", async t => {
@@ -229,7 +316,7 @@ test("reopening restores the player, selected options, findings, units and repor
   assert.equal(second.get("planet").value, "Planet");
   assert.equal(second.get("field").value, "uni");
   assert.equal(second.get("attack-type").value, "2");
-  assert.match(second.get("findings").children[0].children[0].textContent, /Univerzál: 0/);
+  assert.match(second.get("findings").children[0].children[0].children[0].textContent, /Univerzál: 0/);
   assert.match(second.get("units").children[0].textContent, /Stíhač/);
   assert.match(second.get("status").textContent, /Uložený prehľad.*neaktuálne/);
   assert.equal(second.state.posts, 0);
