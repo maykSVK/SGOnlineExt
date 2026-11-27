@@ -327,7 +327,7 @@
   function mount(container, { getDocument, postDocument, storage,
     navigate = url => location.assign(url), log = () => {}, canEdit = () => true, revealGame = () => {} }) {
     container.innerHTML = `<section class="sgo-war">
-      <div class="sgo-watch-heading"><strong>Vojna · vlastná pripravenosť</strong><button type="button" id="sgo-war-refresh">Obnoviť</button></div>
+      <div class="sgo-watch-heading"><div><span class="sgo-eyebrow">VOJNOVÝ PREHĽAD</span><strong>Vlastná pripravenosť</strong></div><button type="button" id="sgo-war-refresh">Obnoviť</button></div>
       <p class="sgo-note">Obnovenie je ručné. Obrana a armáda sa predvyplnia; Premenovať ihneď zmení názov v hre.</p>
       <div id="sgo-war-status" class="sgo-war-status" role="status">Zatiaľ neobnovené.</div>
       <section class="sgo-war-card"><strong>Univerzály</strong><div id="sgo-war-army"></div></section>

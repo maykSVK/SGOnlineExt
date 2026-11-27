@@ -104,6 +104,13 @@ dalsie odoslanie zablokuje az do rucnej kontroly Rozviedky a potvrdenia.
 Prehlad ukazuje aj aktualne vlastne jednotky a posledne reporty s vybranym
 hracom v oboch smeroch (len aktualna stranka Rozviedky). Nedava vypocet
 zaruceneho uspechu: presny vzorec a bonusy supera nie su potvrdene.
+Posledny nacitany hrac, zoznam planet, zvolena planeta a typy, jednotky a
+reporty sa ukladaju lokalne a po navigacii obnovia pre ten isty prihlaseny
+ucet. Pri obnove sa ucet overi z herneho Prehladu; ak overenie zlyha,
+je mozne hraca nacitat rucne. Zobrazeny cas upozornuje, ze ide o ulozeny,
+potencialne neaktualny stav. Aktualne udaje nacita tlacidlo **Nacitat**.
+Zistenia ziskane este pred touto zmenou zostavaju v existujucom denniku a
+zobrazia sa po opatovnom nacitani hraca a vybere planety.
 V casti **Priprava utoku** je mozne otvorit nativny formular hry pre zvoleny
 typ utoku a hraca; addon pri tom neutoci ani nepredvyplna jednotky alebo planetu.
 

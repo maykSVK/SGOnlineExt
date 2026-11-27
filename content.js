@@ -672,15 +672,16 @@
   intel = globalThis.SGOWarIntel.mount($("#sgo-war-intel-panel"), {
     getDocument, postDocument: (url, body) => getDocument(url, { method: "POST", body }),
     storage, log, canEdit: () => !run?.active && !busy && !parks?.isWorking && !rename?.isWorking && !war?.isWorking,
-    revealGame, navigate: async url => { await flushWrites(); location.assign(url); }
+    revealGame, navigate: async url => { await intel.flush(); await flushWrites(); location.assign(url); }
   });
-  function showWarTab(selected) {
+  function showWarTab(selected, save = true) {
     for (const name of ["defense", "intel"]) {
       const active = name === selected;
       $(`#sgo-war-tab-${name}`).setAttribute("aria-selected", String(active));
       $(`#sgo-war-tab-${name}`).tabIndex = active ? 0 : -1;
       $(`#sgo-war-${name}-panel`).hidden = !active;
     }
+    if (save) { data.warTab = selected; persist(); }
   }
   for (const name of ["defense", "intel"]) {
     const tab = $(`#sgo-war-tab-${name}`);
@@ -693,6 +694,7 @@
       $(`#sgo-war-tab-${next}`).focus();
     });
   }
+  showWarTab(data.warTab === "intel" ? "intel" : "defense", false);
   $("#sgo-export").addEventListener("click", () => {
     const blob = new Blob([data.logs.map(e => `${new Date(e.time).toISOString()} [${e.level}] ${e.message}`).join("\n")], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);

@@ -137,29 +137,39 @@
 #sgo-addon #sgo-guardian-feature { padding: 0 0 6px; margin-bottom: 8px; border-bottom: 1px solid var(--sgo-line); }
 #sgo-addon .sgo-watch-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; }
 #sgo-addon .sgo-war { padding: 14px 18px 18px; }
-#sgo-addon .sgo-war-tabs { display: flex; gap: 6px; padding: 12px 18px 0; }
-#sgo-addon .sgo-war-tabs button { flex: 1; padding: 7px 8px; font-size: 11px; color: var(--sgo-muted); }
-#sgo-addon .sgo-war-tabs button[aria-selected=true] { color: var(--sgo-accent); border-color: #65dec366; background: #65dec312; }
+#sgo-addon .sgo-war-tabs { display: flex; gap: 6px; margin: 14px 18px 0; padding: 5px; border: 1px solid #2c4056; border-radius: 12px; background: #0c1726; }
+#sgo-addon .sgo-war-tabs button { flex: 1; padding: 9px 8px; font-size: 11px; color: var(--sgo-muted); border-color: transparent; background: transparent; }
+#sgo-addon .sgo-war-tabs button[aria-selected=true] { color: #b0f4e3; border-color: #65dec355; background: #1d3c45; box-shadow: 0 2px 8px #0004; }
 #sgo-addon .sgo-war-intel { padding: 14px 18px 18px; }
 #sgo-addon .sgo-war-intel .sgo-feature-heading .sgo-hint { margin: 6px 0 12px; }
+#sgo-addon .sgo-war .sgo-watch-heading { align-items: center; margin-bottom: 10px; }
+#sgo-addon .sgo-war .sgo-watch-heading strong { display: block; margin-top: 4px; color: #f0f7ff; font-size: 18px; letter-spacing: -.3px; }
+#sgo-addon .sgo-intel-search { padding: 14px; margin: 0 0 12px; border: 1px solid #4a827f; border-radius: 12px; background: linear-gradient(135deg, #193641, #17263a); }
 #sgo-addon .sgo-intel-search label, #sgo-addon .sgo-intel-label { display: block; color: #b6c8df; font-size: 11px; }
+#sgo-addon .sgo-intel-search > label { color: #8ee6d3; font-size: 10px; font-weight: 700; letter-spacing: 1px; }
 #sgo-addon .sgo-intel-search > div { display: flex; gap: 7px; margin-top: 4px; }
 #sgo-addon .sgo-intel-search input { flex: 1; min-width: 0; background: #0e1c2c; }
 #sgo-addon .sgo-intel-search button, #sgo-addon .sgo-war-intel button { font-size: 11px; }
 #sgo-addon .sgo-intel-label { margin-top: 9px; }
-#sgo-addon .sgo-intel-status { margin: 10px 0; color: #b6c8df; font-size: 11px; overflow-wrap: anywhere; }
+#sgo-addon .sgo-intel-status { margin: 10px 0 0; color: #c1d7e4; font-size: 11px; line-height: 1.55; overflow-wrap: anywhere; }
 #sgo-addon .sgo-intel-status.sgo-error { color: #ffb1a3; }
-#sgo-addon .sgo-war-intel button.sgo-intel-send { width: 100%; background: #65dec31a; color: var(--sgo-accent); border-color: #65dec366; }
+#sgo-addon .sgo-war-intel button.sgo-intel-send { width: 100%; margin-top: 8px; padding: 10px; background: #65dec3; color: #102a29; border-color: #65dec3; }
+#sgo-addon .sgo-war-intel button.sgo-intel-send:hover:not(:disabled) { background: #8aeed8; }
 #sgo-addon .sgo-war-intel .sgo-war-card p { overflow-wrap: anywhere; }
-#sgo-addon .sgo-intel-finding, #sgo-addon .sgo-intel-report { display: grid; gap: 3px; padding: 8px 0; border-top: 1px solid var(--sgo-line); font-size: 11px; overflow-wrap: anywhere; }
+#sgo-addon .sgo-intel-finding, #sgo-addon .sgo-intel-report { display: grid; gap: 3px; margin-top: 7px; padding: 9px 10px; border: 1px solid #334b60; border-radius: 8px; background: #0e1d2c; font-size: 11px; overflow-wrap: anywhere; }
+#sgo-addon .sgo-intel-finding strong { color: #a4ead8; }
+#sgo-addon #sgo-intel-units p:not(.sgo-note) { margin-top: 7px; padding: 8px 10px; border-radius: 8px; background: #0e1d2c; color: #c8d8e9; }
 #sgo-addon .sgo-intel-finding span, #sgo-addon .sgo-intel-report small { color: var(--sgo-muted); font-size: 10px; }
 #sgo-addon #sgo-intel-reports { max-height: 32dvh; overflow: auto; scrollbar-width: thin; }
 #sgo-addon #sgo-intel-pending button { margin: 3px 4px 3px 0; }
 #sgo-addon .sgo-war > .sgo-note { margin: 0 0 8px; }
-#sgo-addon .sgo-war-status { margin: 0 0 9px; color: #b6c8df; font-size: 11px; }
+#sgo-addon .sgo-war-status { margin: 0 0 12px; padding: 9px 11px; border-left: 3px solid #65dec3; border-radius: 6px; background: #152b36; color: #b6c8df; font-size: 11px; }
 #sgo-addon .sgo-war-status[data-state=error] { color: #ffa695; }
-#sgo-addon .sgo-war-card { min-width: 0; margin: 0 0 9px; padding: 10px; border: 1px solid var(--sgo-line); border-radius: 9px; background: #152136; }
-#sgo-addon .sgo-war-card > strong { display: block; margin-bottom: 5px; font-size: 12px; }
+#sgo-addon .sgo-war-card { min-width: 0; margin: 0 0 12px; padding: 14px; border: 1px solid #34475f; border-radius: 12px; background: linear-gradient(145deg, #1b2c42, #142236); box-shadow: 0 4px 12px #0002; }
+#sgo-addon .sgo-war-card > strong { display: block; margin-bottom: 9px; padding-bottom: 9px; border-bottom: 1px solid #3b5064; color: #f0f7ff; font-size: 13px; letter-spacing: .1px; }
+#sgo-addon .sgo-war-card-mission { border-color: #4a827f; box-shadow: inset 3px 0 #65dec3, 0 4px 12px #0002; }
+#sgo-addon .sgo-war-card-findings { border-color: #44677c; box-shadow: inset 3px 0 #74b8de, 0 4px 12px #0002; }
+#sgo-addon .sgo-war-card-attack { border-color: #79644b; box-shadow: inset 3px 0 #eac57c, 0 4px 12px #0002; }
 #sgo-addon .sgo-war-card p { margin: 4px 0; font-size: 11px; }
 #sgo-addon .sgo-war-defense-settings { display: flex; flex-wrap: wrap; align-items: end; gap: 6px; margin: 6px 0; }
 #sgo-addon .sgo-war-defense-settings label { flex: 1; min-width: 70px; }

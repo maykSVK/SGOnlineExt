@@ -3,6 +3,7 @@
   const C = typeof module !== "undefined" && module.exports ? require("./core.js") : root.SGO;
   const W = typeof module !== "undefined" && module.exports ? require("./war.js") : root.SGOWar;
   const KEY = "sgo-war-intelligence";
+  const SNAPSHOT_KEY = "sgo-war-intelligence-snapshot";
   const FIELDS = [
     ["people", "Ľudia", 100], ["cities", "Mestá", 300], ["type", "Typ planéty", 500],
     ["barracks", "Kasárne", 600], ["factories", "Výrobne", 700], ["labs", "Laboratóriá", 800],
@@ -23,7 +24,24 @@
         Number.isFinite(r.time) && Number.isSafeInteger(r.losses) && r.losses >= 0)) {
       throw new Error("Uložené údaje prieskumu sú neplatné; odoslanie nie je bezpečné.");
     }
+
     return { pending: value.pending && { ...value.pending }, reports: value.reports.map(r => ({ ...r })) };
+  }
+
+  function readSnapshot(value) {
+    if (value == null) return null;
+    if (!value || !["owner", "target", "planet", "field", "attackType"].every(key => typeof value[key] === "string") ||
+      !value.owner || !value.target || !fieldFor(value.field) || !["1", "2", "3", "4", "5", "6", "8"].includes(value.attackType) ||
+      !Number.isFinite(value.time) || !Number.isFinite(value.planetsTime) || !Array.isArray(value.planets) ||
+      !value.planets.every(item => item && typeof item.value === "string" && typeof item.label === "string") ||
+      (value.planet && !value.planets.some(item => item.value === value.planet)) ||
+      !Array.isArray(value.units) || !value.units.every(item => typeof item === "string") ||
+      !Array.isArray(value.recent) || !value.recent.every(item => item &&
+        ["meta", "direction", "result"].every(key => typeof item[key] === "string") &&
+        Array.isArray(item.rows) && item.rows.every(row => typeof row === "string"))) {
+      throw new Error("Uložený prehľad hráča je neplatný.");
+    }
+    return value;
   }
 
   function spyForm(doc, url, target, planet, field) {
@@ -142,9 +160,9 @@
     container.innerHTML = `<div class="sgo-war-intel">
       <div class="sgo-feature-heading"><span class="sgo-eyebrow">VOJNOVÝ PREHĽAD</span><h3>Útočný prieskum</h3>
         <p class="sgo-hint">Vyber hráča, planétu a informáciu. Jedno kliknutie odošle jednu špionáž; sondy môžu padnúť.</p></div>
-      <div class="sgo-intel-search"><label for="sgo-intel-target">Hráč</label><div><input id="sgo-intel-target" type="text" placeholder="Presné meno hráča" autocomplete="off"><button type="button" id="sgo-intel-load">Načítať</button></div></div>
-      <p class="sgo-intel-status" id="sgo-intel-status" role="status">Zadaj meno hráča a načítaj jeho planéty.</p>
-      <section class="sgo-war-card"><strong>Špionáž planéty</strong>
+      <div class="sgo-intel-search"><label for="sgo-intel-target">CIEĽ PRIESKUMU</label><div><input id="sgo-intel-target" type="text" placeholder="Presné meno hráča" autocomplete="off"><button type="button" id="sgo-intel-load">Načítať</button></div>
+        <p class="sgo-intel-status" id="sgo-intel-status" role="status">Zadaj meno hráča a načítaj jeho planéty.</p></div>
+      <section class="sgo-war-card sgo-war-card-mission"><strong>Špionáž planéty</strong>
         <label class="sgo-intel-label">Planéta<select id="sgo-intel-planet" aria-label="Planéta"></select></label>
         <label class="sgo-intel-label">Čo zistiť<select id="sgo-intel-field" aria-label="Informácia"></select></label>
         <p class="sgo-note" id="sgo-intel-cost"></p>
@@ -153,9 +171,9 @@
           <button type="button" id="sgo-intel-recon">Otvoriť Rozviedku</button>
           <button type="button" id="sgo-intel-clear">Skontroloval som výsledok</button></div>
       </section>
-      <section class="sgo-war-card"><strong>Zistenia pre planétu</strong><p class="sgo-note">Vlastné špionáže z aktuálnej stránky Rozviedky a odoslania z doplnku. Staré údaje môžu byť neaktuálne; neznáme nie je nula.</p><div id="sgo-intel-findings"></div></section>
+      <section class="sgo-war-card sgo-war-card-findings"><strong>Zistenia pre planétu</strong><p class="sgo-note">Vlastné špionáže z aktuálnej stránky Rozviedky a odoslania z doplnku. Staré údaje môžu byť neaktuálne; neznáme nie je nula.</p><div id="sgo-intel-findings"></div></section>
       <section class="sgo-war-card"><strong>Moje jednotky</strong><p class="sgo-note">Hodnoty zo stránky Jednotky. Nejde o potvrdený výpočet výsledku boja.</p><div id="sgo-intel-units"></div></section>
-      <section class="sgo-war-card"><strong>Príprava útoku</strong><p class="sgo-note">Otvorí herný formulár pre vybraného hráča. Planétu a jednotky skontroluj a útok odošli ručne v hre.</p>
+      <section class="sgo-war-card sgo-war-card-attack"><strong>Príprava útoku</strong><p class="sgo-note">Otvorí herný formulár pre vybraného hráča. Planétu a jednotky skontroluj a útok odošli ručne v hre.</p>
         <label class="sgo-intel-label">Typ útoku<select id="sgo-intel-attack-type" aria-label="Typ útoku">
           <option value="1">Dobývací</option><option value="2">Partizánsky</option><option value="5">Univerzálny</option><option value="4">Orbitálny</option><option value="8">ZHN</option><option value="6">Otrokársky</option><option value="3">Zlodejský</option>
         </select></label><p class="sgo-note">Dostupnosť, limity a možný odpor ukazuje herný formulár.</p>
@@ -169,7 +187,7 @@
     const spyUrl = target => url({ page: "jednotky", utok: "7", cil: target });
     const reconUrl = () => url({ page: "jednotky", akce: "rozvedka" });
     let owner = "", target = "", planets = [], state = { pending: null, reports: [] }, busy = false, ready = false;
-    let recent = [], units = [];
+    let recent = [], units = [], snapshot = null, snapshotWrites = Promise.resolve();
     const select = $("#sgo-intel-field");
     for (const [id, label, count] of FIELDS) {
       const option = container.ownerDocument.createElement("option");
@@ -179,12 +197,28 @@
       $("#sgo-intel-status").textContent = text;
       $("#sgo-intel-status").classList.toggle("sgo-error", error);
     };
+    function populatePlanets(selected) {
+      const planet = $("#sgo-intel-planet"); planet.replaceChildren();
+      for (const item of planets) {
+        const option = container.ownerDocument.createElement("option"); option.value = item.value; option.textContent = item.label; planet.append(option);
+      }
+      if (planets.some(item => item.value === selected)) planet.value = selected;
+    }
+    function saveSelection() {
+      if (!snapshot || !target || snapshot.target !== target || snapshot.owner !== owner) return;
+      snapshot = { ...snapshot, planet: $("#sgo-intel-planet").value, field: select.value, attackType: $("#sgo-intel-attack-type").value };
+      const value = snapshot;
+      snapshotWrites = snapshotWrites.then(() => storage.set(SNAPSHOT_KEY, value)).catch(error => {
+        status(`Výber sa nepodarilo uložiť: ${error.message}`, true);
+        log(`Vojnový prieskum: výber sa nepodarilo uložiť: ${error.message}`, "error");
+      });
+    }
     function render() {
       const info = fieldFor(select.value);
       $("#sgo-intel-cost").textContent = info ? `${info[2]} sond · úspech nie je zaručený; neúspešný pokus môže sondy zničiť.` : "Vyber informáciu.";
       $("#sgo-intel-send").disabled = busy || !ready || !target || !$("#sgo-intel-planet").value || !info || Boolean(state.pending);
-      $("#sgo-intel-load").disabled = busy;
-      $("#sgo-intel-target").disabled = busy;
+      $("#sgo-intel-load").disabled = busy || !ready;
+      $("#sgo-intel-target").disabled = busy || !ready;
       $("#sgo-intel-planet").disabled = busy;
       $("#sgo-intel-field").disabled = busy;
       $("#sgo-intel-open-attack").disabled = busy || !target;
@@ -252,18 +286,24 @@
             await storage.set(KEY, saved);
           }
         });
-        owner = currentOwner; target = name; planets = entry.planets; state = saved;
-        recent = readRecent(reportDoc, target); units = nextUnits;
-        const planet = $("#sgo-intel-planet"); planet.replaceChildren();
-        for (const item of planets) {
-          const option = container.ownerDocument.createElement("option"); option.value = item.value; option.textContent = item.label; planet.append(option);
-        }
+        const previous = snapshot?.owner === currentOwner && snapshot.target === name ? snapshot : null;
+        const nextPlanets = entry.planets.length ? entry.planets : previous?.planets || [];
+        const next = {
+          owner: currentOwner, target: name, planets: nextPlanets,
+          planet: nextPlanets.some(item => item.value === previous?.planet) ? previous.planet : nextPlanets[0]?.value || "",
+          field: select.value, attackType: $("#sgo-intel-attack-type").value,
+          recent: readRecent(reportDoc, name), units: nextUnits, time: Date.now(),
+          planetsTime: entry.planets.length ? Date.now() : previous?.planetsTime || Date.now()
+        };
+        await snapshotWrites;
+        await storage.set(SNAPSHOT_KEY, next);
+        snapshot = next; owner = currentOwner; target = name; planets = next.planets; state = saved;
+        recent = next.recent; units = next.units;
+        populatePlanets(next.planet);
         status(entry.available
           ? `${target} · ${planets.length} planét · sondy ${entry.fields.find(f => f.name === "pocet_druzic").available} · špionáže ${entry.remaining ?? "?"}/${entry.maximum ?? "?"}.`
-          : `Prehľad načítaný, ale špionáž teraz nie je dostupná: ${entry.status.kind === "cooldown" ? entry.status.message : entry.reason.slice(0, 250)}`, !entry.available);
+          : `Prehľad načítaný, ale špionáž teraz nie je dostupná: ${entry.status.kind === "cooldown" ? entry.status.message : entry.reason.slice(0, 250)}${previous && !entry.planets.length ? " Zoznam planét je zo staršieho načítania." : ""}`, !entry.available);
       } catch (error) {
-        target = ""; planets = []; recent = []; units = [];
-        $("#sgo-intel-planet").replaceChildren();
         status(`Načítanie zlyhalo: ${error.message}`, true); log(`Vojnový prieskum: ${error.message}`, "error");
       } finally { busy = false; render(); }
     }
@@ -354,16 +394,44 @@
       }
       render();
     });
-    $("#sgo-intel-field").addEventListener("change", render);
-    $("#sgo-intel-planet").addEventListener("change", render);
+    for (const name of ["field", "planet", "attack-type"]) {
+      $(`#sgo-intel-${name}`).addEventListener("change", () => { saveSelection(); render(); });
+    }
+    render();
     const initialized = (async () => {
-      try { state = readState(await storage.get(KEY)); ready = true; }
+      try {
+        state = readState(await storage.get(KEY));
+        ready = true;
+        try {
+          snapshot = readSnapshot(await storage.get(SNAPSHOT_KEY));
+          if (snapshot) {
+            const currentOwner = W.readOwner(await getDocument(url({ page: "prehled" })));
+            if (currentOwner === snapshot.owner) {
+              owner = snapshot.owner; target = snapshot.target; planets = snapshot.planets;
+              recent = snapshot.recent; units = snapshot.units;
+              $("#sgo-intel-target").value = target;
+              populatePlanets(snapshot.planet);
+              select.value = snapshot.field;
+              $("#sgo-intel-attack-type").value = snapshot.attackType;
+              const planetAge = snapshot.planetsTime < snapshot.time ? ` Zoznam planét je z ${new Date(snapshot.planetsTime).toLocaleString("sk-SK")}.` : "";
+              status(`Uložený prehľad ${target} · načítaný ${new Date(snapshot.time).toLocaleString("sk-SK")}.${planetAge} Údaje môžu byť neaktuálne; pre nový stav klikni Načítať.`);
+            } else {
+              snapshot = null;
+              status("Uložený prehľad patrí inému účtu; načítaj hráča znova.", true);
+            }
+          }
+        } catch (error) {
+          snapshot = null;
+          status(`Uložený prehľad sa nepodarilo obnoviť: ${error.message}. Načítaj hráča znova.`, true);
+          log(`Vojnový prieskum: uložený prehľad sa nepodarilo obnoviť: ${error.message}`, "error");
+        }
+      }
       catch (error) { status(`Načítanie prieskumu zlyhalo: ${error.message}`, true); log(`Vojnový prieskum: ${error.message}`, "error"); }
       render();
     })();
-    return { load, send, initialized, get isWorking() { return busy; } };
+    return { load, send, initialized, flush: () => snapshotWrites, get isWorking() { return busy; } };
   }
-  const api = { KEY, FIELDS, readState, spyForm, readResult, readRecent, readSpyReports, readUnits, mount };
+  const api = { KEY, SNAPSHOT_KEY, FIELDS, readState, readSnapshot, spyForm, readResult, readRecent, readSpyReports, readUnits, mount };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.SGOWarIntel = api;
 })(globalThis);

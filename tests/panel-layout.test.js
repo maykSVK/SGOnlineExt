@@ -83,3 +83,27 @@ test("mobile open, close, Escape and native-form reveal persist across pages", (
   vm.runInContext("revealGame()", next.context);
   assert.equal(mount(next.saved(), true).classes.has("sgo-mobile-open"), false);
 });
+
+test("war tab selection is saved and restored on navigation", () => {
+  const code = source.slice(source.indexOf("  function showWarTab("), source.indexOf('  $("#sgo-export").addEventListener'));
+  const create = data => {
+    const elements = new Map();
+    const $ = key => {
+      if (!elements.has(key)) elements.set(key, {
+        attributes: {}, listeners: {}, setAttribute(name, value) { this.attributes[name] = value; },
+        addEventListener(name, callback) { this.listeners[name] = callback; }, focus() {}
+      });
+      return elements.get(key);
+    };
+    const context = vm.createContext({ data, $, persist() {} });
+    vm.runInContext(code, context);
+    return { data, $ };
+  };
+  const first = create({});
+  assert.equal(first.$("#sgo-war-intel-panel").hidden, true);
+  first.$("#sgo-war-tab-intel").listeners.click();
+  const second = create(structuredClone(first.data));
+  assert.equal(second.$("#sgo-war-intel-panel").hidden, false);
+  assert.equal(second.$("#sgo-war-tab-intel").attributes["aria-selected"], "true");
+  assert.equal(second.$("#sgo-war-defense-panel").hidden, true);
+});
