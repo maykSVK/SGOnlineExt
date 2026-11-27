@@ -56,6 +56,45 @@ test("NN uses newest dated report and does not invent an interval", () => {
   assert.equal(G.readNN("» 3. 11. 2026:\n23:45:00 mayk NN - další 00:25 - 00:45").date, "2026-11-04");
 });
 
+function marketDoc(offers, { hidden = false } = {}) {
+  const rows = offers.map(({ planet, type, nn = true }) => ({
+    cells: [{ textContent: "" }, { textContent: `${planet}${nn ? " (NN)" : ""} (Delta)` }, { textContent: type }]
+  }));
+  const table = { closest: () => hidden ? {} : null, querySelectorAll: () => rows };
+  return { querySelector: selector => selector === "#obchodPlanety" ? table : null };
+}
+test("NN market reads actual table with planet types and ignores non-NN offers", () => {
+  assert.deepEqual(G.readMarketOffers(marketDoc([
+    { planet: "CHKL-8843-28", type: "Asteroid" },
+    { planet: "RVYZ-1365-83", type: "Satelit" },
+    { planet: "AAAA-1234-12", type: "Pustá", nn: false }
+  ])), [{ planet: "CHKL-8843-28", type: "Asteroid" }, { planet: "RVYZ-1365-83", type: "Satelit" }]);
+  assert.throws(() => G.readMarketOffers(marketDoc([], { hidden: true })), /skrytá/);
+  assert.throws(() => G.readMarketOffers(marketDoc([{ planet: "bad", type: "Asteroid" }])), /Nečitateľný/);
+  assert.throws(() => G.readMarketOffers({ querySelector: () => null }), /Nenašiel/);
+  assert.deepEqual(G.readMarketOffers({ querySelector: s => s === ".contentStranky" ? { textContent: "Bohužel v obchodě nikdo nenabízí planety ke koupi." } : null }), []);
+});
+test("local NN estimate uses last valid event and configurable elapsed minutes across midnight", () => {
+  const at = Date.parse("2026-11-03T22:45:00Z");
+  const history = { min: 40, max: 60, entries: [
+    { id: "1", at, source: "manual", falseAlarm: false },
+    { id: "2", at: at + 60000, source: "watch", falseAlarm: true }
+  ] };
+  assert.equal(G.localNNState(history, at + 39 * 60000).status, "ok");
+  assert.equal(G.localNNState(history, at + 40 * 60000).status, "action");
+  assert.equal(G.localNNState(history, at + 61 * 60000).status, "unknown");
+  assert.equal(G.localNNState(history, at + 40 * 60000).latest.id, "1");
+  assert.match(G.localNNState(history, at).text, /4\. 11\./);
+  assert.equal(G.localNNState({ ...history, min: 10, max: 20 }, at + 15 * 60000).status, "action");
+  assert.equal(G.localNNState({ ...history, entries: [history.entries[1]] }, at + 15 * 60000), null);
+  const override = { ...history, window: { start: at + 10 * 60000, end: at + 20 * 60000 } };
+  assert.equal(G.localNNState(override, at + 15 * 60000).status, "action");
+  assert.equal(G.localNNState(override, at + 15 * 60000).manualWindow, true);
+  assert.equal(G.localNNState({ ...override, entries: [] }, at + 15 * 60000).status, "action");
+  assert.throws(() => G.readNNHistory({ min: 60, max: 40, entries: [] }), /poškodená/);
+  assert.throws(() => G.readNNHistory({ ...history, window: { start: at + 1, end: at } }), /poškodená/);
+});
+
 function targetDoc(name, power, attackLinks = []) {
   const row = {
     cells: ["1.", name, "40", "1 798", power, "271 520", "4×", attackLinks.length ? "" : "nelze"].map((textContent, index) => ({
@@ -316,6 +355,7 @@ test("Staviť button appears when casino needs action, navigates to casino and p
   await Promise.resolve();
   await Promise.resolve();
   await Promise.resolve();
+  await Promise.resolve();
   assert.equal(container.querySelector("#sgo-casino-actions").hidden, false, "Staviť actions shown when casino status is action");
   assert.ok(container.querySelector("#sgo-guardian-items").children[1].children.includes(container.querySelector("#sgo-casino-actions")), "casino actions are placed directly inside casino row");
   assert.match(container.querySelector("#sgo-lottery-stats").textContent, /Najčastejšie: 8 \(2×\), 22 \(2×\)/);
@@ -354,8 +394,7 @@ test("NN watch ignores initial and fake offers, confirms after 3 consecutive ref
     if (oldSession === undefined) delete globalThis.sessionStorage; else globalThis.sessionStorage = oldSession;
   });
 
-  let offerIds = ["nab-1"];
-  let offerText = "Bohužel v obchodě nikdo nenabízí planety ke koupi.";
+  let offers = [{ planet: "AAAA-1111-11", type: "Satelit" }];
   const bodyEl = new Element();
   let docClickListener = null;
   globalThis.document = {
@@ -364,13 +403,8 @@ test("NN watch ignores initial and fake offers, confirms after 3 consecutive ref
     getElementById: () => null,
     addEventListener: (name, cb) => { if (name === "click") docClickListener = cb; },
     removeEventListener: (name, cb) => { if (name === "click" && docClickListener === cb) docClickListener = null; },
-    querySelectorAll: selector => {
-      if (selector === '[id^="nab-"]') return offerIds.map(id => ({ id }));
-      return [];
-    },
-    querySelector: selector => selector === ".contentStranky" ? {
-      cloneNode: () => ({ querySelectorAll: () => [], textContent: offerText })
-    } : null
+    querySelectorAll: () => [],
+    querySelector: selector => marketDoc(offers).querySelector(selector)
   };
   globalThis.location = { href: "https://stargame-online.cz/www/game.php?page=obchod&s=3" };
   globalThis.sessionStorage = {
@@ -395,8 +429,12 @@ test("NN watch ignores initial and fake offers, confirms after 3 consecutive ref
 
   const delays = [];
   let navigations = 0;
+  let failNNWrite = false;
   const guardian = G.mount(container, {
-    storage: { get: async key => store[key], set: async (key, val) => { store[key] = val; } },
+    storage: { get: async key => store[key], set: async (key, val) => {
+      if (key === "sgo-nn-history" && failNNWrite) throw new Error("storage offline");
+      store[key] = structuredClone(val);
+    } },
     log() {}, canEdit: () => true, getDocument: async () => ({}),
     delayFn: mode => { delays.push(mode); return 0; },
     navigate: async () => { navigations++; }
@@ -412,31 +450,38 @@ test("NN watch ignores initial and fake offers, confirms after 3 consecutive ref
   assert.equal(container.querySelector("#sgo-nn-actions").hidden, false, "Start/Stop visible even outside NN window or when unknown");
   assert.equal(container.querySelector("#sgo-nn-start").disabled, false, "Start enabled outside NN window");
   await container.querySelector("#sgo-nn-start").listeners.click();
-  assert.deepEqual(JSON.parse(session.get("sgo-nn-watch")).baseline, ["nab-1"]);
+  assert.deepEqual(JSON.parse(session.get("sgo-nn-watch")).baseline, offers);
   assert.equal(delays.at(-1), "human");
   await new Promise(r => setTimeout(r, 10));
   assert.equal(navigations, 1);
 
   // Fake NN appears on 1st refresh, then disappears on 2nd refresh
-  offerIds = ["nab-1", "nab-fake"];
+  offers = [{ planet: "AAAA-1111-11", type: "Satelit" }, { planet: "FAKE-2222-22", type: "Asteroid" }];
   await guardian.resumeNNWatch();
   assert.equal(JSON.parse(session.get("sgo-nn-watch")).confirmations, 1);
   assert.equal(delays.at(-1), "confirm");
   await new Promise(r => setTimeout(r, 10));
 
-  offerIds = ["nab-1"];
+  offers = [{ planet: "AAAA-1111-11", type: "Satelit" }];
   await guardian.resumeNNWatch();
   assert.equal(JSON.parse(session.get("sgo-nn-watch")).confirmations, 0, "Fake offer resets confirmations to 0");
   assert.equal(delays.at(-1), "human");
   await new Promise(r => setTimeout(r, 10));
 
   // Real NN stays across 3 consecutive checks
-  offerIds = ["nab-1", "nab-real"];
+  offers = [{ planet: "AAAA-1111-11", type: "Satelit" }, { planet: "REAL-3333-33", type: "Asteroid" }];
   await guardian.resumeNNWatch();
   assert.equal(JSON.parse(session.get("sgo-nn-watch")).confirmations, 1);
   assert.equal(delays.at(-1), "confirm");
   await new Promise(r => setTimeout(r, 10));
 
+  offers[1].type = "Satelit";
+  await guardian.resumeNNWatch();
+  assert.equal(JSON.parse(session.get("sgo-nn-watch")).confirmations, 1, "Changed type starts confirmation again");
+  offers[1].planet = "DIFF-3333-33";
+  await guardian.resumeNNWatch();
+  assert.equal(JSON.parse(session.get("sgo-nn-watch")).confirmations, 1, "Different planet starts confirmation again");
+  const detectedAt = JSON.parse(session.get("sgo-nn-watch")).detectedAt;
   await guardian.resumeNNWatch();
   assert.equal(JSON.parse(session.get("sgo-nn-watch")).confirmations, 2);
   assert.equal(delays.at(-1), "confirm");
@@ -444,6 +489,59 @@ test("NN watch ignores initial and fake offers, confirms after 3 consecutive ref
 
   await guardian.resumeNNWatch();
   assert.equal(session.has("sgo-nn-watch"), false, "Watch stops after 3rd confirmation");
+  assert.equal(store["sgo-nn-history"].entries.length, 1);
+  assert.equal(store["sgo-nn-history"].entries[0].source, "watch");
+  assert.equal(store["sgo-nn-history"].entries[0].at, detectedAt, "Detection uses the first matching observation");
+  const entry = container.querySelector("#sgo-nn-history").children[0];
+  await entry.children[3].listeners.click();
+  assert.equal(store["sgo-nn-history"].entries[0].falseAlarm, true);
+  assert.equal(G.localNNState(store["sgo-nn-history"]), null);
+  await container.querySelector("#sgo-nn-history").children[0].children[3].listeners.click();
+  assert.equal(store["sgo-nn-history"].entries[0].falseAlarm, false);
+  container.querySelector("#sgo-nn-min").value = "15";
+  container.querySelector("#sgo-nn-max").value = "30";
+  await container.querySelector("#sgo-nn-save-interval").listeners.click();
+  assert.equal(store["sgo-nn-history"].min, 15);
+  assert.equal(store["sgo-nn-history"].max, 30);
+  container.querySelector("#sgo-nn-min").value = "31";
+  await container.querySelector("#sgo-nn-save-interval").listeners.click();
+  assert.equal(store["sgo-nn-history"].min, 15, "Invalid interval does not change saved history");
+  assert.match(container.querySelector("#sgo-guardian-status").textContent, /interval/i);
+  const past = new Date(Date.now() - 3 * 3600000);
+  const localPast = new Date(past.getTime() - past.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  container.querySelector("#sgo-nn-time").value = localPast;
+  failNNWrite = true;
+  await container.querySelector("#sgo-nn-add").listeners.click();
+  assert.equal(store["sgo-nn-history"].entries.length, 1, "Failed write does not create an entry");
+  assert.match(container.querySelector("#sgo-guardian-status").textContent, /storage offline/);
+  failNNWrite = false;
+  await container.querySelector("#sgo-nn-add").listeners.click();
+  assert.equal(store["sgo-nn-history"].entries.length, 2);
+  assert.equal(store["sgo-nn-history"].entries[1].source, "manual");
+  const manual = container.querySelector("#sgo-nn-history").children[1];
+  manual.children[1].value = localPast;
+  await manual.children[2].listeners.click();
+  assert.equal(store["sgo-nn-history"].entries[1].at, new Date(localPast).getTime());
+  await container.querySelector("#sgo-nn-history").children[1].children[4].listeners.click();
+  assert.equal(store["sgo-nn-history"].entries.length, 1);
+  const future = new Date(Date.now() + 3600000);
+  const localFuture = new Date(future.getTime() - future.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  container.querySelector("#sgo-nn-window-start").value = localPast;
+  container.querySelector("#sgo-nn-window-end").value = localFuture;
+  await container.querySelector("#sgo-nn-save-window").listeners.click();
+  assert.equal(store["sgo-nn-history"].window.start, new Date(localPast).getTime());
+  assert.match(container.querySelector("#sgo-nn-local").textContent, /ručne nastavené okno/);
+  await container.querySelector("#sgo-nn-clear-window").listeners.click();
+  assert.equal(store["sgo-nn-history"].window, null);
+  container.querySelector("#sgo-nn-source").value = "mail";
+  await container.querySelector("#sgo-nn-source").listeners.change();
+  assert.equal(store["sgo-nn-history"].source, "mail");
+  assert.match(container.querySelector("#sgo-guardian-items").children[2].children[1].textContent, /^Pošta/);
+  container.querySelector("#sgo-nn-source").value = "local";
+  await container.querySelector("#sgo-nn-source").listeners.change();
+  assert.match(container.querySelector("#sgo-guardian-items").children[2].children[1].textContent, /^Vlastné/);
+  assert.match(container.querySelector("#sgo-nn-mail").textContent, /Pošta:/);
+  assert.match(container.querySelector("#sgo-nn-local").textContent, /Vlastný odhad:/);
   assert.equal(bodyEl.children.length, 1, "Full-screen alert appended to document.body outside #sgo-addon");
   const alertOverlay = bodyEl.children[0];
   assert.equal(alertOverlay.id, "sgo-nn-alert");
@@ -451,4 +549,32 @@ test("NN watch ignores initial and fake offers, confirms after 3 consecutive ref
   assert.ok(docClickListener, "Document click listener registered to dismiss anywhere");
   docClickListener();
   assert.equal(alertOverlay.removed, true, "Clicking anywhere hides the alert");
+
+  const secondElements = new Map();
+  const secondContainer = { querySelector(selector) {
+    if (!secondElements.has(selector)) secondElements.set(selector, new Element());
+    return secondElements.get(selector);
+  } };
+  const second = G.mount(secondContainer, {
+    storage: { get: async key => store[key], set: async (key, val) => {
+      if (key === "sgo-nn-history" && failNNWrite) throw new Error("storage offline");
+      store[key] = structuredClone(val);
+    } },
+    log() {}, canEdit: () => true, getDocument: async () => ({}),
+    delayFn: () => 10000, navigate: async () => {}
+  });
+  await new Promise(r => setTimeout(r, 0));
+  assert.equal(secondContainer.querySelector("#sgo-nn-source").value, "local");
+  assert.equal(secondContainer.querySelector("#sgo-nn-min").value, "15");
+  assert.equal(secondContainer.querySelector("#sgo-nn-history").children.length, 1, "History survives a new mount");
+  await secondContainer.querySelector("#sgo-nn-start").listeners.click();
+  offers.push({ planet: "NEXT-4444-44", type: "Asteroid" });
+  await second.resumeNNWatch();
+  await second.resumeNNWatch();
+  failNNWrite = true;
+  await second.resumeNNWatch();
+  assert.equal(session.has("sgo-nn-watch"), false, "Storage failure stops the watch");
+  assert.equal(store["sgo-nn-history"].entries.length, 1);
+  assert.match(secondContainer.querySelector("#sgo-guardian-status").textContent, /storage offline/);
+  assert.equal(bodyEl.children.length, 1, "Failed persistence does not show a new success alert");
 });

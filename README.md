@@ -76,9 +76,22 @@ hlasenie nie je potvrdenie aktualnej dostupnosti. Priamo vedla riadka NN su dost
 **Sledovať** a **Stop** (sledovanie je mozne spustit kedykolvek, aj mimo okna alebo ked okno nie je zname): po spusteni na stranke
 **Obchod > Planety** (`page=obchod&s=3`) sleduje ponuky s nahodnym ludskym
 oneskorenim (3,5–9,5 s) oproti pociatocnemu stavu. Pri objaveni novych ponuk
-okamzite vykona 3 rychle kontrolne refreshe za sebou na odfiltrovanie
-falosnych (anti-bot) ponuk a az po 3. potvrdeni vykresli mimo panela cez celu
-obrazovku cervene upozornenie **MAME NN!**, ktore zmizne kliknutim kamkolvek.
+overuje rovnaky nazov a typ aspon jednej NN planety v troch po sebe iducich
+nacitaniach skutocnej tabulky obchodu; skryta tabulka sa ignoruje. Pri zmene
+planety alebo typu sa overovanie zacina znova. Ani tri kontroly nezarucuju,
+ze nejde o falosnu ponuku. Po potvrdeni ulozi cas prveho zachytenia a vykresli
+mimo panela cervene upozornenie **MAME NN!**, ktore zmizne kliknutim kamkolvek.
+V **Evidencii NN** vidno samostatne hlasenie z posty a lokalny odhad dalsieho
+okna z posledneho platneho vlastneho zaznamu. Predvoleny interval 40–60 minut
+je odhad, da sa upravit a prepocita vsetky vlastne zaznamy. Cas NN mozno zadat
+rucne alebo upravit, zaznam oznacit za falosny, obnovit alebo vymazat; falosne
+zaznamy sa do odhadu nezapocitavaju. Vlastne ocakavane okno mozno nastavit aj
+priamo; ma prednost pred vypoctom zo zaznamov az do jeho rucneho zrusenia,
+aj ked uz uplynulo. Evidencia sa uklada lokalne, neposiela
+postu a nesynchronizuje sa s inymi zariadeniami. Zadany cas pouziva casove
+pasmo prehliadaca, odhadovane okno cas hry Europe/Prague. Na riadku NN ma
+predvolene vlastny odhad prednost, no zdroj mozno prepnut na postu alebo
+vlastne udaje; postu aj jej povodne okno vidno stale v evidencii.
 Aktualizacia je blokovana pocas utokov.
 Ak uz v Herni nie su k dispozicii ziadne pokusy (stav `Treba vsadit`), priamo vedla riadka Herne sa zobrazi
 tlacidlo **Stavit** a volba **Cisto nahodne**. Kliknutie na

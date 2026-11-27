@@ -317,6 +317,14 @@
 #sgo-addon #sgo-nn-start { padding: 2px 7px; font-size: 11px; border-color: #ff8e8388; color: #ffb1a3; white-space: nowrap; }
 #sgo-addon #sgo-nn-stop { padding: 2px 7px; font-size: 11px; white-space: nowrap; }
 #sgo-addon #sgo-nn-stop:not(:disabled) { border-color: #ff8e8388; color: #ffb1a3; background: #ff9a8918; }
+#sgo-addon .sgo-nn-settings { margin: 8px 0; padding: 8px; border: 1px solid #3b5064; border-radius: 8px; background: #112233; font-size: 11px; }
+#sgo-addon .sgo-nn-settings summary { cursor: pointer; color: #a4ead8; font-weight: 700; }
+#sgo-addon .sgo-nn-interval, #sgo-addon .sgo-nn-manual, #sgo-addon .sgo-nn-entry { display: flex; flex-wrap: wrap; align-items: end; gap: 6px; margin-top: 7px; }
+#sgo-addon .sgo-nn-settings label { display: grid; gap: 3px; }
+#sgo-addon .sgo-nn-interval input { width: 65px; }
+#sgo-addon .sgo-nn-entry { padding: 7px; border: 1px solid #334b60; border-radius: 6px; }
+#sgo-addon .sgo-nn-entry strong { width: 100%; }
+#sgo-addon .sgo-nn-settings button, #sgo-addon .sgo-nn-settings input { font-size: 11px; }
 #sgo-addon .sgo-watch-settings { font-size: 11px; color: var(--sgo-muted); }
 #sgo-addon :is(.sgo-watch-row, .sgo-watch-settings summary):focus-visible { outline: 2px solid var(--sgo-accent); outline-offset: 3px; }
 #sgo-addon #sgo-guardian-status { margin: 3px 0; font-size: 10px; }
